@@ -1,5 +1,5 @@
 import clingo
-import propagator.untimed_propagator
+from propagator import theoryhandler
 
 import logging
 import sys
@@ -10,16 +10,15 @@ class Application:
         self.program_name = name
         self.version = "0.1"
         
-        self.__propagator = untimed_propagator.ConstraintPropagator()
+        self.__handler = theoryhandler.TheoryHandler("2watch")
    
 
     def __on_stats(self, step, accu):
-        self.__propagator.print_stats()
+        self.__handler.on_stats()
 
     def main(self, prg, files):
 
-        prg.register_propagator(self.__propagator)
-        prg.load(untimed_propagator.THEORY)
+        self.__handler.register(prg)
 
         for name in files:
             prg.load(name)
