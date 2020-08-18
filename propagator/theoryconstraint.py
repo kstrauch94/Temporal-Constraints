@@ -10,12 +10,6 @@ CONSTRAINT_CHECK = { "NONE": None,
                     "UNIT": 1,
                     "CONFLICT": -1} 
 
-TIMERS = {}
-TIMERS["INIT"] = 0
-TIMERS["PROP"] = 0
-TIMERS["UNDO"] = 0
-TIMERS["CHECK"] = 0
-THEORY = "theory/untimed_theory.lp"
 
 
 class TimedConstraint:
@@ -496,15 +490,3 @@ class TheoryConstraint2watch:
     def undo(self, thread_id, assign, changes):
         pass        
 
-    def form_nogood(self, assigned_time):
-        # with this function I can make nogoods just from an assigned time
-        ng = set()
-        self.logger.debug("Form nogoods for assigned time: {}, {}", assigned_time, self.t_atom_names)
-        for name in self.t_atom_names:
-            time = self.reverse_assigned_time(name, assigned_time)
-            try:
-                ng.add(self.name_to_lit[name, time])
-            except KeyError:
-                self.logger.debug("Keyerror for name: {}, this means it doesnt exist? maybe...", name)
-                return []
-        return list(ng)
