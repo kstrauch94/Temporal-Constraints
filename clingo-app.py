@@ -1,5 +1,5 @@
 import clingo
-import untimed_propagator
+import propagator.untimed_propagator
 
 import logging
 import sys
@@ -10,18 +10,23 @@ class Application:
         self.program_name = name
         self.version = "0.1"
         
-        self.__theory = untimed_propagator.ConstraintPropagator()
-    
+        self.__propagator = untimed_propagator.ConstraintPropagator()
+   
+
+    def __on_stats(self, step, accu):
+        self.__propagator.print_stats()
+
     def main(self, prg, files):
 
-        prg.register_propagator(self.__theory)
+        prg.register_propagator(self.__propagator)
         prg.load(untimed_propagator.THEORY)
 
         for name in files:
             prg.load(name)
-        
+
         prg.ground([("base", [])])
-        prg.solve()
+
+        prg.solve(on_statistics=self.__on_stats)
 
 
 
