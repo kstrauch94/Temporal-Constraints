@@ -379,7 +379,7 @@ class TheoryConstraint2watch:
                 time = self.parse_time(s_atom)
                 assigned_time = self.get_assigned_time(name, time)
 
-                if self.max_time is not None and self.get_assigned_time(name, time) > self.max_time:
+                if self.max_time is not None and assigned_time > self.max_time:
                     self.logger.debug("no watch for lit cause assigned time would be too big: {}", s_atom.symbol)
                     continue
                 
