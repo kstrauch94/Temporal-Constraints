@@ -1,11 +1,13 @@
-from propagator.propagator import ConstraintPropagator2
-from propagator.theoryconstraint import TheoryConstraintNaive, TheoryConstraint2watch
+from untimed.propagator.propagator import ConstraintPropagator2
+from untimed.propagator.propagator import ConstraintPropagator
+
+from untimed.propagator.theoryconstraint import TheoryConstraintNaive, TheoryConstraint2watch
 
 propagators = {}
 propagators["naive"] = TheoryConstraintNaive
 propagators["2watch"] = TheoryConstraint2watch
 
-theory_file = "propagator/theory/untimed_theory.lp"
+theory_file = "untimed/theory/untimed_theory.lp"
 
 class TheoryHandler:
 

@@ -2,7 +2,7 @@ import clingo
 import logging
 
 import sys
-import util
+import untimed.util as util
 import time as time_module
 from collections import defaultdict
 
@@ -80,11 +80,13 @@ class TheoryConstraintNaive:
         self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
         self.t_atom_info = {}
-        self.t_atom_names = set()
+        self.t_atom_names = []
         self.watches = {}
         self.lit_to_name = {}
         self.name_to_lit = {}
         self.active_constraints = {}
+
+        self.atom_signatures = {}
 
         self.unit_constraints = []
 
@@ -94,44 +96,42 @@ class TheoryConstraintNaive:
 
     def parse_atoms(self, constraint):
         for atom in constraint.elements:
-            atom = str(atom)[1:-1]
+            signature = [atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments)+1]
+            args = atom.terms[0].arguments[0].arguments
 
-            if atom.startswith("+."):
+            term_type = atom.terms[0].name # this gives me the "type" of the term | e.g. for +~on(..) it would return +~
+            
+            name = str(atom.terms[0].arguments[0]).replace(")", ",")
+            
+            self.atom_signatures[name] = signature
+
+            if term_type == "+.":
                 sign = 1
                 time_mod = 0
-                arity = len(atom.split(","))
-                name = atom[2:]
-            elif atom.startswith("+~"):
+            elif term_type == "+~":
                 sign = 1
                 time_mod = +1
-                arity = len(atom.split(","))
-                name = atom[2:]
-            elif atom.startswith("-."):
+            elif term_type == "-.":
                 sign = -1
                 time_mod = 0
-                arity = len(atom.split(","))
-                name = atom[2:]
-            elif atom.startswith("-~"):
+            elif term_type == "-~":
                 sign = -1
                 time_mod = +1
-                arity = len(atom.split(","))
-                name = atom[2:]
 
-            name = name.replace(")", "")
             self.t_atom_info[name] = {"sign" : sign,
                                       "time_mod" : time_mod,
-                                      "arity": arity,
-                                      "name" : name}
+                                      "arity": signature[1],
+                                      "name" : name,
+                                      "args" : args}
 
-            self.t_atom_names.add(name)
+            self.t_atom_names.append(name)
 
     def add_max_time(self, time):
         self.max_time = time
 
     def init_watches(self, s_atom, init):
-        t_str = 0
         for name in self.t_atom_names:
-            if str(s_atom.symbol).startswith(name+","):
+            if str(s_atom.symbol).startswith(name):
                 t = time_module.time()
                 solver_lit = init.solver_literal(s_atom.literal) * self.t_atom_info[name]["sign"] 
                 time = self.parse_time(s_atom)
@@ -153,12 +153,6 @@ class TheoryConstraintNaive:
                 self.logger.debug("name {} to lit: {}".format(name, self.name_to_lit[name, time]))
                 init.add_watch(solver_lit)
                 
-                t_str += time_module.time() - t
-
-        if ("where(1", 1) in self.name_to_lit:
-            self.logger.debug("where(1, is lit {}".format(self.name_to_lit["where(1", 1]))
-        
-        return t_str    
         # TODO:
         # MAYBE ADD CHECK FOR NOGOODS OF SIZE 1?
         # DO it by making nogoods for all times and seeing if the resulting lists are size 1?
@@ -322,6 +316,7 @@ class TheoryConstraint2watch:
         self.atom_signatures = {}
         self.watches_to_at = defaultdict(list)
         self.at_to_watches = defaultdict(list)
+        self.watches = set()
         self.lit_to_name = defaultdict(list)
         self.name_to_lit = {}
         
@@ -385,11 +380,12 @@ class TheoryConstraint2watch:
                 
                 solver_lit = init.solver_literal(s_atom.literal) * self.t_atom_info[name]["sign"] 
 
-
+                
                 if len(self.at_to_watches[assigned_time]) < 2:
                     self.logger.debug("watch: {}, {}, {}", str(s_atom.symbol), solver_lit, time)
                     self.at_to_watches[assigned_time].append(solver_lit)
                     self.watches_to_at[solver_lit].append(assigned_time)
+                    self.watches.add(solver_lit)
                     init.add_watch(solver_lit)
 
     

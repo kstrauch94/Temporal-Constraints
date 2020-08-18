@@ -2,27 +2,31 @@ import clingo
 import logging
 
 import sys
-import util
+import untimed.util as util
 import time as time_module
 from collections import defaultdict
 
-from propagator.theoryconstraint import TheoryConstraintNaive, TheoryConstraint2watch
+from untimed.propagator.theoryconstraint import TheoryConstraintNaive
+from untimed.propagator.theoryconstraint import TheoryConstraint2watch
+
 
 class ConstraintPropagator:
 
-    def __init__(self):
+    def __init__(self, tc_class=TheoryConstraintNaive):
         self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
         self.constraints = []
         self.lit_to_constraints = {}
         self.max_time = None
 
+        self.tc_class = tc_class
+
     @util.Timer("Init") 
     def init(self, init):
         for t_atom in init.theory_atoms:
             if t_atom.term.name == "constraint":
                 self.logger.debug(str(t_atom))
-                self.constraints.append(TheoryConstraintNaive(t_atom))
+                self.constraints.append(self.tc_class(t_atom))
             elif t_atom.term.name == "time":
                 self.logger.debug(str(t_atom))
                 self.max_time = int(str(t_atom.elements[0]).replace("+","")[1:-1])
@@ -49,7 +53,6 @@ class ConstraintPropagator:
         for tc in self.constraints:
             tc.propagate(control, changes)
             if not control.propagate():
-                TIMERS["PROP"] += time_module.time() - t
                 return
     
     @util.Timer("undo")
@@ -67,7 +70,6 @@ class ConstraintPropagator:
                 return
 
     def print_stats(self):
-        self.logger.info(TIMERS)
         self.logger.info(util.Timer.timers)
 
 
@@ -104,7 +106,7 @@ class ConstraintPropagator2:
                     c.init_watches(s_atom, init)
         
         for c in self.constraints:
-            for lit in c.watches_to_at.keys():
+            for lit in c.watches:
                 if lit in self.lit_to_constraints:
                     self.lit_to_constraints[lit].append(c)
                 else:
@@ -121,9 +123,9 @@ class ConstraintPropagator2:
 
     @util.Timer("undo")
     def undo(self, thread_id, assign, changes):
-        pass
-        #for tc in self.constraints:
-        #    tc.undo(thread_id, assign, changes)    
+        
+        for tc in self.constraints:
+            tc.undo(thread_id, assign, changes)    
 
     def print_stats(self):
         print(f"{self.__class__.__name__} Propagator stats")
