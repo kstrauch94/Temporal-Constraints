@@ -40,7 +40,7 @@ on(N1,N,0) :- on0(N,N1).
 
 % a disk can be placed on top only.
 %:- on(N,N1,T-1), where(N,T).
-:-&constraint{+~on(N,N1); +.where(N)}, disk(N), disk(N1), N1 > N.
+:-&constraint{+~on(N,N1); +.where(N)}, disk(N), disk(N1), N1 > N, N1 > 4.
 
 &time{ +B } :-  steps(B).
 
@@ -59,4 +59,6 @@ on(N,N1,T) :- time(T), T>0,
 
 % Solution
 #show put(M,N,T) : move(N,T), where(M,T).
+#show on/3.
+#show where/2.
 
