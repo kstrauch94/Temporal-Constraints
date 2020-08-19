@@ -317,13 +317,15 @@ class TheoryConstraint2watch:
         self.t_atom_info = {}
         self.t_atom_names = []
         self.atom_signatures = {}
-        self.watches_to_at = defaultdict(list)
-        self.at_to_watches = defaultdict(list)
+        self.watches_to_at = defaultdict(set)
+        self.at_to_watches = defaultdict(set)
         self.watches = set()
+
         self.lit_to_name = defaultdict(list)
         self.name_to_lit = {}
         
-        self.lit_to_at = defaultdict(list)
+        self.lit_to_at = defaultdict(set)
+        self.at_to_lit = defaultdict(set)
 
         self.unit_constraints = []
 
@@ -389,8 +391,8 @@ class TheoryConstraint2watch:
                 
                 if len(self.at_to_watches[assigned_time]) < 2:
                     self.logger.debug("watch: {}, {}, {}", str(s_atom.symbol), solver_lit, time)
-                    self.at_to_watches[assigned_time].append(solver_lit)
-                    self.watches_to_at[solver_lit].append(assigned_time)
+                    self.at_to_watches[assigned_time].add(solver_lit)
+                    self.watches_to_at[solver_lit].add(assigned_time)
                     self.watches.add(solver_lit)
                     init.add_watch(solver_lit)
 
@@ -399,7 +401,8 @@ class TheoryConstraint2watch:
 
                 self.name_to_lit[uq_name, time] = solver_lit
 
-                self.lit_to_at[solver_lit].append(assigned_time)
+                self.lit_to_at[solver_lit].add(assigned_time)
+                self.at_to_lit[assigned_time].add(solver_lit)
 
         # TODO:
         # check for literls that are true at top level
@@ -458,7 +461,6 @@ class TheoryConstraint2watch:
 
     def check_assignment(self, at, control):
         ng = []
-        possible_watches = []
         true_count = 0
 
         for uq_name in self.t_atom_names:
@@ -478,7 +480,7 @@ class TheoryConstraint2watch:
                 return CONSTRAINT_CHECK["NONE"], []
 
             else:
-                # if valye is None we still add it to ng
+                # if value is None we still add it to ng
                 ng.append(lit)
 
         if true_count == self.size:
@@ -493,3 +495,79 @@ class TheoryConstraint2watch:
     def undo(self, thread_id, assign, changes):
         pass        
 
+class TheoryConstraint2watchbBig(TheoryConstraint2watch):
+
+    def propagate(self, control, changes):
+        self.logger.debug("Propagating for constraint: {}", self.t_atom_names)
+        for lit in changes:
+            if lit in self.watches_to_at:
+                for assigned_time in self.watches_to_at[lit]:
+
+                    self.logger.debug("propagating {} to assigned time {}", lit, assigned_time)
+                        
+                    result, ng = self.check_assignment(assigned_time, control)
+
+                    if result == CONSTRAINT_CHECK["CONFLICT"]:
+                        
+                        self.logger.debug("immediately return the conflict!")
+                        
+                        self.logger.debug("adding nogood lits CONF: {}", ng)
+                        
+                        if not control.add_nogood(ng): # or not control.propagate():
+                            self.unit_constraints = []
+                            return 1
+                        else:
+                            self.logger.debug("constraint for a conflict added and propagations continues???")
+
+                    self.replace_watch(at, lit, control)
+
+
+        for ng in self.unit_constraints:
+            self.logger.debug("adding nogood lits UNIT: {}", ng)
+            self.logger.debug("lit names:")
+            for l in ng:
+                self.logger.debug(self.lit_to_name[l])
+            
+            if not control.add_nogood(ng): # and control.propagate():
+                self.logger.debug("added unit ng but prop stops!")
+                self.unit_constraints = []
+                return 1
+
+        self.unit_constraints = []
+
+        return 1
+
+    def replace_watch(self, at, lit, control):
+
+        new_watch = self.choose_lit(self.at_to_lit[at], self.at_to_watches[at], control)
+
+        # if we found a new watch do this
+        # if we didnt find a new one we can leave watches as they are
+        if new_watch is not None:
+
+            #remove the lit as a watch for constraint at
+            self.watches_to_at[lit].remove(at)
+            self.at_to_watches[at].remove(lit)
+
+            # add new watch as a watch for constraint at
+            self.watches_to_at[new_watch].add(at)
+            self.at_to_watches[at].add(new_watch)
+
+            # remove literal from watches
+            control.remove_watch(lit)
+            # add new watch
+            control.add_watch(new_watch)
+
+            # if lit is not watching a constraint eliminate it from the dict
+            if len(self.watches_to_at[lit]):
+                self.watches_to_at.remove(lit)
+
+    def choose_lit(self, lits, exempt, control):
+        # return a watch that has not been assigned yet
+        # if every watch has been assigned, return nothing
+        for possible_watch in lits:
+            if possible_watch not in exempt:
+                if control.assignment.value(possible_watch) is None:
+                    return possible_watch
+
+        return None
