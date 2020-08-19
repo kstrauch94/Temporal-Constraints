@@ -101,8 +101,8 @@ class ConstraintPropagator2:
             c.add_max_time(self.max_time)
         
         for c in self.constraints:
-            for name in c.t_atom_names:
-                for s_atom in init.symbolic_atoms.by_signature(*c.atom_signatures[name]):
+            for sig in c.atom_signatures:
+                for s_atom in init.symbolic_atoms.by_signature(*sig):
                     c.init_watches(s_atom, init)
         
         for c in self.constraints:
@@ -123,7 +123,7 @@ class ConstraintPropagator2:
 
     @util.Timer("undo")
     def undo(self, thread_id, assign, changes):
-        
+
         for tc in self.constraints:
             tc.undo(thread_id, assign, changes)    
 
@@ -133,3 +133,4 @@ class ConstraintPropagator2:
             print(f"{name:15}:\t{time}")
 
         print("DONE")
+

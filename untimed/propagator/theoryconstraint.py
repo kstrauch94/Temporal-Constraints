@@ -11,6 +11,8 @@ CONSTRAINT_CHECK = { "NONE": None,
                     "CONFLICT": -1} 
 
 
+class TimedConstraintError(Exception):
+    pass
 
 class TimedConstraint:
 
@@ -26,18 +28,20 @@ class TimedConstraint:
         self.unit_callback = unit_callback
 
         self.truth = {}
-        for name in self.names:
+        for name in names:
             self.truth[name] = None
 
         self.assigned = 0
 
-        for l in lits:
-            if l == 1:
-                self.assigned += 1
+        #for l in lits:
+        #    if l == 1:
+        #        self.assigned += 1
 
     def update_lit(self, name):
         self.logger.debug("updated lit of time {}, of name {}".format(self.time, name))
         self.logger.debug("lits in const: {}".format(self.lits))
+        if self.truth[name] == 1:
+            raise TimedConstraintError("assigning name {} to true when it was already true\nlits: {}".format(name, self.lits))
         self.truth[name] = 1
         self.assigned += 1
 
@@ -57,10 +61,11 @@ class TimedConstraint:
 
         elif self.assigned > self.size:
             self.logger.debug("this should not happen! assigned > size")
+            raise TimedConstraintError("assigned {} > size {}\nnames assigned: {}".format(self.assigned, self.size, self.truth))
 
         elif self.assigned < 0:
             self.logger.debug("This should not happen! assigned < 0")
-
+            raise TimedConstraintError("assigned < 0")
         else:
             return CONSTRAINT_CHECK["NONE"]
 
@@ -86,7 +91,7 @@ class TheoryConstraintNaive:
         self.name_to_lit = {}
         self.active_constraints = {}
 
-        self.atom_signatures = {}
+        self.atom_signatures = set()
 
         self.unit_constraints = []
 
@@ -96,7 +101,7 @@ class TheoryConstraintNaive:
 
     def parse_atoms(self, constraint):
         for atom in constraint.elements:
-            signature = [atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments)+1]
+            signature = (atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments)+1)
             args = atom.terms[0].arguments[0].arguments
 
             term_type = atom.terms[0].name # this gives me the "type" of the term | e.g. for +~on(..) it would return +~
@@ -105,7 +110,7 @@ class TheoryConstraintNaive:
 
             uq_name = term_type + name
             
-            self.atom_signatures[uq_name] = signature
+            self.atom_signatures.add(signature)
 
             if term_type == "+.":
                 sign = 1
@@ -134,26 +139,29 @@ class TheoryConstraintNaive:
     def init_watches(self, s_atom, init):
         for uq_name in self.t_atom_names:
             name = self.t_atom_info[uq_name]["name"]
+            self.logger.debug("testing uq_name {} and symbol {}".format(uq_name, str(s_atom.symbol)))
             if str(s_atom.symbol).startswith(name):
                 t = time_module.time()
                 solver_lit = init.solver_literal(s_atom.literal) * self.t_atom_info[uq_name]["sign"] 
                 time = self.parse_time(s_atom)
 
-                if self.max_time is not None and self.get_assigned_time(uq_name, time) > self.max_time:
+                assigned_time = self.get_assigned_time(uq_name, time)
+
+                if self.max_time is not None and assigned_time > self.max_time:
                     self.logger.debug("no watch for lit cause assigned time would be too big: {}".format(str(s_atom.symbol)))
                     continue
 
-                self.watches[solver_lit] = time
+                self.watches[solver_lit] = assigned_time
     
                 if solver_lit not in self.lit_to_name:
                     self.lit_to_name[solver_lit] = []
                 
-                self.lit_to_name[solver_lit].append((uq_name,time))
+                self.lit_to_name[solver_lit].append((uq_name,assigned_time))
 
-                self.name_to_lit[uq_name, time] = solver_lit
+                self.name_to_lit[uq_name, assigned_time] = solver_lit
 
-                self.logger.debug("watch: {}, solver lit {}, time {}".format(str(s_atom.symbol), solver_lit, time))
-                self.logger.debug("name {} to lit: {}".format(uq_name, self.name_to_lit[uq_name, time]))
+                self.logger.debug("watch: {}, solver lit {}, time {}, at {}".format(str(s_atom.symbol), solver_lit, time, assigned_time))
+                self.logger.debug("name {} to lit: {}".format(uq_name, self.name_to_lit[uq_name, assigned_time]))
                 init.add_watch(solver_lit)
                 
         # TODO:
@@ -176,20 +184,23 @@ class TheoryConstraintNaive:
         for lit in changes:
             if lit in self.watches:
 
-                for uq_name, time in self.lit_to_name[lit]:
-                    assigned_time = self.get_assigned_time(uq_name, time)
+                for uq_name, assigned_time in self.lit_to_name[lit]:
                     
-                    self.logger.debug("propagating {} to time {} and assigned time {}".format(uq_name, time, assigned_time))
+                    self.logger.debug("propagating {} to time {} and assigned time {}".format(uq_name, 
+                                                                                       self.reverse_assigned_time(uq_name, assigned_time), 
+                                                                                       assigned_time))
 
                     if assigned_time not in self.active_constraints:
                         try:
                             for n in self.t_atom_names:
                                 self.logger.debug("name: {}, reverse at: {}".format(n, self.reverse_assigned_time(n, assigned_time)))
-                            constraint_lits = [self.name_to_lit[n, self.reverse_assigned_time(n, assigned_time)] for n in self.t_atom_names]
+
+                            constraint_lits = [self.name_to_lit[n, assigned_time] for n in self.t_atom_names]
+
                             self.logger.debug("const_lits {}, form ng: {}".format(constraint_lits, self.form_nogood(assigned_time)))
 
                         except KeyError:
-                            self.logger.debug("Here, we skipped creating a constraint with names {} and time {} for name {}".format(self.t_atom_names, time, uq_name))
+                            self.logger.debug("Here, we skipped creating a constraint with names {} and time {} for name {}".format(self.t_atom_names, assigned_time, uq_name))
                             self.logger.debug("because one of them is not a watched literal")
                             continue
                         
@@ -248,8 +259,8 @@ class TheoryConstraintNaive:
         
         for lit in changes:
             if lit in self.watches:
-                for uq_name, time in self.lit_to_name[lit]:
-                    assigned_time = self.get_assigned_time(uq_name, time)
+                for uq_name, assigned_time in self.lit_to_name[lit]:
+
                     if assigned_time in self.active_constraints:
                         self.logger.debug("undoing {} of time {}".format(uq_name, assigned_time))
                         self.active_constraints[assigned_time].undo_lit(uq_name)
@@ -259,22 +270,21 @@ class TheoryConstraintNaive:
         ng = set()
         self.logger.debug("Form nogoods for assigned time: {}, {}".format(assigned_time, self.t_atom_names))
         for uq_name in self.t_atom_names:
-            time = self.reverse_assigned_time(uq_name, assigned_time)
             try:
-                ng.add(self.name_to_lit[uq_name, time])
+                ng.add(self.name_to_lit[uq_name, assigned_time])
             except KeyError:
                 self.logger.debug("Keyerror for name: {}, this means it doesnt exist? maybe...".format(uq_name))
                 return []
         return list(ng)
 
-    def check_assignment(self, at, control):
+    def check_assignment(self, assigned_time, control):
         true_count = 0
         for uq_name in self.t_atom_names:
-            time = self.reverse_assigned_time(uq_name, at)
-            if (uq_name, time) not in self.name_to_lit:
-                self.logger.debug("return NONE because name {} with time {} is not part of constraint".format(uq_name, time))
+
+            if (uq_name, assigned_time) not in self.name_to_lit:
+                self.logger.debug("return NONE because name {} with time {} is not part of constraint".format(uq_name, assigned_time))
                 return CONSTRAINT_CHECK["NONE"]
-            lit = self.name_to_lit[uq_name, time]
+            lit = self.name_to_lit[uq_name, assigned_time]
 
             if control.assignment.is_true(lit):
                 # if its true
@@ -316,7 +326,7 @@ class TheoryConstraint2watch:
 
         self.t_atom_info = {}
         self.t_atom_names = []
-        self.atom_signatures = {}
+        self.atom_signatures = set()
         self.watches_to_at = defaultdict(set)
         self.at_to_watches = defaultdict(set)
         self.watches = set()
@@ -339,7 +349,7 @@ class TheoryConstraint2watch:
 
     def parse_atoms(self, constraint):
         for atom in constraint.elements:
-            signature = [atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments)+1]
+            signature = (atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments)+1)
             args = atom.terms[0].arguments[0].arguments
 
             term_type = atom.terms[0].name # this gives me the "type" of the term | e.g. for +~on(..) it would return +~
@@ -348,7 +358,7 @@ class TheoryConstraint2watch:
 
             uq_name = term_type + name
             
-            self.atom_signatures[uq_name] = signature
+            self.atom_signatures.add(signature)
 
             if term_type == "+.":
                 sign = 1
@@ -555,6 +565,8 @@ class TheoryConstraint2watchbBig(TheoryConstraint2watch):
 
             # remove literal from watches
             control.remove_watch(lit)
+            self.watches.remove(lit)
+
             # add new watch
             control.add_watch(new_watch)
 
