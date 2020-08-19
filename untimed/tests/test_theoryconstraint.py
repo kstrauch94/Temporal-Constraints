@@ -1,12 +1,14 @@
 import unittest
 from untimed.propagator.propagatorhandler import TheoryHandler
+from untimed.propagator.propagatorhandler import TheoryHandlerMany
+
 
 import clingo
 
 program = """
-#const maxtime = 2.
+#const maxtime = 3.
 time(1..maxtime).
-domain_ab(1..1).
+domain_ab(1..2).
 
 {a(V,T)} :- domain_ab(V), time(T).
 {b(V,T)} :- domain_ab(V), time(T).
@@ -25,16 +27,19 @@ def solve(programs, handler, print_r=False):
 
 	prg = clingo.Control(['0'], message_limit=0)
 
-	handler.register(prg)
-
 	for p in programs:
 		prg.add("base", [], p)
 
+	handler.add_theory(prg)
+
 	prg.ground([("base", [])])
+
+	handler.register(prg)
 
 	prg.solve(on_model=lambda m: r.append(parse_model(m)))
 	if print_r:
 		print(sorted(r))
+		print(len(r))
 	return sorted(r)
 
 def solve_regular(programs, print_r=False):
@@ -51,104 +56,34 @@ def solve_regular(programs, print_r=False):
 	prg.solve(on_model=lambda m: r.append(parse_model(m)))
 	if print_r:
 		print(sorted(r))
+		print(len(r))
 	return sorted(r)
 
 
 class TestApp(unittest.TestCase):
 
-	def test_naive(self):
+	def test_naive_regular(self):
 		handler = TheoryHandler("naive")
 
-		# tests with constraints of size 1
-		c = """:-&constraint{+.a(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- a(1,T), time(T)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
+		self.handler_test(handler)
 
-		c = """:-&constraint{-.a(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- not a(1,T), time(T)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
+	def test_naive_many(self):
+		handler = TheoryHandlerMany("naive")
 
-		c = """:-&constraint{-~a(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- not a(1,T-1), time(T), time(T-1)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
+		self.handler_test(handler)
 
-		c = """:-&constraint{+~a(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- a(1,T-1), time(T), time(T-1)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-		# tests with constraints of size 2
-
-		c = """:-&constraint{+.a(1); +.b(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- a(1,T), b(1,T), time(T)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-		c = """:-&constraint{+.a(1); -.b(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- a(1,T), not b(1,T), time(T)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-		c = """:-&constraint{-.a(1); -.b(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- not a(1,T), not b(1,T), time(T)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-		c = """:-&constraint{-.a(1); +.b(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- not a(1,T), b(1,T), time(T)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-		c = """:-&constraint{+~a(1); -.b(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- a(1,T-1), not b(1,T), time(T), time(T-1)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-		c = """:-&constraint{-~a(1); +.b(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- not a(1,T-1), b(1,T), time(T), time(T-1)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-		c = """:-&constraint{-~a(1); -.b(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- not a(1,T-1), not b(1,T), time(T), time(T-1)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-		c = """:-&constraint{-~a(1); -~b(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- not a(1,T-1), not b(1,T-1), time(T), time(T-1)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-		# size 2 but with same atom
-
-		c = """:-&constraint{+.a(1); +~a(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- a(1,T), a(1,T-1), time(T), time(T-1)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-		c = """:-&constraint{-.a(1); -~a(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- not a(1,T), not a(1,T-1), time(T), time(T-1)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-		c = """:-&constraint{+.a(1); -~a(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- a(1,T), not a(1,T-1), time(T), time(T-1)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-		# tests with size > 2
-
-		c = """:-&constraint{+.a(1); +.b(1); +~b(1)}. &time{ +B } :- B=maxtime."""
-		c_reg = ":- a(1,T), b(1,T), b(1,T-1), time(T), time(T-1)."
-		self.assertEqual(solve([program, c], handler), 
-						 solve_regular([program, c_reg]))
-
-	def test_2watch(self):
+	def test_2watch_regular(self):
 		handler = TheoryHandler("2watch")
 
+		self.handler_test(handler)
+
+	def test_2watch_many(self):
+		handler = TheoryHandlerMany("2watch")
+
+		self.handler_test(handler)
+
+	def handler_test(self, handler):
+
 		# tests with constraints of size 1
 		c = """:-&constraint{+.a(1)}. &time{ +B } :- B=maxtime."""
 		c_reg = ":- a(1,T), time(T)."
@@ -233,6 +168,16 @@ class TestApp(unittest.TestCase):
 
 		c = """:-&constraint{+.a(1); +.b(1); +~b(1)}. &time{ +B } :- B=maxtime."""
 		c_reg = ":- a(1,T), b(1,T), b(1,T-1), time(T), time(T-1)."
+		self.assertEqual(solve([program, c], handler), 
+						 solve_regular([program, c_reg]))
+
+		c = """:-&constraint{+.a(1); +.b(1); +~b(1)}. &time{ +B } :- B=maxtime."""
+		c_reg = ":- a(1,T), b(1,T), b(1,T-1), time(T), time(T-1)."
+		self.assertEqual(solve([program, c], handler), 
+						 solve_regular([program, c_reg]))
+
+		c = """:-&constraint{+.a(1); +.a(2); +.b(1); +~b(1)}. &time{ +B } :- B=maxtime."""
+		c_reg = ":- a(1,T), a(2,T), b(1,T), b(1,T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler), 
 						 solve_regular([program, c_reg]))
 
