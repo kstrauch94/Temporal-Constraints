@@ -146,6 +146,10 @@ class TheoryConstraintNaive:
 			if str(s_atom.symbol).startswith(name):
 				t = time_module.time()
 				solver_lit = init.solver_literal(s_atom.literal) * self.t_atom_info[uq_name]["sign"] 
+				
+				if solver_lit == 1:
+					continue
+
 				time = self.parse_time(s_atom)
 
 				assigned_time = self.get_assigned_time(uq_name, time)
@@ -170,6 +174,9 @@ class TheoryConstraintNaive:
 		# TODO:
 		# MAYBE ADD CHECK FOR NOGOODS OF SIZE 1?
 		# DO it by making nogoods for all times and seeing if the resulting lists are size 1?
+	
+	def propagate_init(self, init):
+		return
 
 	def parse_time(self, s_atom):
 		time = str(s_atom.symbol).split(",")[-1].replace(")","").strip()
@@ -388,6 +395,7 @@ class TheoryConstraint2watch:
 
 	#@profile
 	def init_watches(self, s_atom, init):
+
 		for uq_name in self.t_atom_names:
 			name = self.t_atom_info[uq_name]["name"]
 			if str(s_atom.symbol).startswith(name):
@@ -400,7 +408,9 @@ class TheoryConstraint2watch:
 				
 				solver_lit = init.solver_literal(s_atom.literal) * self.t_atom_info[uq_name]["sign"] 
 
-				
+				#if solver_lit == 1:
+				#	return
+
 				if len(self.at_to_watches[assigned_time]) < 2:
 					self.logger.debug("watch: %s, %i, %i", str(s_atom.symbol), solver_lit, time)
 					self.at_to_watches[assigned_time].add(solver_lit)
@@ -421,6 +431,13 @@ class TheoryConstraint2watch:
 		# if check if any constraints are already unit here and add them?
 
 		return	
+
+	def propagate_init(self, init):
+		return
+
+		for assigned_time in self.at_to_lit:
+			if len(self.at_to_lit[assigned_time]) == 1:
+				init.add_clause([-l for l in self.at_to_lit[assigned_time]])
 
 	def parse_time(self, s_atom):
 		time = str(s_atom.symbol).split(",")[-1].replace(")","").strip()

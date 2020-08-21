@@ -72,8 +72,7 @@ class TheoryHandlerMany:
 			prg.register_propagator(p)	
 
 	def on_stats(self):
-		print("IMPLEMENT STATS PLEASE")
-		#self.propagator.print_stats()
+		self.propagators[0].print_stats()
 
 	def __str__(self):
 		return(self.__class__.__name__ + " with propagator type {}".format(self.prop_type))

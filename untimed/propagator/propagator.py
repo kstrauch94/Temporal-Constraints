@@ -40,6 +40,7 @@ class ConstraintPropagator:
 			for sig in c.atom_signatures:
 				for s_atom in init.symbolic_atoms.by_signature(*sig):
 					c.init_watches(s_atom, init)
+			c.propagate_init(init)
 	
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
@@ -78,21 +79,24 @@ class ConstraintPropagatorMany:
 	def add_max_time(self, max_time):
 		self.constraint.add_max_time(max_time)
 
-	#@util.Timer("Init")
+	@util.Timer("Init")
 	def init(self, init):
 		
 		for sig in self.constraint.atom_signatures:
 			for s_atom in init.symbolic_atoms.by_signature(*sig):
 				self.constraint.init_watches(s_atom, init)
+
+		self.constraint.propagate_init(init)
 	
 	#@util.Timer("Propagation")
 	def propagate(self, control, changes):
-		
-		self.constraint.propagate(control, changes)
-		if not control.propagate():
-			return
 
-	#@util.Timer("undo")
+		with util.Timer("Propagation"):
+			self.constraint.propagate(control, changes)
+			if not control.propagate():
+				return
+
+	@util.Timer("undo")
 	def undo(self, thread_id, assign, changes):
 
 		self.constraint.undo(thread_id, assign, changes)
