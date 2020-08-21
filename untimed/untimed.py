@@ -11,8 +11,6 @@ class Application:
 		self.version = "0.1"
 		
 		self.__handler = TheoryHandlerMany("2watch")
-
-		self.programs = []
    
 	def __on_stats(self, step, accu):
 		self.__handler.on_stats()

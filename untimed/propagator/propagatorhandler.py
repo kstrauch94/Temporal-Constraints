@@ -21,6 +21,8 @@ class TheoryHandler:
 
 		self.tc_class = propagators[prop_type]
 
+		self.prop_type = prop_type
+
 	def add_theory(self, prg):
 		prg.load(theory_file)
 
@@ -30,11 +32,12 @@ class TheoryHandler:
 
 		prg.register_propagator(self.propagator)
 
-
 	def on_stats(self):
 
 		self.propagator.print_stats()
 
+	def __str__(self):
+		return(self.__class__.__name__ + " with propagator type {}".format(self.prop_type))
 
 class TheoryHandlerMany:
 
@@ -43,6 +46,8 @@ class TheoryHandlerMany:
 
 		self.tc_class = propagators[prop_type]
 		self.propagators = []
+
+		self.prop_type = prop_type
 
 	def add_theory(self, prg):
 		prg.load(theory_file)
@@ -69,3 +74,6 @@ class TheoryHandlerMany:
 	def on_stats(self):
 		print("IMPLEMENT STATS PLEASE")
 		#self.propagator.print_stats()
+
+	def __str__(self):
+		return(self.__class__.__name__ + " with propagator type {}".format(self.prop_type))
