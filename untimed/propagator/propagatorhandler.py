@@ -16,19 +16,21 @@ theory_file = "untimed/theory/untimed_theory.lp"
 
 class TheoryHandler:
 
-	def __init__(self, prop_type="2watch"):
+	def __init__(self, prop_type="2watch", prop_init=True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		self.tc_class = propagators[prop_type]
 
 		self.prop_type = prop_type
 
+		self.prop_init = prop_init
+
 	def add_theory(self, prg):
 		prg.load(theory_file)
 
 	def register(self, prg):
 
-		self.propagator = ConstraintPropagator(self.tc_class)
+		self.propagator = ConstraintPropagator(self.tc_class, self.prop_init)
 
 		prg.register_propagator(self.propagator)
 
@@ -41,13 +43,15 @@ class TheoryHandler:
 
 class TheoryHandlerMany:
 
-	def __init__(self, prop_type="2watch"):
+	def __init__(self, prop_type="2watch", prop_init=True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		self.tc_class = propagators[prop_type]
 		self.propagators = []
 
 		self.prop_type = prop_type
+
+		self.prop_init = prop_init
 
 	def add_theory(self, prg):
 		prg.load(theory_file)
@@ -57,7 +61,7 @@ class TheoryHandlerMany:
 		for t_atom in prg.theory_atoms:
 			if t_atom.term.name == "constraint":
 				self.logger.debug(str(t_atom))
-				prop = ConstraintPropagatorMany(t_atom, self.tc_class)
+				prop = ConstraintPropagatorMany(t_atom, self.tc_class, self.prop_init)
 				self.propagators.append(prop)
 
 			elif t_atom.term.name == "time":
