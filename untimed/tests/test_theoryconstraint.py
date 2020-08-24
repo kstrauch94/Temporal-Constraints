@@ -194,5 +194,13 @@ class TestApp(unittest.TestCase):
 						 solve_regular([program, c_reg]))
 
 
+		c = """:-&constraint{+.a(1); +.a(2); +.b(1); +~b(1)}. &time{ +B } :- B=maxtime.
+			   :-&constraint{+~b(2); -.a(2)}."""
+		c_reg = """:- a(1,T), a(2,T), b(1,T), b(1,T-1), time(T), time(T-1).
+				   :- b(2,T-1), not a(2,T), time(T), time(T-1)."""
+		self.assertEqual(solve([program, c], handler_class, htype), 
+						 solve_regular([program, c_reg]))
+
+
 if __name__ == "__main__":
 	unittest.main()
