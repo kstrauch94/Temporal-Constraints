@@ -11,7 +11,7 @@ from untimed.propagator.theoryconstraint import TheoryConstraint2watch
 
 class ConstraintPropagator:
 
-	def __init__(self, tc_class=TheoryConstraint2watch):
+	def __init__(self, tc_class=TheoryConstraint2watch, prop_init=True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		self.constraints = []
@@ -19,6 +19,8 @@ class ConstraintPropagator:
 		self.max_time = None
 
 		self.tc_class = tc_class
+
+		self.prop_init = prop_init
 	
 	@util.Timer("Init")
 	def init(self, init):
@@ -40,7 +42,10 @@ class ConstraintPropagator:
 			for sig in c.atom_signatures:
 				for s_atom in init.symbolic_atoms.by_signature(*sig):
 					c.init_watches(s_atom, init)
-			c.propagate_init(init)
+			if self.prop_init:
+				c.propagate_init(init)
+
+			c.build_watches()
 	
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
@@ -66,7 +71,7 @@ class ConstraintPropagator:
 
 class ConstraintPropagatorMany:
 
-	def __init__(self, t_atom, tc_class=TheoryConstraint2watch):
+	def __init__(self, t_atom, tc_class=TheoryConstraint2watch, prop_init=True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		self.constraint = tc_class(t_atom)
@@ -75,6 +80,8 @@ class ConstraintPropagatorMany:
 
 		self.tc_class = tc_class
 	
+		self.prop_init = prop_init
+
 
 	def add_max_time(self, max_time):
 		self.constraint.add_max_time(max_time)
@@ -86,7 +93,10 @@ class ConstraintPropagatorMany:
 			for s_atom in init.symbolic_atoms.by_signature(*sig):
 				self.constraint.init_watches(s_atom, init)
 
-		self.constraint.propagate_init(init)
+		if self.prop_init:
+			self.constraint.propagate_init(init)
+			
+		self.constraint.build_watches()
 	
 	#@util.Timer("Propagation")
 	def propagate(self, control, changes):

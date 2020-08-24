@@ -36,10 +36,6 @@ class TimedConstraint:
 
 		self.assigned = 0
 
-		#for l in lits:
-		#	if l == 1:
-		#		self.assigned += 1
-
 	def update_lit(self, name):
 		self.logger.debug("updated lit of time {}, of name {}".format(self.time, name))
 		self.logger.debug("lits in const: {}".format(self.lits))
@@ -171,10 +167,6 @@ class TheoryConstraintNaive:
 				self.logger.debug("name {} to lit: {}".format(uq_name, self.name_to_lit[uq_name, assigned_time]))
 				init.add_watch(solver_lit)
 				
-		# TODO:
-		# MAYBE ADD CHECK FOR NOGOODS OF SIZE 1?
-		# DO it by making nogoods for all times and seeing if the resulting lists are size 1?
-	
 	def propagate_init(self, init):
 		return
 
@@ -352,6 +344,8 @@ class TheoryConstraint2watch:
 
 		self.max_time = None
 
+		self.name = constraint
+
 	@property
 	def size(self):
 		return len(self.t_atom_names)
@@ -408,36 +402,63 @@ class TheoryConstraint2watch:
 				
 				solver_lit = init.solver_literal(s_atom.literal) * self.t_atom_info[uq_name]["sign"] 
 
-				#if solver_lit == 1:
-				#	return
+				self.lit_to_name[solver_lit].append((uq_name,assigned_time,time))
 
-				if len(self.at_to_watches[assigned_time]) < 2:
-					self.logger.debug("watch: %s, %i, %i", str(s_atom.symbol), solver_lit, time)
-					self.at_to_watches[assigned_time].add(solver_lit)
-					self.watches_to_at[solver_lit].add(assigned_time)
-					self.watches.add(solver_lit)
-					init.add_watch(solver_lit)
+				self.name_to_lit[uq_name, assigned_time] = solver_lit
 
-	
-				self.lit_to_name[solver_lit].append((uq_name,time))
-
-				self.name_to_lit[uq_name, time] = solver_lit
-
-				self.lit_to_at[solver_lit].add(assigned_time)
 				self.at_to_lit[assigned_time].add(solver_lit)
-
-		# TODO:
-		# check for literls that are true at top level
-		# if check if any constraints are already unit here and add them?
 
 		return	
 
-	def propagate_init(self, init):
-		return
+	#@profile
+	def propagate_init(self, init, propagate=True):
+		done_at = []
+		for assigned_time, lits in self.at_to_lit.items():
+			if len(lits) < self.size:
+				# if this happens, it could be because for one
+				# of the names in the constraint for a particular
+				# assigned time there was no symbolic atom for it
+				# this means that the atom does not exist
+				# hence, it is false and the nogood is useless
+				# so we delete it
+				done_at.append(assigned_time)
+				continue
 
-		for assigned_time in self.at_to_lit:
-			if len(self.at_to_lit[assigned_time]) == 1:
+			# careful here, check assignment 2 only looks at 
+			# the lits we have for that particular assigned time
+			# if a lit is not added because it doesnt exist
+			# it will NOT count it as false
+			# and it might return that the clause is unit or conflicting
+			# when in fact its not
+			result, ng = self.check_assignment2(assigned_time, init)
+			if result == CONSTRAINT_CHECK["CONFLICT"]:
+				init.add_clause([-l for l in ng])
+
+			elif result == CONSTRAINT_CHECK["UNIT"]:
+				# if nogood is already unit at init
+				# then we can add the clause so it propagates at time 0
+				# then we delete assigned time because 
+				# it will never pop up again
+
 				init.add_clause([-l for l in self.at_to_lit[assigned_time]])
+				done_at.append(assigned_time)
+
+		for dat in done_at:
+			self.at_to_lit.pop(dat)
+
+	def build_watches(self):
+		for at in self.at_to_lit:
+			for lit in self.at_to_lit[at]:
+				self.lit_to_at[lit].add(at)
+
+		for assigned_time, lits in self.at_to_lit.items():
+			for lit in lits:
+				if len(self.at_to_watches[assigned_time]) >= 2:
+					break
+				self.at_to_watches[assigned_time].add(lit)
+				self.watches_to_at[lit].add(assigned_time)
+				self.watches.add(lit)
+				init.add_watch(lit)
 
 	def parse_time(self, s_atom):
 		time = str(s_atom.symbol).split(",")[-1].replace(")","").strip()
@@ -488,17 +509,17 @@ class TheoryConstraint2watch:
 
 		return 1
 
-	def check_assignment(self, at, control):
+	def check_assignment(self, assigned_time, control):
+		# not sure which one is faster
 		ng = []
 		true_count = 0
 
 		for uq_name in self.t_atom_names:
-			time = self.reverse_assigned_time(uq_name, at)
-			if (uq_name, time) not in self.name_to_lit:
+			if (uq_name, assigned_time) not in self.name_to_lit:
 				# if it is not in the dict then it is false always
 				return CONSTRAINT_CHECK["NONE"], []
 
-			lit = self.name_to_lit[uq_name, time]
+			lit = self.name_to_lit[uq_name, assigned_time]
 
 			if control.assignment.is_true(lit):
 				# if its true
@@ -519,10 +540,49 @@ class TheoryConstraint2watch:
 			return CONSTRAINT_CHECK["UNIT"], []
 		else:
 			return CONSTRAINT_CHECK["NONE"], []
-		
+
+	def check_assignment2(self, assigned_time, control):
+		ng = []
+		true_count = 0
+
+		if assigned_time not in self.at_to_lit:
+			return CONSTRAINT_CHECK["NONE"], []
+
+		for lit in self.at_to_lit[assigned_time]:
+			if control.assignment.is_true(lit):
+				# if its true
+				ng.append(lit)
+				true_count += 1
+			elif control.assignment.is_false(lit):
+				# if one is false then it doesnt matter
+				return CONSTRAINT_CHECK["NONE"], []
+
+			else:
+				# if value is None we still add it to ng
+				ng.append(lit)
+
+		if true_count == self.size:
+			return CONSTRAINT_CHECK["CONFLICT"], ng
+		elif true_count == self.size - 1:
+			self.unit_constraints.append(ng)
+			return CONSTRAINT_CHECK["UNIT"], []
+		else:
+			return CONSTRAINT_CHECK["NONE"], []
+
+	def form_nogood(self, assigned_time):
+		# with this function I can make nogoods just from an assigned time
+		ng = set()
+		self.logger.debug("Form nogoods for assigned time: {}, {}".format(assigned_time, self.t_atom_names))
+		for uq_name in self.t_atom_names:
+			try:
+				ng.add(self.name_to_lit[uq_name, assigned_time])
+			except KeyError:
+				self.logger.debug("Keyerror for name: {}, this means it doesnt exist? maybe...".format(uq_name))
+				return []
+		return list(ng)
 
 	def undo(self, thread_id, assign, changes):
-		pass		
+		pass	
 
 class TheoryConstraint2watchBig(TheoryConstraint2watch):
 
