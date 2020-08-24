@@ -85,7 +85,7 @@ class TheoryConstraintNaive:
 
 		self.t_atom_info = {}
 		self.t_atom_names = []
-		self.watches = {}
+		self.watches = set()
 		self.lit_to_name = {}
 		self.name_to_lit = {}
 		self.active_constraints = {}
@@ -153,8 +153,6 @@ class TheoryConstraintNaive:
 				if self.max_time is not None and assigned_time > self.max_time:
 					self.logger.debug("no watch for lit cause assigned time would be too big: {}".format(str(s_atom.symbol)))
 					continue
-
-				self.watches[solver_lit] = assigned_time
 	
 				if solver_lit not in self.lit_to_name:
 					self.lit_to_name[solver_lit] = []
@@ -165,10 +163,15 @@ class TheoryConstraintNaive:
 
 				self.logger.debug("watch: {}, solver lit {}, time {}, at {}".format(str(s_atom.symbol), solver_lit, time, assigned_time))
 				self.logger.debug("name {} to lit: {}".format(uq_name, self.name_to_lit[uq_name, assigned_time]))
-				init.add_watch(solver_lit)
 				
 	def propagate_init(self, init):
 		return
+
+	def build_watches(self, init):
+		for lit, name_at in self.lit_to_name.items():
+			init.add_watch(lit)
+			self.watches.add(lit)
+
 
 	def parse_time(self, s_atom):
 		time = str(s_atom.symbol).split(",")[-1].replace(")","").strip()
@@ -408,7 +411,7 @@ class TheoryConstraint2watch:
 
 				self.at_to_lit[assigned_time].add(solver_lit)
 
-		return	
+		return  
 
 	#@profile
 	def propagate_init(self, init, propagate=True):
@@ -446,7 +449,7 @@ class TheoryConstraint2watch:
 		for dat in done_at:
 			self.at_to_lit.pop(dat)
 
-	def build_watches(self):
+	def build_watches(self, init):
 		for at in self.at_to_lit:
 			for lit in self.at_to_lit[at]:
 				self.lit_to_at[lit].add(at)
@@ -582,7 +585,7 @@ class TheoryConstraint2watch:
 		return list(ng)
 
 	def undo(self, thread_id, assign, changes):
-		pass	
+		pass    
 
 class TheoryConstraint2watchBig(TheoryConstraint2watch):
 

@@ -45,7 +45,7 @@ class ConstraintPropagator:
 			if self.prop_init:
 				c.propagate_init(init)
 
-			c.build_watches()
+			c.build_watches(init)
 	
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
@@ -95,8 +95,8 @@ class ConstraintPropagatorMany:
 
 		if self.prop_init:
 			self.constraint.propagate_init(init)
-			
-		self.constraint.build_watches()
+
+		self.constraint.build_watches(init)
 	
 	#@util.Timer("Propagation")
 	def propagate(self, control, changes):
