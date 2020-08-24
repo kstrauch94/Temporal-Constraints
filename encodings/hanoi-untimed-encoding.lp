@@ -33,10 +33,12 @@ on(N1,N,0) :- on0(N,N1).
 1 { where(N,T) : disk(N) }1 :- occurs(some_action,T).
 
 % pegs cannot be moved
-:- move(N,T), N<5.
+%:- move(N,T), N<5.
+:-&constraint{+.move(N)}, disk(N), N<5.
 
 % only top disk can be moved
-:- on(N,N1,T-1), move(N,T).
+%:- on(N,N1,T-1), move(N,T).
+:-&constraint{+~on(N,N1); +.move(N)}, disk(N), disk(N1), N1 > N, N1 > 4.
 
 % a disk can be placed on top only.
 %:- on(N,N1,T-1), where(N,T).
@@ -45,7 +47,8 @@ on(N1,N,0) :- on0(N,N1).
 &time{ +B } :-  steps(B).
 
 % no disk is moved in two consecutive moves
-:- move(N,T), move(N,T-1).
+%:- move(N,T), move(N,T-1).
+:-&constraint{+.move(N); +~move(N)}, disk(N), N>4.
 
 % Specify effects of a move
 on(N1,N,T) :- move(N,T), where(N1,T).
