@@ -1,4 +1,6 @@
 import clingo
+
+from typing import Any, Dict
 from untimed.propagator.propagatorhandler import TheoryHandler
 from untimed.propagator.propagatorhandler import TheoryHandlerMany
 
@@ -7,7 +9,7 @@ import textwrap as _textwrap
 import logging
 import sys
 
-handlers = {}
+handlers: Dict[str, Any] = {}
 handlers["many"] = TheoryHandlerMany
 handlers["single"] = TheoryHandler
 

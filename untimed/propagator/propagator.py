@@ -6,17 +6,19 @@ import untimed.util as util
 import time as time_module
 from collections import defaultdict
 
+from typing import Any, List, Dict, Union, Optional
+
 from untimed.propagator.theoryconstraint import TheoryConstraintNaive
-from untimed.propagator.theoryconstraint import TheoryConstraint2watch
+from untimed.propagator.theoryconstraint import TheoryConstraint2watchBig
+
 
 class ConstraintPropagator:
 
-	def __init__(self, tc_class=TheoryConstraint2watch, prop_init=True):
+	def __init__(self, tc_class: Any = TheoryConstraint2watchBig, prop_init: bool = True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-		self.constraints = []
-		self.lit_to_constraints = {}
-		self.max_time = None
+		self.constraints: List[Any] = []
+		self.max_time: Optional[int] = None
 
 		self.tc_class = tc_class
 
@@ -71,7 +73,7 @@ class ConstraintPropagator:
 
 class ConstraintPropagatorMany:
 
-	def __init__(self, t_atom, tc_class=TheoryConstraint2watch, prop_init=True):
+	def __init__(self, t_atom, tc_class=TheoryConstraint2watchBig, prop_init=True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		self.constraint = tc_class(t_atom)
