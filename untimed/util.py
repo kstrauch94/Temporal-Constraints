@@ -3,8 +3,7 @@ import functools
 from typing import Dict
 from collections import defaultdict
 
-from typing import Any
-
+from typing import Any, Optional, Callable
 
 class TimerError(Exception):
     pass
@@ -16,7 +15,7 @@ class Timer:
     def __init__(self, name : str):
         self.name = name
 
-        self._time_start = None
+        self._time_start: Optional[float] = None
 
     def start(self) -> None:
 
@@ -45,7 +44,7 @@ class Timer:
     def __exit__(self, *exc_info: Any) -> None:
         self.stop()
 
-    def __call__(self, func) -> "Timer":
+    def __call__(self, func) -> Callable:
     
         @functools.wraps(func)
         def wrapper_timer(*args, **kwargs):
