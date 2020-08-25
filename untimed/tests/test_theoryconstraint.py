@@ -100,28 +100,28 @@ class TestApp(unittest.TestCase):
 
 	def test_2watch_regular(self):
 		handler_class = TheoryHandler
-		handler_args = {"prop_type": "naive",
+		handler_args = {"prop_type": "2watch",
 						"prop_init": False}
 
 		self.handler_test(handler_class, handler_args)
 
 	def test_2watch_regular_prop_init(self):
 		handler_class = TheoryHandler
-		handler_args = {"prop_type": "naive",
+		handler_args = {"prop_type": "2watch",
 						"prop_init": True}
 
 		self.handler_test(handler_class, handler_args)
 
 	def test_2watch_many(self):
 		handler_class = TheoryHandlerMany
-		handler_args = {"prop_type": "naive",
+		handler_args = {"prop_type": "2watch",
 						"prop_init": False}
 
 		self.handler_test(handler_class, handler_args)
 
 	def test_2watch_many_prop_init(self):
 		handler_class = TheoryHandlerMany
-		handler_args = {"prop_type": "naive",
+		handler_args = {"prop_type": "2watch",
 						"prop_init": True}
 
 		self.handler_test(handler_class, handler_args)
