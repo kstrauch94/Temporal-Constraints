@@ -88,6 +88,7 @@ class TheoryConstraintNaive:
 		self.watches = set()
 		self.lit_to_name = {}
 		self.name_to_lit = {}
+		self.at_to_lit = defaultdict(set)
 		self.active_constraints = {}
 
 		self.atom_signatures = set()
@@ -161,17 +162,53 @@ class TheoryConstraintNaive:
 
 				self.name_to_lit[uq_name, assigned_time] = solver_lit
 
+				self.at_to_lit[assigned_time].add(solver_lit)
+
 				self.logger.debug("watch: {}, solver lit {}, time {}, at {}".format(str(s_atom.symbol), solver_lit, time, assigned_time))
 				self.logger.debug("name {} to lit: {}".format(uq_name, self.name_to_lit[uq_name, assigned_time]))
 				
 	def propagate_init(self, init):
-		return
+		done_at = []
+		for assigned_time, lits in self.at_to_lit.items():
+			if len(lits) < self.size:
+				# if this happens, it could be because for one
+				# of the names in the constraint for a particular
+				# assigned time there was no symbolic atom for it
+				# this means that the atom does not exist
+				# hence, it is false and the nogood is useless
+				# so we delete it
+				done_at.append(assigned_time)
+				continue
+
+			# careful here, check assignment 2 only looks at 
+			# the lits we have for that particular assigned time
+			# if a lit is not added because it doesnt exist
+			# it will NOT count it as false
+			# and it might return that the clause is unit or conflicting
+			# when in fact its not
+			result = self.check_assignment(assigned_time, init)
+			if result == CONSTRAINT_CHECK["CONFLICT"]:
+				ng = self.form_nogood(assigned_time)
+				init.add_clause([-l for l in ng])
+
+			elif result == CONSTRAINT_CHECK["UNIT"]:
+				# if nogood is already unit at init
+				# then we can add the clause so it propagates at time 0
+				# then we delete assigned time because 
+				# it will never pop up again
+				
+				ng = self.form_nogood(assigned_time)
+				init.add_clause([-l for l in self.at_to_lit[assigned_time]])
+				done_at.append(assigned_time)
+
+		for dat in done_at:
+			self.at_to_lit.pop(dat)
 
 	def build_watches(self, init):
-		for lit, name_at in self.lit_to_name.items():
-			init.add_watch(lit)
-			self.watches.add(lit)
-
+		for assigned_time, lits in self.at_to_lit.items():
+			for lit in lits:
+				init.add_watch(lit)
+				self.watches.add(lit)
 
 	def parse_time(self, s_atom):
 		time = str(s_atom.symbol).split(",")[-1].replace(")","").strip()
@@ -450,8 +487,8 @@ class TheoryConstraint2watch:
 			self.at_to_lit.pop(dat)
 
 	def build_watches(self, init):
-		for at in self.at_to_lit:
-			for lit in self.at_to_lit[at]:
+		for at, lits in self.at_to_lit.items():
+			for lit in lits:
 				self.lit_to_at[lit].add(at)
 
 		for assigned_time, lits in self.at_to_lit.items():
@@ -478,24 +515,24 @@ class TheoryConstraint2watch:
 	def propagate(self, control, changes):
 		self.logger.debug("Propagating for constraint: %s", self.t_atom_names)
 		for lit in changes:
-			if lit in self.watches_to_at:
-				for assigned_time in self.watches_to_at[lit]:
+			#if lit in self.watches_to_at:
+			for assigned_time in self.watches_to_at[lit]:
 
-					self.logger.debug("propagating %i to assigned time %i", lit, assigned_time)
-						
-					result, ng = self.check_assignment(assigned_time, control)
+				self.logger.debug("propagating %i to assigned time %i", lit, assigned_time)
+					
+				result, ng = self.check_assignment(assigned_time, control)
 
-					if result == CONSTRAINT_CHECK["CONFLICT"]:
-						
-						self.logger.debug("immediately return the conflict!")
-						
-						self.logger.debug("adding nogood lits CONF: %s", ng)
-						
-						if not control.add_nogood(ng): # or not control.propagate():
-							self.unit_constraints = []
-							return 1
-						else:
-							PropagationError("constraint for a conflict added but propagations continues")
+				if result == CONSTRAINT_CHECK["CONFLICT"]:
+					
+					self.logger.debug("immediately return the conflict!")
+					
+					self.logger.debug("adding nogood lits CONF: %s", ng)
+					
+					if not control.add_nogood(ng): # or not control.propagate():
+						self.unit_constraints = []
+						return 1
+					else:
+						PropagationError("constraint for a conflict added but propagations continues")
 
 		for ng in self.unit_constraints:
 			self.logger.debug("adding nogood lits UNIT: %s", ng)
