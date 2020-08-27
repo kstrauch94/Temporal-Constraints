@@ -13,7 +13,8 @@ propagators: Dict[str, Any] = {}
 propagators["naive"] = TheoryConstraintNaive
 propagators["2watch"] = TheoryConstraint2watchBig
 
-theory_file = os.path.abspath("untimed/theory/untimed_theory.lp")
+
+theory_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../theory/untimed_theory.lp"))
 
 class TheoryHandler:
 
