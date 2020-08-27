@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, Any, List
 
 from untimed.propagator.propagator import ConstraintPropagator
@@ -12,7 +13,7 @@ propagators: Dict[str, Any] = {}
 propagators["naive"] = TheoryConstraintNaive
 propagators["2watch"] = TheoryConstraint2watchBig
 
-theory_file = "untimed/theory/untimed_theory.lp"
+theory_file = os.path.abspath("untimed/theory/untimed_theory.lp")
 
 class TheoryHandler:
 
