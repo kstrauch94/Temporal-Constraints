@@ -52,3 +52,29 @@ class Timer:
                 return func(*args, **kwargs)
 
         return wrapper_timer
+
+
+class Count:
+
+    counts = defaultdict(lambda : 0)
+
+    def __init__(self, name: str):
+
+        self.name=name
+    
+    def __enter__(self) -> "Count":
+        Count.counts[self.name] += 1
+
+        return self
+
+    def __exit__(self, *exc_info: Any) -> None:
+        pass
+
+    def __call__(self, func) -> Callable:
+    
+        @functools.wraps(func)
+        def wrapper_count(*args, **kwargs):
+            with self:
+                return func(*args, **kwargs)
+
+        return wrapper_count
