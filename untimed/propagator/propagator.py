@@ -31,15 +31,7 @@ class ConstraintPropagator:
 			if t_atom.term.name == "constraint":
 				self.logger.debug(str(t_atom))
 				self.constraints.append(self.tc_class(t_atom))
-			elif t_atom.term.name == "time":
-				self.logger.debug(str(t_atom))
-				self.max_time = int(str(t_atom.elements[0]).replace("+","")[1:-1])
-   
-		for c in self.constraints:
-			# add a max time for the constraint
-			# this has to be done before init_watches
-			c.add_max_time(self.max_time)
-		
+				
 		for c in self.constraints:
 			for sig in c.atom_signatures:
 				for s_atom in init.symbolic_atoms.by_signature(*sig):
@@ -49,6 +41,7 @@ class ConstraintPropagator:
 
 			c.build_watches(init)
 	
+	@util.Count("propagation")
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
 		
@@ -57,7 +50,8 @@ class ConstraintPropagator:
 			tc.propagate(control, changes)
 			if not control.propagate():
 				return
-
+	
+	@util.Count("undo")
 	@util.Timer("undo")
 	def undo(self, thread_id, assign, changes):
 
@@ -68,6 +62,9 @@ class ConstraintPropagator:
 		print(f"{self.__class__.__name__} Propagator stats")
 		for name, time in util.Timer.timers.items():
 			print(f"{name:15}:\t{time}")
+
+		for name, count in util.Count.counts.items():
+			print(f"{name:15}:\t{count}")
 
 		print("DONE")
 
@@ -101,6 +98,7 @@ class ConstraintPropagatorMany:
 		self.constraint.build_watches(init)
 	
 	#@util.Timer("Propagation")
+	@util.Count("propagation")
 	def propagate(self, control, changes):
 
 		with util.Timer("Propagation"):
@@ -109,6 +107,7 @@ class ConstraintPropagatorMany:
 				return
 
 	@util.Timer("undo")
+	@util.Count("undo")
 	def undo(self, thread_id, assign, changes):
 
 		self.constraint.undo(thread_id, assign, changes)
@@ -117,5 +116,8 @@ class ConstraintPropagatorMany:
 		print(f"{self.__class__.__name__} Propagator stats")
 		for name, time in util.Timer.timers.items():
 			print(f"{name:15}:\t{time}")
+
+		for name, count in util.Count.counts.items():
+			print(f"{name:15}:\t{count}")
 
 		print("DONE")

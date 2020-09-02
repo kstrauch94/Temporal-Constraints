@@ -75,19 +75,12 @@ class TheoryHandlerMany:
 				prop = ConstraintPropagatorMany(t_atom, self.tc_class, self.prop_init)
 				self.propagators.append(prop)
 
-			elif t_atom.term.name == "time":
-				self.logger.debug(str(t_atom))
-				max_time = int(str(t_atom.elements[0]).replace("+","")[1:-1])
- 
 		for p in self.propagators:
-			# add a max time for the constraint
-			# this has to be done before init_watches
-			p.add_max_time(max_time)
-			
 			prg.register_propagator(p)	
 
 	def on_stats(self) -> None:
-		self.propagators[0].print_stats()
+		if self.propagators != []:
+			self.propagators[0].print_stats()
 
 	def __str__(self) -> str:
 		return self.__class__.__name__ + " with propagator type {}".format(self.prop_type)
