@@ -1,20 +1,16 @@
-import clingo
 import logging
 
-import sys
 import untimed.util as util
-import time as time_module
-from collections import defaultdict
 
 from typing import Any, List, Dict, Union, Optional
 
 from untimed.propagator.theoryconstraint import TheoryConstraintNaive
-from untimed.propagator.theoryconstraint import TheoryConstraint2watchBig
+from untimed.propagator.theoryconstraint import TheoryConstraint2watch
 
 
 class ConstraintPropagator:
 
-	def __init__(self, tc_class: Any = TheoryConstraint2watchBig, prop_init: bool = True):
+	def __init__(self, tc_class: Any = TheoryConstraint2watch, prop_init: bool = True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		self.constraints: List[Any] = []
@@ -36,9 +32,8 @@ class ConstraintPropagator:
 			for sig in c.atom_signatures:
 				for s_atom in init.symbolic_atoms.by_signature(*sig):
 					c.init_watches(s_atom, init)
-			if self.prop_init:
-				c.propagate_init(init)
 
+			c.propagate_init(init, self.prop_init)
 			c.build_watches(init)
 	
 	@util.Count("propagation")
@@ -70,7 +65,7 @@ class ConstraintPropagator:
 
 class ConstraintPropagatorMany:
 
-	def __init__(self, t_atom, tc_class=TheoryConstraint2watchBig, prop_init=True):
+	def __init__(self, t_atom, tc_class=TheoryConstraint2watch, prop_init=True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		self.constraint = tc_class(t_atom)
@@ -92,9 +87,7 @@ class ConstraintPropagatorMany:
 			for s_atom in init.symbolic_atoms.by_signature(*sig):
 				self.constraint.init_watches(s_atom, init)
 
-		if self.prop_init:
-			self.constraint.propagate_init(init)
-
+		self.constraint.propagate_init(init, self.prop_init)
 		self.constraint.build_watches(init)
 	
 	#@util.Timer("Propagation")

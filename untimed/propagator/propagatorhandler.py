@@ -7,11 +7,10 @@ from untimed.propagator.propagator import ConstraintPropagatorMany
 
 from untimed.propagator.theoryconstraint import TheoryConstraintNaive
 from untimed.propagator.theoryconstraint import TheoryConstraint2watch
-from untimed.propagator.theoryconstraint import TheoryConstraint2watchBig
 
 propagators: Dict[str, Any] = {}
 propagators["naive"] = TheoryConstraintNaive
-propagators["2watch"] = TheoryConstraint2watchBig
+propagators["2watch"] = TheoryConstraint2watch
 
 
 theory_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../theory/untimed_theory.lp"))
