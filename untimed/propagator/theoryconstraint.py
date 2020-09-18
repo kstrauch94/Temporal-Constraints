@@ -4,8 +4,9 @@ from collections import defaultdict
 from typing import List, Dict, Tuple, Set, Callable, Any, Optional
 
 CONSTRAINT_CHECK = {"NONE": 0,
-					"UNIT": 1,
-					"CONFLICT": -1}
+                    "UNIT": 1,
+                    "CONFLICT": -1}
+
 
 class PropagationError(Exception):
 	pass
@@ -42,9 +43,8 @@ class TheoryConstraint:
 		self.t_atom_info: Dict[str, Dict[str, Any]] = {}
 		self.t_atom_names: List[str] = []
 		self.atom_signatures: Set[Tuple[str, int]] = set()
-		self.watches: Set[int] = set()
 
-		self.lit_to_at: Dict[int, Set[int]] = defaultdict(set)
+		self.watches_to_at: Dict[int, Set[int]] = defaultdict(set)
 		self.at_size: Dict[int, int] = defaultdict(lambda: 0)
 
 		self.max_time: int
@@ -56,6 +56,10 @@ class TheoryConstraint:
 
 		self.parse_atoms(constraint)
 
+	@property
+	def watches(self):
+		return self.watches_to_at.keys()
+
 	def parse_atoms(self, constraint) -> None:
 		self.parse_constraint_times(constraint.term.arguments)
 		for atom in constraint.elements:
@@ -63,7 +67,7 @@ class TheoryConstraint:
 				0].name  # this gives me the "type" of the term | e.g. for +~on(..) it would return +~
 
 			signature: Tuple[str, int] = (
-			atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments) + 1)
+				atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments) + 1)
 
 			name: str = str(atom.terms[0].arguments[0])[:-1] + ","
 
@@ -85,9 +89,9 @@ class TheoryConstraint:
 				time_mod = +1
 
 			self.t_atom_info[uq_name] = {"sign": sign,
-										 "time_mod": time_mod,
-										 "arity": signature[1],
-										 "name": name}
+			                             "time_mod": time_mod,
+			                             "arity": signature[1],
+			                             "name": name}
 
 			self.t_atom_names.append(uq_name)
 
@@ -131,7 +135,6 @@ class TheoryConstraint:
 				if assigned_time not in self.existing_at:
 					self.existing_at.append(assigned_time)
 
-				self.lit_to_at[solver_lit].add(assigned_time)
 				Map_Name_Lit.add(self.build_symbol_str(uq_name, time), solver_lit, time)
 
 	def propagate_init(self, init, propagate: bool = False) -> None:
@@ -169,7 +172,6 @@ class TheoryConstraint:
 
 	def parse_time(self, s_atom) -> int:
 		time = str(s_atom.symbol).split(",")[-1].replace(")", "").strip()
-
 		return int(time)
 
 	def get_assigned_time(self, uq_name: str, time: int) -> int:
@@ -236,10 +238,10 @@ class TheoryConstraint:
 	def size(self) -> int:
 		return len(self.t_atom_names)
 
+
 class TheoryConstraintNaive(TheoryConstraint):
 
 	def __init__(self, constraint) -> None:
-
 		super().__init__(constraint)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
@@ -248,21 +250,18 @@ class TheoryConstraintNaive(TheoryConstraint):
 			lits = self.form_nogood(assigned_time)
 			for lit in lits:
 				init.add_watch(lit)
-				self.watches.add(lit)
+				self.watches_to_at[lit].add(assigned_time)
 
 	def propagate(self, control, changes) -> None:
 		self.logger.debug("Propagating for constraint: {}".format(self.t_atom_names))
 		for lit in changes:
-			if lit in self.watches:
-				for assigned_time in self.lit_to_at[lit]:
+			if lit in self.watches_to_at:
+				for assigned_time in self.watches_to_at[lit]:
 					update_result, ng = self.check_assignment(assigned_time, control)
 
 					if update_result == CONSTRAINT_CHECK["CONFLICT"]:
 
 						self.logger.debug("immediately return the conflict!")
-
-						#ng = self.form_nogood(assigned_time)
-
 						self.logger.debug("adding nogood lits CONF: %s", ng)
 
 						if not control.add_nogood(ng):
@@ -288,7 +287,8 @@ class TheoryConstraintNaive(TheoryConstraint):
 					e + "\nwe tried to add a nogood but the assignment was already conflicting -> how didnt we realise this?")
 
 		self.unit_constraints = []
-		# the handler will call propagate
+	# the handler will call propagate
+
 
 class TheoryConstraint2watch(TheoryConstraint):
 
@@ -297,17 +297,11 @@ class TheoryConstraint2watch(TheoryConstraint):
 		super().__init__(constraint)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-		self.watches_to_at: Dict[int, Set[int]] = defaultdict(set)
-		self.at_to_watches: Dict[int, Set[int]] = defaultdict(set)
-
 	def build_watches(self, init) -> None:
 		for assigned_time in self.existing_at:
 			lits = self.form_nogood(assigned_time)
 			for lit in lits[:2]:
-
-				self.at_to_watches[assigned_time].add(lit)
 				self.watches_to_at[lit].add(assigned_time)
-				self.watches.add(lit)
 				init.add_watch(lit)
 
 	# @profile
@@ -358,24 +352,13 @@ class TheoryConstraint2watch(TheoryConstraint):
 
 		for old_watch, new_watch, assigned_time in info:
 			self.logger.debug("removing watch %i and replacing it by watch %i for assigned time %i", old_watch,
-							  new_watch, assigned_time)
-
-			self.logger.debug("old at to watches %s", self.at_to_watches[assigned_time])
+			                  new_watch, assigned_time)
 
 			# remove the lit as a watch for constraint assigned_time
 			self.watches_to_at[old_watch].remove(assigned_time)
-			self.at_to_watches[assigned_time].remove(old_watch)
 
 			# add new watch as a watch for constraint assigned_time
 			self.watches_to_at[new_watch].add(assigned_time)
-			self.at_to_watches[assigned_time].add(new_watch)
-
-			self.logger.debug("new watch to at %s", self.at_to_watches[assigned_time])
-			self.logger.debug("old watches: %s", self.watches)
-			# add new watch
-			# if it isnt watched yet
-
-			self.watches.add(new_watch)
 
 			if not control.has_watch(new_watch):
 				control.add_watch(new_watch)
@@ -383,9 +366,6 @@ class TheoryConstraint2watch(TheoryConstraint):
 			# if lit is not watching a constraint eliminate it
 			if len(self.watches_to_at[old_watch]) == 0:
 				control.remove_watch(old_watch)
-				self.watches.remove(old_watch)
-
-			self.logger.debug("new watches: %s", self.watches)
 
 	def get_replacement_watch(self, assigned_time: int, lit: int, control) -> Optional[Tuple[int, int, int]]:
 		"""
@@ -402,7 +382,7 @@ class TheoryConstraint2watch(TheoryConstraint):
 		"""
 
 		new_watch: Optional[int] = self.choose_lit(self.form_nogood(assigned_time), lit,
-												   control)
+		                                           control)
 		if new_watch is not None:
 			return lit, new_watch, assigned_time
 
