@@ -170,6 +170,15 @@ class TheoryConstraint:
 		for iat in invalid_at:
 			self.existing_at.remove(iat)
 
+	def propagate_unit_constraints(self, control):
+		for ng in self.unit_constraints:
+			if not control.add_nogood(ng):  # and control.propagate():
+				self.logger.debug("added unit ng but prop stops!")
+				self.unit_constraints = []
+				return
+
+		self.unit_constraints = []
+
 	def parse_time(self, s_atom) -> int:
 		time = str(s_atom.symbol).split(",")[-1].replace(")", "").strip()
 		return int(time)
@@ -238,6 +247,37 @@ class TheoryConstraint:
 	def size(self) -> int:
 		return len(self.t_atom_names)
 
+class TheoryConstraintSize1(TheoryConstraint):
+
+	def __init__(self, constraint) -> None:
+		super().__init__(constraint)
+		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
+
+	def propagate_init(self, init, propagate: bool = False) -> None:
+		pass
+
+	def init_watches(self, s_atom, init) -> None:
+		# since its size 1 we just add the nogood immediately
+		uq_name: str
+		for uq_name in self.t_atom_names:
+			name: str = self.t_atom_info[uq_name]["name"]
+			if str(s_atom.symbol).startswith(name):
+				time: int = self.parse_time(s_atom)
+				assigned_time: int = self.get_assigned_time(uq_name, time)
+
+				# max time and min time can not be none! add some detection just in case?
+				if self.max_time is not None and assigned_time > self.max_time:
+					self.logger.debug("no watch for lit cause assigned time would be too big: %s", s_atom.symbol)
+					continue
+
+				elif self.min_time is not None and assigned_time < self.min_time:
+					self.logger.debug("no watch for lit cause assigned time would be too small: %s", s_atom.symbol)
+					continue
+
+				solver_lit: int = init.solver_literal(s_atom.literal) * self.t_atom_info[uq_name]["sign"]
+
+				# add nogood
+				init.add_clause([-solver_lit])
 
 class TheoryConstraintNaive(TheoryConstraint):
 
@@ -270,24 +310,7 @@ class TheoryConstraintNaive(TheoryConstraint):
 						else:
 							PropagationError("constraint for a conflict added but propagations continues")
 
-		ng: List[int]
-		for ng in self.unit_constraints:
-			try:
-				if not control.add_nogood(ng):  # or not control.propagate():
-					self.logger.debug("assignment conflict because add_nogoog returned False: {}".format(
-						control.assignment.has_conflict))
-					self.logger.debug("added unit ng but prop stops!")
-					self.unit_constraints = []
-					break
-			except RuntimeError as e:
-				self.logger.debug("assignment conflict from runtime error: {}".format(control.assignment.has_conflict))
-				for l in ng:
-					self.logger.info("{}, {}".format(Map_Name_Lit.grab_name[l], control.assignment.value(l)))
-				raise PropagationError(
-					e + "\nwe tried to add a nogood but the assignment was already conflicting -> how didnt we realise this?")
-
-		self.unit_constraints = []
-	# the handler will call propagate
+		self.propagate_unit_constraints(control)
 
 
 class TheoryConstraint2watch(TheoryConstraint):
@@ -335,18 +358,7 @@ class TheoryConstraint2watch(TheoryConstraint):
 
 		self.replace_watches(replacement_info, control)
 
-		for ng in self.unit_constraints:
-			self.logger.debug("adding nogood lits UNIT: %s", ng)
-			self.logger.debug("lit names:")
-			for l in ng:
-				self.logger.debug(Map_Name_Lit.grab_name(l))
-
-			if not control.add_nogood(ng):  # and control.propagate():
-				self.logger.debug("added unit ng but prop stops!")
-				self.unit_constraints = []
-				return
-
-		self.unit_constraints = []
+		self.propagate_unit_constraints(control)
 
 	def replace_watches(self, info: List[Tuple[int, int, int]], control) -> None:
 
