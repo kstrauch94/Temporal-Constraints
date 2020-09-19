@@ -5,22 +5,13 @@ from typing import Dict, Any, List
 from untimed.propagator.propagator import ConstraintPropagator
 from untimed.propagator.propagator import ConstraintPropagatorMany
 
-from untimed.propagator.theoryconstraint import TheoryConstraintNaive
-from untimed.propagator.theoryconstraint import TheoryConstraint2watch
-
-propagators: Dict[str, Any] = {}
-propagators["naive"] = TheoryConstraintNaive
-propagators["2watch"] = TheoryConstraint2watch
-
-
 theory_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../theory/untimed_theory.lp"))
+
 
 class TheoryHandler:
 
 	def __init__(self, prop_type: str = "2watch", prop_init: bool = True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
-
-		self.tc_class = propagators[prop_type]
 
 		self.prop_type = prop_type
 
@@ -36,23 +27,22 @@ class TheoryHandler:
 		of reading the theory atoms when the init call is made
 		to the propagator
 		"""
-		self.propagator = ConstraintPropagator(self.tc_class, self.prop_init)
+		self.propagator = ConstraintPropagator(self.prop_type, self.prop_init)
 
 		prg.register_propagator(self.propagator)
 
 	def on_stats(self) -> None:
-
 		self.propagator.print_stats()
 
 	def __str__(self) -> str:
-		return(self.__class__.__name__ + " with propagator type {}".format(self.prop_type))
+		return self.__class__.__name__ + " with propagator type {}".format(self.prop_type)
+
 
 class TheoryHandlerMany:
 
 	def __init__(self, prop_type: str = "2watch", prop_init: bool = True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-		self.tc_class = propagators[prop_type]
 		self.propagators: List[ConstraintPropagatorMany] = []
 
 		self.prop_type: str = prop_type
@@ -71,14 +61,14 @@ class TheoryHandlerMany:
 		for t_atom in prg.theory_atoms:
 			if t_atom.term.name == "constraint":
 				self.logger.debug(str(t_atom))
-				prop = ConstraintPropagatorMany(t_atom, self.tc_class, self.prop_init)
+				prop = ConstraintPropagatorMany(t_atom, self.prop_type, self.prop_init)
 				self.propagators.append(prop)
 
 		for p in self.propagators:
-			prg.register_propagator(p)	
+			prg.register_propagator(p)
 
 	def on_stats(self) -> None:
-		if self.propagators != []:
+		if self.propagators:
 			self.propagators[0].print_stats()
 
 	def __str__(self) -> str:

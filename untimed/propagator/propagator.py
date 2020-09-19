@@ -6,28 +6,50 @@ from typing import Any, List, Dict, Union, Optional
 
 from untimed.propagator.theoryconstraint import TheoryConstraintNaive
 from untimed.propagator.theoryconstraint import TheoryConstraint2watch
+from untimed.propagator.theoryconstraint import TheoryConstraintSize1
+from untimed.propagator.theoryconstraint import TheoryConstraintSize2
+
+TWO_WATCH_TC = {1: TheoryConstraintSize1,
+                2: TheoryConstraintSize2,
+                -1: TheoryConstraint2watch}
+
+NAIVE_TC = {1: TheoryConstraintSize1,
+            2: TheoryConstraintSize2,
+            -1: TheoryConstraintNaive}
+
+
+TC_DICT = {"2watch": TWO_WATCH_TC,
+           "naive" : NAIVE_TC}
+
+
+def build_tc(t_atom, tc_dict):
+	l = len(t_atom.elements)
+	if l in tc_dict:
+		return tc_dict[l](t_atom)
+	else:
+		return tc_dict[-1](t_atom)
 
 
 class ConstraintPropagator:
 
-	def __init__(self, tc_class: Any = TheoryConstraint2watch, prop_init: bool = True):
+	def __init__(self, prop_type="2watch", prop_init: bool = True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		self.constraints: List[Any] = []
 		self.max_time: Optional[int] = None
 
-		self.tc_class = tc_class
+		self.prop_type = prop_type
 
 		self.prop_init = prop_init
-	
+
 	@util.Timer("Init")
 	def init(self, init):
 
 		for t_atom in init.theory_atoms:
 			if t_atom.term.name == "constraint":
 				self.logger.debug(str(t_atom))
-				self.constraints.append(self.tc_class(t_atom))
-				
+				self.constraints.append(build_tc(t_atom, TC_DICT[self.prop_type]))
+
 		for c in self.constraints:
 			for sig in c.atom_signatures:
 				for s_atom in init.symbolic_atoms.by_signature(*sig):
@@ -35,17 +57,16 @@ class ConstraintPropagator:
 
 			c.propagate_init(init, self.prop_init)
 			c.build_watches(init)
-	
+
 	@util.Count("propagation")
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
-		
-		all_nogoods = []
+
 		for tc in self.constraints:
 			tc.propagate(control, changes)
 			if not control.propagate():
 				return
-	
+
 	@util.Count("undo")
 	@util.Timer("undo")
 	def undo(self, thread_id, assign, changes):
@@ -63,34 +84,34 @@ class ConstraintPropagator:
 
 		print("DONE")
 
+
 class ConstraintPropagatorMany:
 
-	def __init__(self, t_atom, tc_class=TheoryConstraint2watch, prop_init=True):
+	def __init__(self, t_atom, prop_type="2watch", prop_init=True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-		self.constraint = tc_class(t_atom)
+		self.constraint = build_tc(t_atom, TC_DICT[prop_type])
 
 		self.lit_to_constraints = {}
 
-		self.tc_class = tc_class
-	
-		self.prop_init = prop_init
+		self.prop_type = prop_type
 
+		self.prop_init = prop_init
 
 	def add_max_time(self, max_time):
 		self.constraint.add_max_time(max_time)
 
 	@util.Timer("Init")
 	def init(self, init):
-		
+
 		for sig in self.constraint.atom_signatures:
 			for s_atom in init.symbolic_atoms.by_signature(*sig):
 				self.constraint.init_watches(s_atom, init)
 
 		self.constraint.propagate_init(init, self.prop_init)
 		self.constraint.build_watches(init)
-	
-	#@util.Timer("Propagation")
+
+	# @util.Timer("Propagation")
 	@util.Count("propagation")
 	def propagate(self, control, changes):
 

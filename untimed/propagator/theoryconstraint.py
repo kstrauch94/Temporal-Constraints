@@ -247,6 +247,7 @@ class TheoryConstraint:
 	def size(self) -> int:
 		return len(self.t_atom_names)
 
+
 class TheoryConstraintSize1(TheoryConstraint):
 
 	def __init__(self, constraint) -> None:
@@ -278,6 +279,30 @@ class TheoryConstraintSize1(TheoryConstraint):
 
 				# add nogood
 				init.add_clause([-solver_lit])
+
+
+class TheoryConstraintSize2(TheoryConstraint):
+
+	def __init__(self, constraint) -> None:
+		super().__init__(constraint)
+		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
+
+	def build_watches(self, init) -> None:
+		for assigned_time in self.existing_at:
+			lits = self.form_nogood(assigned_time)
+			for lit in lits:
+				init.add_watch(lit)
+				self.watches_to_at[lit].add(assigned_time)
+
+	def propagate(self, control, changes) -> None:
+		for lit in changes:
+			if lit in self.watches_to_at:
+				for assigned_time in self.watches_to_at[lit]:
+					ng = self.form_nogood(assigned_time)
+
+					if not control.add_nogood(ng):
+						return
+
 
 class TheoryConstraintNaive(TheoryConstraint):
 
