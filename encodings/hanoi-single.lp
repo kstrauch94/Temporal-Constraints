@@ -15,53 +15,45 @@
 time(T) :- timestep(T).
 
 % Read in data
-on(N1,N,0) :- on0(N,N1).
+on(0,N1,N) :- on0(N,N1).
 %onG(K,N1,N) :- ongoal(N,N1), steps(K).
 
 % Specify valid arrangements of disks
 % Basic condition. Smaller disks are on larger ones
 
-:- time(T), on(N1,N,T), N1>=N.
+:- time(T), on(T,N1,N), N1>=N.
 
 % Specify a valid move (only for T<t)
 % pick a disk to move
 
 { occurs(some_action,T) } :- time(T), T>0.
-1 { move(N,T) : disk(N) } 1 :- occurs(some_action,T).
+1 { move(T,N) : disk(N) } 1 :- occurs(some_action,T).
 
 % pick a disk onto which to move
-1 { where(N,T) : disk(N) }1 :- occurs(some_action,T).
+1 { where(T,N) : disk(N) }1 :- occurs(some_action,T).
 
 % pegs cannot be moved
-%:- move(N,T), N<5.
-:-&constraint(1,B){+.move(N)}, steps(B), disk(N), N<5.
+:- move(T,N), N<5.
 
 % only top disk can be moved
-:- on(N,N1,T-1), move(N,T).
-%:-&constraint(1,B){+~on(N,N1); +.move(N)}, steps(B), disk(N), disk(N1), N1 > N, N1 > 4.
+:- on(T-1,N,N1), move(T,N).
 
 % a disk can be placed on top only.
-:- on(N,N1,T-1), where(N,T).
-%:-&constraint(1,B){+~on(N,N1); +.where(N)}, steps(B), disk(N), disk(N1), N1 > N, N1 > 4.
-
-%&time{ +B } :-  steps(B).
+:- on(T-1,N,N1), where(T,N).
 
 % no disk is moved in two consecutive moves
-%:- move(N,T), move(N,T-1).
-:-&constraint(1,B){+.move(N); +~move(N)} , steps(B), disk(N), N>4.
+:- move(T,N), move(TM1,N), TM1=T-1.
 
 % Specify effects of a move
-on(N1,N,T) :- move(N,T), where(N1,T).
-on(N,N1,T) :- time(T), T>0,
-              on(N,N1,T-1), not move(N1,T).
+on(T,N1,N) :- move(T,N), where(T,N1).
+on(T,N,N1) :- time(T), T>0,
+              on(T-1,N,N1), not move(T,N1).
 
 
 % Goal description
-:- not on(N,N1,T), ongoal(N1,N), steps(T).
-:- on(N,N1,T), not ongoal(N1,N), steps(T).
+:- not on(T,N,N1), ongoal(N1,N), steps(T).
+:- on(T,N,N1), not ongoal(N1,N), steps(T).
 
 % Solution
-#show put(M,N,T) : move(N,T), where(M,T).
-#show on/3.
-#show where/2.
+#show put(M,N,T) : move(T,N), where(T,M).
 
