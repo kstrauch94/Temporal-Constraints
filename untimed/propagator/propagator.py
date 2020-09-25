@@ -10,11 +10,11 @@ from untimed.propagator.theoryconstraint import TheoryConstraintSize1
 from untimed.propagator.theoryconstraint import TheoryConstraintSize2
 
 TWO_WATCH_TC = {1: TheoryConstraintSize1,
-                2: TheoryConstraintSize2,
+                2: TheoryConstraint2watch,
                 -1: TheoryConstraint2watch}
 
 NAIVE_TC = {1: TheoryConstraintSize1,
-            2: TheoryConstraintSize2,
+            2: TheoryConstraintNaive,
             -1: TheoryConstraintNaive}
 
 
@@ -51,12 +51,7 @@ class ConstraintPropagator:
 				self.constraints.append(build_tc(t_atom, TC_DICT[self.prop_type]))
 
 		for c in self.constraints:
-			for sig in c.atom_signatures:
-				for s_atom in init.symbolic_atoms.by_signature(*sig):
-					c.init_watches(s_atom, init)
-
-			c.propagate_init(init, self.prop_init)
-			c.build_watches(init)
+			c.init(init, self.prop_init)
 
 	@util.Count("propagation")
 	@util.Timer("Propagation")
@@ -104,17 +99,11 @@ class ConstraintPropagatorMany:
 	@util.Timer("Init")
 	def init(self, init):
 
-		for sig in self.constraint.atom_signatures:
-			for s_atom in init.symbolic_atoms.by_signature(*sig):
-				self.constraint.init_watches(s_atom, init)
-
-		self.constraint.propagate_init(init, self.prop_init)
-		self.constraint.build_watches(init)
+		self.constraint.init(init, self.prop_init)
 
 	# @util.Timer("Propagation")
 	@util.Count("propagation")
 	def propagate(self, control, changes):
-
 		with util.Timer("Propagation"):
 			self.constraint.propagate(control, changes)
 			if not control.propagate():
