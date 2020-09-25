@@ -83,7 +83,7 @@ init(at(robot(R),node(X,Y))) :- init(object(robot,R), value(at, (X,Y))).
 
 % robots cant swap places
 %:- holds(at(robot(R1),node(X1,Y1)),T), holds(at(robot(R2),node(X2,Y2)),T), holds(at(robot(R1),node(X2,Y2)),T-1), holds(at(robot(R2),node(X1,Y1)),T-1), R1 > R2, |X2-X1|+|Y2-Y1|==1, time(T), T>0.
-:-&constraint(1,horizon){ +.holds(at(robot(R1),node(X1,Y1))); +.holds(at(robot(R2),node(X2,Y2))); +~holds(at(robot(R1),node(X2,Y2))); +~holds(at(robot(R2),node(X1,Y1))) }, R1 > R2, |X2-X1|+|Y2-Y1|==1, time(T), T>0, node(X1,Y1), node(X2,Y2), robot(R1), robot(R2). 
+:-&constraint(1,horizon){ +.holds(at(robot(R1),node(X1,Y1))); +.holds(at(robot(R2),node(X2,Y2))); +~holds(at(robot(R1),node(X2,Y2))); +~holds(at(robot(R2),node(X1,Y1))) }, R1 > R2, |X2-X1|+|Y2-Y1|==1, time(T), T>0, node(X1,Y1), node(X2,Y2), robot(robot(R1)), robot(robot(R2)).
 %:- holds(at(R1,node(X1,Y1)),T), holds(at(R2,node(X1,Y1-1)),T), do(R1,action(move(0,-1)),T), do(R2,action(move(0,1)),T), R1 != R2, time(T).
 %:- holds(at(R1,node(X1,Y1)),T), holds(at(R2,node(X1-1,Y1)),T), do(R1,action(move(-1,0)),T), do(R2,action(move(1,0)),T), R1 != R2, time(T).
 
