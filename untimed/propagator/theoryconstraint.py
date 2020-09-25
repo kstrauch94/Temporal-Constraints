@@ -1,7 +1,9 @@
 import logging
 from collections import defaultdict
+import clingo
 
 from typing import List, Dict, Tuple, Set, Callable, Any, Optional
+import untimed.util as util
 
 CONSTRAINT_CHECK = {"NONE": 0,
                     "UNIT": 1,
@@ -63,8 +65,8 @@ class TheoryConstraint:
 	def parse_atoms(self, constraint) -> None:
 		self.parse_constraint_times(constraint.term.arguments)
 		for atom in constraint.elements:
-			term_type: str = atom.terms[
-				0].name  # this gives me the "type" of the term | e.g. for +~on(..) it would return +~
+			# this gives me the "type" of the term | e.g. for +~on(..) it would return +~
+			term_type: str = atom.terms[0].name
 
 			signature: Tuple[str, int] = (
 				atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments) + 1)
@@ -90,7 +92,8 @@ class TheoryConstraint:
 
 			self.t_atom_info[uq_name] = {"sign": sign,
 			                             "time_mod": time_mod,
-			                             "arity": signature[1],
+			                             "signature": signature,
+			                             "args": [clingo.parse_term(str(a)) for a in atom.terms[0].arguments[0].arguments],
 			                             "name": name}
 
 			self.t_atom_names.append(uq_name)
@@ -111,31 +114,34 @@ class TheoryConstraint:
 		elif self.t_atom_info[uq_name]["sign"] == -1:
 			return f"not {name}{time})"
 
-	def init_watches(self, s_atom, init) -> None:
+	def init(self, init, propagate: bool = False) -> None:
+		self.init_watches(init)
+		self.propagate_init(init, propagate)
+		self.build_watches(init)
 
-		uq_name: str
-		for uq_name in self.t_atom_names:
-			name: str = self.t_atom_info[uq_name]["name"]
-			if str(s_atom.symbol).startswith(name):
-				time: int = self.parse_time(s_atom)
-				assigned_time: int = self.get_assigned_time(uq_name, time)
+	def init_watches(self, init) -> None:
+		for uq_name, info in self.t_atom_info.items():
+			for s_atom in init.symbolic_atoms.by_signature(*info["signature"]):
+				if s_atom.symbol.arguments[:-1] == info["args"]:
+					time: int = self.parse_time(s_atom)
+					assigned_time: int = self.get_assigned_time(uq_name, time)
 
-				# max time and min time can not be none! add some detection just in case?
-				if self.max_time is not None and assigned_time > self.max_time:
-					self.logger.debug("no watch for lit cause assigned time would be too big: %s", s_atom.symbol)
-					continue
+					# max time and min time can not be none! add some detection just in case?
+					if self.max_time is not None and assigned_time > self.max_time:
+						self.logger.debug("no watch for lit cause assigned time would be too big: %s", s_atom.symbol)
+						continue
 
-				elif self.min_time is not None and assigned_time < self.min_time:
-					self.logger.debug("no watch for lit cause assigned time would be too small: %s", s_atom.symbol)
-					continue
+					elif self.min_time is not None and assigned_time < self.min_time:
+						self.logger.debug("no watch for lit cause assigned time would be too small: %s", s_atom.symbol)
+						continue
 
-				solver_lit: int = init.solver_literal(s_atom.literal) * self.t_atom_info[uq_name]["sign"]
+					solver_lit: int = init.solver_literal(s_atom.literal) * self.t_atom_info[uq_name]["sign"]
 
-				self.at_size[assigned_time] += 1
-				if assigned_time not in self.existing_at:
-					self.existing_at.append(assigned_time)
+					self.at_size[assigned_time] += 1
+					if assigned_time not in self.existing_at:
+						self.existing_at.append(assigned_time)
 
-				Map_Name_Lit.add(self.build_symbol_str(uq_name, time), solver_lit, time)
+					Map_Name_Lit.add(self.build_symbol_str(uq_name, time), solver_lit, time)
 
 	def propagate_init(self, init, propagate: bool = False) -> None:
 		invalid_at = []
@@ -225,9 +231,9 @@ class TheoryConstraint:
 	def form_nogood(self, assigned_time: int) -> List[int]:
 		if assigned_time not in self.existing_at:
 			return []
-		# with this function I can make nogoods just from an assigned time
+
 		ng: Set[int] = set()
-		self.logger.debug("Form nogoods for assigned time: {}, {}".format(assigned_time, self.t_atom_names))
+
 		for uq_name in self.t_atom_names:
 			time: int = self.reverse_assigned_time(uq_name, assigned_time)
 			ng.add(Map_Name_Lit.grab_lit(self.build_symbol_str(uq_name, time)))
@@ -255,30 +261,32 @@ class TheoryConstraintSize1(TheoryConstraint):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	def propagate_init(self, init, propagate: bool = False) -> None:
+		"""
+		overwriting parent class method so it does nothing when called
+		"""
 		pass
 
-	def init_watches(self, s_atom, init) -> None:
-		# since its size 1 we just add the nogood immediately
-		uq_name: str
-		for uq_name in self.t_atom_names:
-			name: str = self.t_atom_info[uq_name]["name"]
-			if str(s_atom.symbol).startswith(name):
-				time: int = self.parse_time(s_atom)
-				assigned_time: int = self.get_assigned_time(uq_name, time)
+	def init_watches(self, init) -> None:
 
-				# max time and min time can not be none! add some detection just in case?
-				if self.max_time is not None and assigned_time > self.max_time:
-					self.logger.debug("no watch for lit cause assigned time would be too big: %s", s_atom.symbol)
-					continue
+		for uq_name, info in self.t_atom_info.items():
+			for s_atom in init.symbolic_atoms.by_signature(*info["signature"]):
+				if s_atom.symbol.arguments[:-1] == info["args"]:
+					time: int = self.parse_time(s_atom)
+					assigned_time: int = self.get_assigned_time(uq_name, time)
 
-				elif self.min_time is not None and assigned_time < self.min_time:
-					self.logger.debug("no watch for lit cause assigned time would be too small: %s", s_atom.symbol)
-					continue
+					# max time and min time can not be none! add some detection just in case?
+					if self.max_time is not None and assigned_time > self.max_time:
+						self.logger.debug("no watch for lit cause assigned time would be too big: %s", s_atom.symbol)
+						continue
 
-				solver_lit: int = init.solver_literal(s_atom.literal) * self.t_atom_info[uq_name]["sign"]
+					elif self.min_time is not None and assigned_time < self.min_time:
+						self.logger.debug("no watch for lit cause assigned time would be too small: %s", s_atom.symbol)
+						continue
 
-				# add nogood
-				init.add_clause([-solver_lit])
+					solver_lit: int = init.solver_literal(s_atom.literal) * self.t_atom_info[uq_name]["sign"]
+
+					# add nogood
+					init.add_clause([-solver_lit])
 
 
 class TheoryConstraintSize2(TheoryConstraint):
@@ -361,21 +369,15 @@ class TheoryConstraint2watch(TheoryConstraint):
 			if lit in self.watches_to_at:
 				for assigned_time in self.watches_to_at[lit]:
 
-					self.logger.debug("propagating %i to assigned time %i", lit, assigned_time)
-
 					result, ng = self.check_assignment(assigned_time, control)
 
 					if result == CONSTRAINT_CHECK["CONFLICT"]:
-
-						self.logger.debug("immediately return the conflict!")
-
-						self.logger.debug("adding nogood lits CONF: %s", ng)
 
 						if not control.add_nogood(ng):  # or not control.propagate():
 							self.unit_constraints = []
 							return
 						else:
-							self.logger.debug("constraint for a conflict added and propagations continues???")
+							self.logger.debug("constraint for a conflict added and propagations continues?")
 
 					info = self.get_replacement_watch(assigned_time, lit, control)
 					if info is not None:
