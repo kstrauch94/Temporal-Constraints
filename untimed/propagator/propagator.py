@@ -23,6 +23,12 @@ TC_DICT = {"2watch": TWO_WATCH_TC,
 
 
 def build_tc(t_atom, tc_dict):
+	"""
+	return an appropriate TheoryConstraint object for the given theory atom size
+	:param t_atom: theory atom
+	:param tc_dict: theory constraint size dict
+	:return: TheoryConstraint object
+	"""
 	l = len(t_atom.elements)
 	if l in tc_dict:
 		return tc_dict[l](t_atom)
@@ -31,12 +37,22 @@ def build_tc(t_atom, tc_dict):
 
 
 class ConstraintPropagator:
+	"""
+	This implements the Propagator interface for clingo.
+
+	Members:
+
+	constraints             -- List of the theory constraints handled by this propagator
+
+	prop_type               -- The type of propagator (Either naive or 2watch)
+
+	prop_init               -- Flag that says if the constraint should propagate on the init call
+	"""
 
 	def __init__(self, prop_type="2watch", prop_init: bool = True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		self.constraints: List[Any] = []
-		self.max_time: Optional[int] = None
 
 		self.prop_type = prop_type
 
@@ -81,20 +97,26 @@ class ConstraintPropagator:
 
 
 class ConstraintPropagatorMany:
+	"""
+	This implements the Propagator interface for clingo.
+
+	Members:
+
+	constraint              -- The theory constraint handled by this propagator
+
+	prop_type               -- The type of propagator (Either naive or 2watch)
+
+	prop_init               -- Flag that says if the constraint should propagate on the init call
+	"""
 
 	def __init__(self, t_atom, prop_type="2watch", prop_init=True):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		self.constraint = build_tc(t_atom, TC_DICT[prop_type])
 
-		self.lit_to_constraints = {}
-
 		self.prop_type = prop_type
 
 		self.prop_init = prop_init
-
-	def add_max_time(self, max_time):
-		self.constraint.add_max_time(max_time)
 
 	@util.Timer("Init")
 	def init(self, init):

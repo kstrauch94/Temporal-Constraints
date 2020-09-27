@@ -15,6 +15,10 @@ class PropagationError(Exception):
 
 
 class Map_Name_Lit:
+	"""
+	Maps a name id to a solver literal.
+	Has helper methods to retrieve either a literal or a name id
+	"""
 	name_to_lit: Dict[Tuple[int, str, int], int] = {}
 	lit_to_name: Dict[int, Set[str]] = defaultdict(set)
 
@@ -39,25 +43,56 @@ class Map_Name_Lit:
 
 
 def build_symbol_id(info, time):
+	"""
+	Builds the name_id for Map_Name_Lit
+
+	:param info: Information dictionary for a particular atom
+	:param time: The time point
+	:return: A name_id Triple
+	"""
 	return info["sign"], info["name"], time
 
 
 def parse_time(s_atom) -> int:
+	"""
+	Parses the time point of the given atom
+	:param s_atom: clingo symbolic atom
+	:return: time
+	"""
 	time = str(s_atom.symbol).split(",")[-1].replace(")", "").strip()
 	return int(time)
 
 
 def get_assigned_time(info: Dict[str, Any], time: int) -> int:
-	# info is the info of just ONE atom
+	"""
+	Calculates the assigned time based on the real time point
+
+	:param info: Information dictionary for a particular atom
+	:param time: The time point
+	:return: assigned time
+	"""
 	return time + info["time_mod"]
 
 
 def reverse_assigned_time(info: Dict[str, Any], assigned_time: int) -> int:
+	"""
+	Calculates the real time point based on the assigned time
+
+	:param info: Information dictionary for a particular atom
+	:param assigned_time: The assigned time
+	:return: time
+	"""
 	return assigned_time - info["time_mod"]
 
 
 def form_nogood(t_atom_info, assigned_time: int, existing_at) -> List[int]:
-	# full info is the info of all the atoms
+	"""
+
+	:param t_atom_info: Complete information dictionary of the theory constraint
+	:param assigned_time: the assigned time
+	:param existing_at: list of valid assigned times
+	:return: the nogood for the given assigned time and constraint
+	"""
 	if assigned_time not in existing_at:
 		return []
 
@@ -71,11 +106,31 @@ def form_nogood(t_atom_info, assigned_time: int, existing_at) -> List[int]:
 
 
 class TheoryConstraint:
+	"""
+	Base class for all theory constraints.
+
+	Members:
+	t_atom_info             -- Dictionary that holds relevant information
+	                           for all atoms in the constraint
+
+	watches_to_at           -- Dictionary mapping the current watches to
+							   their respective assigned time(s)
+
+	max_time                -- Max time of the theory constraint
+
+	min_time                -- Min time of the theory constraint
+
+	existing_at             -- List of the valid assigned times
+
+	unit_constraints        -- List of the unit constraints resulting from
+							   one propagation call. This is reset to empty
+							   whenever the propagation has finished
+
+	"""
 
 	def __init__(self, constraint):
 
 		self.t_atom_info: Dict[str, Dict[str, Any]] = {}
-		self.atom_signatures: Set[Tuple[str, int]] = set()
 
 		self.watches_to_at: Dict[int, Set[int]] = defaultdict(set)
 		self.at_size: Dict[int, int] = defaultdict(lambda: 0)
@@ -98,6 +153,11 @@ class TheoryConstraint:
 		return self.watches_to_at.keys()
 
 	def parse_atoms(self, constraint) -> None:
+		"""
+		Extract the relevant information of the given theory atom and populate self.t_atom_info
+
+		:param constraint: clingo TheoryAtom
+		"""
 		self.parse_constraint_times(constraint.term.arguments)
 		for atom in constraint.elements:
 			# this gives me the "type" of the term | e.g. for +~on(..) it would return +~
@@ -109,8 +169,6 @@ class TheoryConstraint:
 			name: str = str(atom.terms[0].arguments[0])[:-1] + ","
 
 			uq_name: str = term_type + name
-
-			self.atom_signatures.add(signature)
 
 			if term_type == "+.":
 				sign = 1
@@ -132,6 +190,11 @@ class TheoryConstraint:
 			                             "name": name}
 
 	def parse_constraint_times(self, times):
+		"""
+		Get the minimum and maximum time from the theory atom
+
+		:param times: List of theory atom arguments
+		"""
 		if len(times) == 1:
 			self.max_time = times[0].number
 			self.min_time = 0
@@ -145,6 +208,13 @@ class TheoryConstraint:
 		self.build_watches(init)
 
 	def init_watches(self, init) -> None:
+		"""
+		Name is somewhat misleading!
+		Loop through the symbolic atoms matching the signatures of the atoms in the theory constraint.
+		If a match is found, we add it to Map_Name_Lit and update self.at_size and self.existing_at
+
+		:param init: clingo PropagateInit class
+		"""
 		for uq_name, info in self.t_atom_info.items():
 			for s_atom in init.symbolic_atoms.by_signature(*info["signature"]):
 				if s_atom.symbol.arguments[:-1] == info["args"]:
@@ -169,6 +239,14 @@ class TheoryConstraint:
 					Map_Name_Lit.add(build_symbol_id(self.t_atom_info[uq_name], time), solver_lit)
 
 	def propagate_init(self, init, propagate: bool = False) -> None:
+		"""
+		We find out which assigned times are not valid.
+		If the assigned time is valid and propagate is True we check all nogoods of the theoryconstraint
+		for conflicts or unit and deal with them accordingly
+
+		:param init: clingo PropagateInit class
+		:param propagate: Flag that enables checking for conflicts/units
+		"""
 		invalid_at = []
 		for assigned_time in self.existing_at:
 			if self.at_size[assigned_time] < self.size:
@@ -202,6 +280,13 @@ class TheoryConstraint:
 			self.existing_at.remove(iat)
 
 	def propagate_unit_constraints(self, control):
+		"""
+		Used at the end of a propagate call.
+		It loops over all nogoods that are unit and adds them to the solver.
+
+		:param control: clingo PropagateControl class
+		:return:
+		"""
 		for ng in self.unit_constraints:
 			if not control.add_nogood(ng):  # and control.propagate():
 				self.logger.debug("added unit ng but prop stops!")
@@ -211,6 +296,13 @@ class TheoryConstraint:
 		self.unit_constraints = []
 
 	def check_assignment(self, assigned_time, control) -> Tuple[int, List[int]]:
+		"""
+		Checks if a nogood is a conflict or unit in the current assignment
+		--- could make this a static method? --- Could also make this better by just passing the nogood
+
+		:param assigned_time: assigned time for which to create the nogood
+		:param control: clingo PropagateControl class
+		"""
 		ng: List[int] = []
 		true_count: int = 0
 
@@ -244,6 +336,10 @@ class TheoryConstraint:
 			return CONSTRAINT_CHECK["NONE"], []
 
 	def build_watches(self, init):
+		"""
+		Add watches to the solver. This should be implement by child class
+		:param init: clingo PropagateInit class
+		"""
 		pass
 
 	def undo(self, thread_id, assign, changes) -> None:
@@ -270,7 +366,9 @@ class TheoryConstraintSize1(TheoryConstraint):
 		pass
 
 	def init_watches(self, init) -> None:
-
+		"""
+		Instead of adding to Map_Name_Lit it immediately adds a clause for the nogood
+		"""
 		for uq_name, info in self.t_atom_info.items():
 			for s_atom in init.symbolic_atoms.by_signature(*info["signature"]):
 				if s_atom.symbol.arguments[:-1] == info["args"]:
@@ -299,6 +397,9 @@ class TheoryConstraintSize2(TheoryConstraint):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	def build_watches(self, init) -> None:
+		"""
+		Since there are only 2 atoms in the constraint we add all literals as watches
+		"""
 		for assigned_time in self.existing_at:
 			lits = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
 			for lit in lits:
@@ -306,6 +407,13 @@ class TheoryConstraintSize2(TheoryConstraint):
 				self.watches_to_at[lit].add(assigned_time)
 
 	def propagate(self, control, changes) -> None:
+		"""
+		For any relevant change, immediately form the nogood
+		for the assigned times it is in and add it to the solver
+
+		:param control: clingo PropagateControl class
+		:param changes: list of watches that were assigned
+		"""
 		for lit in changes:
 			if lit in self.watches_to_at:
 				for assigned_time in self.watches_to_at[lit]:
@@ -322,6 +430,10 @@ class TheoryConstraintNaive(TheoryConstraint):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	def build_watches(self, init) -> None:
+		"""
+		For a naive treatment of watches, we simply
+		add all solver literals for the constraint as watches
+		"""
 		for assigned_time in self.existing_at:
 			lits = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
 			for lit in lits:
@@ -329,6 +441,15 @@ class TheoryConstraintNaive(TheoryConstraint):
 				self.watches_to_at[lit].add(assigned_time)
 
 	def propagate(self, control, changes) -> None:
+		"""
+		For any relevant change, check the assignment of the whole nogood
+		for the assigned times it is in. If it it conflicting immediately add it to the solver.
+		If it is unit it is added to self.unit_constraints
+		Finally, add all unit constraints to the solver
+
+		:param control: clingo PropagateControl class
+		:param changes: list of watches that were assigned
+		"""
 		for lit in changes:
 			if lit in self.watches_to_at:
 				for assigned_time in self.watches_to_at[lit]:
@@ -347,9 +468,10 @@ class TheoryConstraintNaive(TheoryConstraint):
 def choose_lit(lits: Set[int], current_watch: int, control) -> Optional[int]:
 	"""
 	Checks the literals for a nogood and check for new watches
-	:param Set[int] lits: the current nogood
-	:param int current_watch: the watch being propagated
-	:param PropagateControl control: A clingo PropagateControl object for the current solver thread
+
+	:param lits: the current nogood
+	:param current_watch: the watch being propagated
+	:param  control: A clingo PropagateControl object for the current solver thread
 
 	:return: None or the new watch
 	:rtype: None or int
@@ -371,6 +493,9 @@ class TheoryConstraint2watch(TheoryConstraint):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	def build_watches(self, init) -> None:
+		"""
+		Only add watches for the first 2 literals of a nogood
+		"""
 		for assigned_time in self.existing_at:
 			lits = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
 			for lit in lits[:2]:
@@ -379,17 +504,25 @@ class TheoryConstraint2watch(TheoryConstraint):
 
 	# @profile
 	def propagate(self, control, changes) -> None:
-		self.logger.debug("Propagating for constraint: %s", self.t_atom_names)
+		"""
+		For any relevant change, check the assignment of the whole nogood
+		for the assigned times it is in. If it it conflicting immediately add it to the solver.
+		If it is unit it is added to self.unit_constraints.
 
+		After the check, replace the watch if possible.
+
+		Finally, add all unit constraints to the solver.
+
+		:param control: clingo PropagateControl class
+		:param changes: list of watches that were assigned
+		"""
 		replacement_info: List[Tuple[int, int, int]] = []
 		for lit in changes:
 			if lit in self.watches_to_at:
 				for assigned_time in self.watches_to_at[lit]:
-
 					result, ng = self.check_assignment(assigned_time, control)
 
 					if result == CONSTRAINT_CHECK["CONFLICT"]:
-
 						if not control.add_nogood(ng):  # or not control.propagate():
 							self.unit_constraints = []
 							return
@@ -405,10 +538,15 @@ class TheoryConstraint2watch(TheoryConstraint):
 		self.propagate_unit_constraints(control)
 
 	def replace_watches(self, info: List[Tuple[int, int, int]], control) -> None:
+		"""
+		Update the watches_to_at dictionary based on the info returned by get_replacement_watch
+		Also, add the new watch to the solver and remove the old watch if necessary
+
+		:param info: List of info about the replacement. Each element is a return type of get_replacement_watch
+		:param control: clingo PropagateControl
+		"""
 
 		for old_watch, new_watch, assigned_time in info:
-			self.logger.debug("removing watch %i and replacing it by watch %i for assigned time %i", old_watch,
-			                  new_watch, assigned_time)
 
 			# remove the lit as a watch for constraint assigned_time
 			self.watches_to_at[old_watch].remove(assigned_time)
