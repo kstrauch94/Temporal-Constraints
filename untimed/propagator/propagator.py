@@ -10,11 +10,11 @@ from untimed.propagator.theoryconstraint import TheoryConstraintSize1
 from untimed.propagator.theoryconstraint import TheoryConstraintSize2
 
 TWO_WATCH_TC = {1: TheoryConstraintSize1,
-                2: TheoryConstraint2watch,
+                2: TheoryConstraintSize2,
                 -1: TheoryConstraint2watch}
 
 NAIVE_TC = {1: TheoryConstraintSize1,
-            2: TheoryConstraintNaive,
+            2: TheoryConstraintSize2,
             -1: TheoryConstraintNaive}
 
 
