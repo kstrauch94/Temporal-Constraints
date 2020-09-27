@@ -90,9 +90,9 @@ init(at(robot(R),node(X,Y))) :- init(object(robot,R), value(at, (X,Y))).
 % a robot can only carry 1 shelf
 :- robot(R), time(T), 2{holds(carry(R,S),T) : shelf(S)}.
 
-:- do(R,move(DX,DY),T), do(R,move(-DX,-DY),T-1), time(T), T>0.
-:- do(R,pickup,T), do(R,putdown,T-1), time(T), T>0.
-:- do(R,putdown,T), do(R,pickup,T-1), time(T), T>0.
+:- do(R,action(move(DX,DY)),T), do(R,action(move(-DX,-DY)),T-1), time(T), T>0.
+:- do(R,action(pickup),T), do(R,action(putdown),T-1), time(T), T>0.
+:- do(R,action(putdown),T), do(R,action(pickup),T-1), time(T), T>0.
 
 
 on(product(P),shelf(S)) :- init(object(product,P),value(on,(S,A))).
