@@ -87,6 +87,7 @@ def reverse_assigned_time(info: Dict[str, Any], assigned_time: int) -> int:
 
 def form_nogood(t_atom_info, assigned_time: int, existing_at) -> List[int]:
 	"""
+	Forms a nogood based on the assigned time and atoms of a theoryconstraint
 
 	:param t_atom_info: Complete information dictionary of the theory constraint
 	:param assigned_time: the assigned time
@@ -122,10 +123,6 @@ class TheoryConstraint:
 
 	existing_at             -- List of the valid assigned times
 
-	unit_constraints        -- List of the unit constraints resulting from
-							   one propagation call. This is reset to empty
-							   whenever the propagation has finished
-
 	"""
 
 	def __init__(self, constraint):
@@ -139,8 +136,6 @@ class TheoryConstraint:
 		self.min_time: int
 
 		self.existing_at: List[int] = []
-
-		self.unit_constraints: List[List[int]] = []
 
 		self.parse_atoms(constraint)
 
@@ -279,22 +274,6 @@ class TheoryConstraint:
 		for iat in invalid_at:
 			self.existing_at.remove(iat)
 
-	def propagate_unit_constraints(self, control):
-		"""
-		Used at the end of a propagate call.
-		It loops over all nogoods that are unit and adds them to the solver.
-
-		:param control: clingo PropagateControl class
-		:return:
-		"""
-		for ng in self.unit_constraints:
-			if not control.add_nogood(ng):  # and control.propagate():
-				self.logger.debug("added unit ng but prop stops!")
-				self.unit_constraints = []
-				return
-
-		self.unit_constraints = []
-
 	def check_assignment(self, assigned_time, control) -> Tuple[int, List[int]]:
 		"""
 		Checks if a nogood is a conflict or unit in the current assignment
@@ -330,7 +309,6 @@ class TheoryConstraint:
 		if true_count == self.size:
 			return CONSTRAINT_CHECK["CONFLICT"], ng
 		elif true_count == self.size - 1:
-			self.unit_constraints.append(ng)
 			return CONSTRAINT_CHECK["UNIT"], ng
 		else:
 			return CONSTRAINT_CHECK["NONE"], []
@@ -419,8 +397,10 @@ class TheoryConstraintSize2(TheoryConstraint):
 				for assigned_time in self.watches_to_at[lit]:
 					ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
 
-					if not control.add_nogood(ng):
-						return
+					if not control.add_nogood(ng) or not control.propagate():
+						return 0
+
+		return 1
 
 
 class TheoryConstraintNaive(TheoryConstraint):
@@ -443,26 +423,22 @@ class TheoryConstraintNaive(TheoryConstraint):
 	def propagate(self, control, changes) -> None:
 		"""
 		For any relevant change, check the assignment of the whole nogood
-		for the assigned times it is in. If it it conflicting immediately add it to the solver.
-		If it is unit it is added to self.unit_constraints
-		Finally, add all unit constraints to the solver
+		for the assigned times it is in. If it it conflicting or unit add the nogood to the solver
 
 		:param control: clingo PropagateControl class
 		:param changes: list of watches that were assigned
+		:return 0 if propagation has to stop, 1 if propagation can continue
 		"""
 		for lit in changes:
 			if lit in self.watches_to_at:
 				for assigned_time in self.watches_to_at[lit]:
 					update_result, ng = self.check_assignment(assigned_time, control)
 
-					if update_result == CONSTRAINT_CHECK["CONFLICT"]:
-						if not control.add_nogood(ng):
-							self.unit_constraints = []
-							return
-						else:
-							PropagationError("constraint for a conflict added but propagations continues")
+					if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+						if not control.add_nogood(ng) or not control.propagate():
+							return 0
 
-		self.propagate_unit_constraints(control)
+		return 1
 
 
 def choose_lit(lits: Set[int], current_watch: int, control) -> Optional[int]:
@@ -506,8 +482,7 @@ class TheoryConstraint2watch(TheoryConstraint):
 	def propagate(self, control, changes) -> None:
 		"""
 		For any relevant change, check the assignment of the whole nogood
-		for the assigned times it is in. If it it conflicting immediately add it to the solver.
-		If it is unit it is added to self.unit_constraints.
+		for the assigned times it is in. If it it conflicting or unit add the nogood to the solver
 
 		After the check, replace the watch if possible.
 
@@ -515,19 +490,17 @@ class TheoryConstraint2watch(TheoryConstraint):
 
 		:param control: clingo PropagateControl class
 		:param changes: list of watches that were assigned
+		:return 0 if propagation has to stop, 1 if propagation can continue
 		"""
 		replacement_info: List[Tuple[int, int, int]] = []
 		for lit in changes:
 			if lit in self.watches_to_at:
 				for assigned_time in self.watches_to_at[lit]:
-					result, ng = self.check_assignment(assigned_time, control)
+					update_result, ng = self.check_assignment(assigned_time, control)
 
-					if result == CONSTRAINT_CHECK["CONFLICT"]:
-						if not control.add_nogood(ng):  # or not control.propagate():
-							self.unit_constraints = []
-							return
-						else:
-							self.logger.debug("constraint for a conflict added and propagations continues?")
+					if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+						if not control.add_nogood(ng) or not control.propagate():
+							return 0
 
 					info = self.get_replacement_watch(assigned_time, lit, control)
 					if info is not None:
@@ -535,7 +508,7 @@ class TheoryConstraint2watch(TheoryConstraint):
 
 		self.replace_watches(replacement_info, control)
 
-		self.propagate_unit_constraints(control)
+		return 1
 
 	def replace_watches(self, info: List[Tuple[int, int, int]], control) -> None:
 		"""

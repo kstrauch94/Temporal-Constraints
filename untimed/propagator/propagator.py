@@ -74,8 +74,7 @@ class ConstraintPropagator:
 	def propagate(self, control, changes):
 
 		for tc in self.constraints:
-			tc.propagate(control, changes)
-			if not control.propagate():
+			if not tc.propagate(control, changes):
 				return
 
 	@util.Count("undo")
@@ -126,10 +125,9 @@ class ConstraintPropagatorMany:
 	# @util.Timer("Propagation")
 	@util.Count("propagation")
 	def propagate(self, control, changes):
-		with util.Timer("Propagation"):
-			self.constraint.propagate(control, changes)
-			if not control.propagate():
-				return
+		with util.Timer("propagation"):
+			return self.constraint.propagate(control, changes)
+
 
 	@util.Timer("undo")
 	@util.Count("undo")
