@@ -132,8 +132,8 @@ class TheoryConstraint:
 		self.watches_to_at: Dict[int, Set[int]] = defaultdict(set)
 		self.at_size: Dict[int, int] = defaultdict(lambda: 0)
 
-		self.max_time: int
-		self.min_time: int
+		self.max_time: int = None
+		self.min_time: int = None
 
 		self.existing_at: List[int] = []
 
@@ -177,6 +177,8 @@ class TheoryConstraint:
 			elif term_type == "-~":
 				sign = -1
 				time_mod = +1
+			else:
+				raise TypeError(f"Invalid term prefix {term_type} used in {constraint}")
 
 			self.t_atom_info[uq_name] = {"sign": sign,
 			                             "time_mod": time_mod,
@@ -259,41 +261,34 @@ class TheoryConstraint:
 				# for a nogood that is always false
 				continue
 
-			result, ng = self.check_assignment(assigned_time, init)
+			ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+			result = self.check_assignment(ng, init)
 			if result == CONSTRAINT_CHECK["CONFLICT"]:
-				init.add_clause([-l for l in ng])
+				init.add_clause([-lit for lit in ng])
 
 			elif result == CONSTRAINT_CHECK["UNIT"]:
 				# if nogood is already unit at init
 				# then we can add the clause so it propagates at time 0
 				# then we delete assigned time because
 				# it will never pop up again
-				init.add_clause([-l for l in ng])
+				init.add_clause([-lit for lit in ng])
 				invalid_at.append(assigned_time)
 
 		for iat in invalid_at:
 			self.existing_at.remove(iat)
 
-	def check_assignment(self, assigned_time, control) -> Tuple[int, List[int]]:
+	def check_assignment(self, nogood, control) -> int:
 		"""
 		Checks if a nogood is a conflict or unit in the current assignment
-		--- could make this a static method? --- Could also make this better by just passing the nogood
 
-		:param assigned_time: assigned time for which to create the nogood
+		:param nogood: nogood that will be checked
 		:param control: clingo PropagateControl class
+		:return int value that denotes the result of the check. See CONSTRAINT_CHECK for details
 		"""
 		ng: List[int] = []
 		true_count: int = 0
 
-		for uq_name in self.t_atom_names:
-			time = reverse_assigned_time(self.t_atom_info[uq_name], assigned_time)
-			name_id = build_symbol_id(self.t_atom_info[uq_name], time)
-
-			if not Map_Name_Lit.has_name(name_id):
-				# if it is not in the dict then it is false always
-				return CONSTRAINT_CHECK["NONE"], []
-
-			lit: int = Map_Name_Lit.grab_lit(name_id)
+		for lit in nogood:
 
 			if control.assignment.is_true(lit):
 				# if its true
@@ -301,17 +296,14 @@ class TheoryConstraint:
 				true_count += 1
 			elif control.assignment.is_false(lit):
 				# if one is false then it doesnt matter
-				return CONSTRAINT_CHECK["NONE"], []
-			else:
-				# if value is None we still add it to ng
-				ng.append(lit)
+				return CONSTRAINT_CHECK["NONE"]
 
 		if true_count == self.size:
-			return CONSTRAINT_CHECK["CONFLICT"], ng
+			return CONSTRAINT_CHECK["CONFLICT"]
 		elif true_count == self.size - 1:
-			return CONSTRAINT_CHECK["UNIT"], ng
+			return CONSTRAINT_CHECK["UNIT"]
 		else:
-			return CONSTRAINT_CHECK["NONE"], []
+			return CONSTRAINT_CHECK["NONE"]
 
 	def build_watches(self, init):
 		"""
@@ -432,7 +424,8 @@ class TheoryConstraintNaive(TheoryConstraint):
 		for lit in changes:
 			if lit in self.watches_to_at:
 				for assigned_time in self.watches_to_at[lit]:
-					update_result, ng = self.check_assignment(assigned_time, control)
+					ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+					update_result = self.check_assignment(ng, control)
 
 					if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 						if not control.add_nogood(ng) or not control.propagate():
@@ -457,6 +450,27 @@ def choose_lit(lits: Set[int], current_watch: int, control) -> Optional[int]:
 		if possible_watch != current_watch:
 			if control.assignment.value(possible_watch) is None and not control.has_watch(possible_watch):
 				return possible_watch
+
+	return None
+
+
+def get_replacement_watch(nogood: List[int], lit: int, control) -> Optional[Tuple[int, int]]:
+	"""
+	choose a new watch for the given assigned time if possible
+	:param int nogood: the nogood
+	:param int lit: the current literal being propagated
+	:param PropagateControl control: A clingo PropagateControl object for the current solver thread
+
+	if a new watch can be found:
+	:return: old_watch: int, new_watch: int, assigned_time: int
+
+	if no new watch is found:
+	:returns None
+	"""
+
+	new_watch: Optional[int] = choose_lit(nogood, lit, control)
+	if new_watch is not None:
+		return [lit, new_watch]
 
 	return None
 
@@ -496,15 +510,16 @@ class TheoryConstraint2watch(TheoryConstraint):
 		for lit in changes:
 			if lit in self.watches_to_at:
 				for assigned_time in self.watches_to_at[lit]:
-					update_result, ng = self.check_assignment(assigned_time, control)
+					ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+					update_result = self.check_assignment(ng, control)
 
 					if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 						if not control.add_nogood(ng) or not control.propagate():
 							return 0
 
-					info = self.get_replacement_watch(assigned_time, lit, control)
+					info = get_replacement_watch(ng, lit, control)
 					if info is not None:
-						replacement_info.append(info)
+						replacement_info.append(info + [assigned_time])
 
 		self.replace_watches(replacement_info, control)
 
@@ -533,24 +548,3 @@ class TheoryConstraint2watch(TheoryConstraint):
 			# if lit is not watching a constraint eliminate it
 			if len(self.watches_to_at[old_watch]) == 0:
 				control.remove_watch(old_watch)
-
-	def get_replacement_watch(self, assigned_time: int, lit: int, control) -> Optional[Tuple[int, int, int]]:
-		"""
-		choose a new watch for the given assigned time if possible
-		:param int assigned_time: the assigned time
-		:param int lit: the current literal being propagated
-		:param PropagateControl control: A clingo PropagateControl object for the current solver thread
-
-		if a new watch can be found:
-		:return: old_watch: int, new_watch: int, assigned_time: int
-
-		if no new watch is found:
-		:returns None
-		"""
-
-		new_watch: Optional[int] = choose_lit(form_nogood(self.t_atom_info, assigned_time, self.existing_at), lit,
-		                                           control)
-		if new_watch is not None:
-			return lit, new_watch, assigned_time
-
-		return None
