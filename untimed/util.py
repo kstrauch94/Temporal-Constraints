@@ -5,76 +5,84 @@ from collections import defaultdict
 
 from typing import Any, Optional, Callable
 
+
 class TimerError(Exception):
-    pass
+	pass
+
 
 class Timer:
+	timers: Dict[str, float] = defaultdict(lambda: 0)
 
-    timers : Dict[str, float] = defaultdict(lambda : 0)
+	def __init__(self, name: str):
+		self.name = name
 
-    def __init__(self, name : str):
-        self.name = name
+		self._time_start: Optional[float] = None
 
-        self._time_start: Optional[float] = None
+	def start(self) -> None:
 
-    def start(self) -> None:
+		if self._time_start is not None:
+			raise TimerError("Timer started twice without stopping")
 
-        if self._time_start is not None:
-            raise TimerError("Timer started twice without stopping")
+		self._time_start = time.perf_counter()
 
-        self._time_start = time.perf_counter()
+	def stop(self) -> float:
 
-    def stop(self) -> float:
+		if self._time_start is None:
+			raise TimerError("Timer stopped without starting")
 
-        if self._time_start is None:
-            raise TimerError("Timer stopped without starting")
+		stop = time.perf_counter() - self._time_start
+		self._time_start = None
 
-        stop = time.perf_counter() - self._time_start
-        self._time_start = None
+		Timer.timers[self.name] += stop
 
-        Timer.timers[self.name] += stop
+		return stop
 
-        return stop
+	def __enter__(self) -> "Timer":
+		self.start()
 
-    def __enter__(self) -> "Timer":
-        self.start()
+		return self
 
-        return self
+	def __exit__(self, *exc_info: Any) -> None:
+		self.stop()
 
-    def __exit__(self, *exc_info: Any) -> None:
-        self.stop()
+	def __call__(self, func) -> Callable:
 
-    def __call__(self, func) -> Callable:
-    
-        @functools.wraps(func)
-        def wrapper_timer(*args, **kwargs):
-            with self:
-                return func(*args, **kwargs)
+		@functools.wraps(func)
+		def wrapper_timer(*args, **kwargs):
+			with self:
+				return func(*args, **kwargs)
 
-        return wrapper_timer
+		return wrapper_timer
 
 
 class Count:
+	counts = defaultdict(lambda: 0)
 
-    counts = defaultdict(lambda : 0)
+	def __init__(self, name: str):
+		self.name = name
 
-    def __init__(self, name: str):
+	def __enter__(self) -> "Count":
+		Count.counts[self.name] += 1
 
-        self.name=name
-    
-    def __enter__(self) -> "Count":
-        Count.counts[self.name] += 1
+		return self
 
-        return self
+	def __exit__(self, *exc_info: Any) -> None:
+		pass
 
-    def __exit__(self, *exc_info: Any) -> None:
-        pass
+	def __call__(self, func) -> Callable:
+		@functools.wraps(func)
+		def wrapper_count(*args, **kwargs):
+			with self:
+				return func(*args, **kwargs)
 
-    def __call__(self, func) -> Callable:
-    
-        @functools.wraps(func)
-        def wrapper_count(*args, **kwargs):
-            with self:
-                return func(*args, **kwargs)
+		return wrapper_count
 
-        return wrapper_count
+
+def print_stats():
+	for name, time_taken in Timer.timers.items():
+		print(f"Time {name:15}\t\t:\t{time_taken}")
+
+	for name, count in Count.counts.items():
+		print(f"Calls to {name:15}\t:\t{count}")
+
+	print("DONE")

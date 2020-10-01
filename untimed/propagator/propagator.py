@@ -2,7 +2,7 @@ import logging
 
 import untimed.util as util
 
-from typing import Any, List, Dict, Union, Optional
+from typing import Any, List
 
 from untimed.propagator.theoryconstraint import TheoryConstraintNaive
 from untimed.propagator.theoryconstraint import TheoryConstraint2watch
@@ -69,7 +69,7 @@ class ConstraintPropagator:
 		for c in self.constraints:
 			c.init(init, self.prop_init)
 
-	@util.Count("propagation")
+	@util.Count("Propagation")
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
 
@@ -77,22 +77,12 @@ class ConstraintPropagator:
 			if not tc.propagate(control, changes):
 				return
 
-	@util.Count("undo")
-	@util.Timer("undo")
+	@util.Count("Undo")
+	@util.Timer("Undo")
 	def undo(self, thread_id, assign, changes):
 
 		for tc in self.constraints:
 			tc.undo(thread_id, assign, changes)
-
-	def print_stats(self):
-		print(f"{self.__class__.__name__} Propagator stats")
-		for name, time in util.Timer.timers.items():
-			print(f"{name:15}:\t{time}")
-
-		for name, count in util.Count.counts.items():
-			print(f"{name:15}:\t{count}")
-
-		print("DONE")
 
 
 class ConstraintPropagatorMany:
@@ -123,24 +113,13 @@ class ConstraintPropagatorMany:
 		self.constraint.init(init, self.prop_init)
 
 	# @util.Timer("Propagation")
-	@util.Count("propagation")
+	@util.Count("Propagation")
 	def propagate(self, control, changes):
-		with util.Timer("propagation"):
+		with util.Timer("Propagation"):
 			return self.constraint.propagate(control, changes)
 
-
-	@util.Timer("undo")
-	@util.Count("undo")
+	@util.Timer("Undo")
+	@util.Count("Undo")
 	def undo(self, thread_id, assign, changes):
 
 		self.constraint.undo(thread_id, assign, changes)
-
-	def print_stats(self):
-		print(f"{self.__class__.__name__} Propagator stats")
-		for name, time in util.Timer.timers.items():
-			print(f"{name:15}:\t{time}")
-
-		for name, count in util.Count.counts.items():
-			print(f"{name:15}:\t{count}")
-
-		print("DONE")

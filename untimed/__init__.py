@@ -3,6 +3,7 @@ import clingo
 from typing import Any, Dict
 from untimed.propagator.propagatorhandler import TheoryHandler
 from untimed.propagator.propagatorhandler import TheoryHandlerMany
+import untimed.util as util
 
 import textwrap as _textwrap
 
@@ -15,11 +16,12 @@ handlers["single"] = TheoryHandler
 
 propagators = ["naive", "2watch"]
 
+
 class Application:
 
 	def __init__(self):
 		self.version = "0.1"
-		
+
 		self.__handler = None
 
 		self.__handler_type = TheoryHandlerMany
@@ -27,9 +29,9 @@ class Application:
 		self.propagator = "2watch"
 
 		self.__prop_init = clingo.Flag(False)
-   
+
 	def __on_stats(self, step, accu):
-		self.__handler.on_stats()
+		util.print_stats()
 
 	def __parse_theory_handler(self, val):
 		if val not in handlers:
@@ -57,7 +59,8 @@ class Application:
 		options.add(group, "propagator", _textwrap.dedent("""Propagator type to use [2watch]
 				<arg>: {2watch|naive}"""), self.__parse_propagator)
 
-		options.add_flag(group, "prop-init", _textwrap.dedent("""Add clauses after propagator are initialized""") , self.__prop_init)
+		options.add_flag(group, "prop-init", _textwrap.dedent("""Add clauses after propagator are initialized"""),
+		                 self.__prop_init)
 
 	def __build_handler(self):
 
@@ -78,8 +81,8 @@ class Application:
 
 		prg.solve(on_statistics=self.__on_stats)
 
-def setup_logger():
 
+def setup_logger():
 	root_logger = logging.getLogger()
 	root_logger.setLevel(logging.INFO)
 
@@ -91,9 +94,11 @@ def setup_logger():
 
 	root_logger.addHandler(logger_handler)
 
+
 def main():
 	setup_logger()
 	sys.exit(int(clingo.clingo_main(Application(), sys.argv[1:])))
+
 
 if __name__ == "__main__":
 	main()

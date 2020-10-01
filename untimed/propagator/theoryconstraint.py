@@ -3,7 +3,6 @@ from collections import defaultdict
 import clingo
 
 from typing import List, Dict, Tuple, Set, Callable, Any, Optional
-import untimed.util as util
 
 CONSTRAINT_CHECK = {"NONE": 0,
                     "UNIT": 1,
@@ -20,22 +19,22 @@ class Map_Name_Lit:
 	Has helper methods to retrieve either a literal or a name id
 	"""
 	name_to_lit: Dict[Tuple[int, str, int], int] = {}
-	lit_to_name: Dict[int, Set[str]] = defaultdict(set)
+	#lit_to_name: Dict[int, Set[str]] = defaultdict(set)
 
 	@classmethod
 	def add(cls, name_id, lit):
 		if name_id not in cls.name_to_lit:
 			cls.name_to_lit[name_id] = lit
 
-		cls.lit_to_name[lit].add(name_id)
+		#cls.lit_to_name[lit].add(name_id)
 
 	@classmethod
 	def grab_lit(cls, name_id):
 		return cls.name_to_lit[name_id]
 
-	@classmethod
-	def grab_name(cls, lit):
-		return cls.lit_to_name[lit]
+#	@classmethod
+#	def grab_name(cls, lit):
+#		return cls.lit_to_name[lit]
 
 	@classmethod
 	def has_name(cls, name_id):
