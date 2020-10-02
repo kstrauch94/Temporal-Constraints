@@ -42,6 +42,31 @@ class Map_Name_Lit:
 		return name_id in cls.name_to_lit
 
 
+class WatchCounter:
+
+	counts: Dict[int, int] = defaultdict(lambda: 0)
+
+	@classmethod
+	def add(cls, watch):
+		cls.counts[watch] += 1
+
+	@classmethod
+	def remove(cls, watch):
+		"""
+		decreases count for the watch. If count reaches 0 it returns True
+		signaling that it is watched by nothing and can be removed
+		:param watch: a solver literal
+		:return: Bool that indicates if watch can be unwatched or not
+		"""
+		cls.counts[watch] -= 1
+
+		if cls.counts[watch] == 0:
+			del cls.counts[watch]
+			return True
+
+		return False
+
+
 def parse_atoms(constraint) -> Tuple[Dict[str, Dict[str, Any]], int, int]:
 	"""
 	Extract the relevant information of the given theory atom and populate self.t_atom_info
@@ -183,6 +208,8 @@ class TheoryConstraint:
 	existing_at             -- List of the valid assigned times
 
 	"""
+
+	__slots__ = ["t_atom_info", "watches_to_at", "at_size", "max_time", "min_time", "existing_at", "logger"]
 
 	def __init__(self, constraint):
 
@@ -385,6 +412,7 @@ class TheoryConstraintSize2(TheoryConstraint):
 			for lit in lits:
 				init.add_watch(lit)
 				self.watches_to_at[lit].add(assigned_time)
+				WatchCounter.add(lit)
 
 	def propagate(self, control, changes) -> None:
 		"""
@@ -421,6 +449,7 @@ class TheoryConstraintNaive(TheoryConstraint):
 			for lit in lits:
 				init.add_watch(lit)
 				self.watches_to_at[lit].add(assigned_time)
+				WatchCounter.add(lit)
 
 	def propagate(self, control, changes) -> None:
 		"""
@@ -501,6 +530,7 @@ class TheoryConstraint2watch(TheoryConstraint):
 			for lit in lits[:2]:
 				self.watches_to_at[lit].add(assigned_time)
 				init.add_watch(lit)
+				WatchCounter.add(lit)
 
 	# @profile
 	def propagate(self, control, changes) -> None:
@@ -557,4 +587,5 @@ class TheoryConstraint2watch(TheoryConstraint):
 
 			# if lit is not watching a constraint eliminate it
 			if len(self.watches_to_at[old_watch]) == 0:
-				control.remove_watch(old_watch)
+				if WatchCounter.remove(old_watch):
+					control.remove_watch(old_watch)
