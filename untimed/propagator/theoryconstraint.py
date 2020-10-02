@@ -19,27 +19,87 @@ class Map_Name_Lit:
 	Has helper methods to retrieve either a literal or a name id
 	"""
 	name_to_lit: Dict[Tuple[int, str, int], int] = {}
-	#lit_to_name: Dict[int, Set[str]] = defaultdict(set)
+
+	# lit_to_name: Dict[int, Set[str]] = defaultdict(set)
 
 	@classmethod
 	def add(cls, name_id, lit):
 		if name_id not in cls.name_to_lit:
 			cls.name_to_lit[name_id] = lit
 
-		#cls.lit_to_name[lit].add(name_id)
+	# cls.lit_to_name[lit].add(name_id)
 
 	@classmethod
 	def grab_lit(cls, name_id):
 		return cls.name_to_lit[name_id]
 
-#	@classmethod
-#	def grab_name(cls, lit):
-#		return cls.lit_to_name[lit]
+	#	@classmethod
+	#	def grab_name(cls, lit):
+	#		return cls.lit_to_name[lit]
 
 	@classmethod
 	def has_name(cls, name_id):
 		return name_id in cls.name_to_lit
 
+
+def parse_atoms(constraint) -> Tuple[Dict[str, Dict[str, Any]], int, int]:
+	"""
+	Extract the relevant information of the given theory atom and populate self.t_atom_info
+
+	:param constraint: clingo TheoryAtom
+	"""
+	t_atom_info: Dict[str, Dict[str, Any]] = {}
+
+	min_time, max_time = parse_constraint_times(constraint.term.arguments)
+	for atom in constraint.elements:
+		# this gives me the "type" of the term | e.g. for +~on(..) it would return +~
+		term_type: str = atom.terms[0].name
+
+		signature: Tuple[str, int] = (
+			atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments) + 1)
+
+		name: str = str(atom.terms[0].arguments[0])[:-1] + ","
+
+		uq_name: str = term_type + name
+
+		if term_type == "+.":
+			sign = 1
+			time_mod = 0
+		elif term_type == "+~":
+			sign = 1
+			time_mod = +1
+		elif term_type == "-.":
+			sign = -1
+			time_mod = 0
+		elif term_type == "-~":
+			sign = -1
+			time_mod = +1
+		else:
+			raise TypeError(f"Invalid term prefix {term_type} used in {constraint}")
+
+		t_atom_info[uq_name] = {"sign": sign,
+		                             "time_mod": time_mod,
+		                             "signature": signature,
+		                             "args": [clingo.parse_term(str(a)) for a in atom.terms[0].arguments[0].arguments],
+		                             "name": name}
+
+	return t_atom_info, min_time, max_time
+
+
+def parse_constraint_times(times) -> Tuple[int, int]:
+	"""
+	Get the minimum and maximum time from the theory atom
+
+	:param times: List of theory atom arguments
+	"""
+	if len(times) == 1:
+		max_time = times[0].number
+		min_time = 0
+	else:
+		max_time = times[1].number
+		min_time = times[0].number
+
+	return min_time, max_time
 
 def build_symbol_id(info, time):
 	"""
@@ -136,7 +196,7 @@ class TheoryConstraint:
 
 		self.existing_at: List[int] = []
 
-		self.parse_atoms(constraint)
+		self.t_atom_info, self.min_time, self.max_time = parse_atoms(constraint)
 
 	@property
 	def t_atom_names(self):
@@ -146,57 +206,9 @@ class TheoryConstraint:
 	def watches(self):
 		return self.watches_to_at.keys()
 
-	def parse_atoms(self, constraint) -> None:
-		"""
-		Extract the relevant information of the given theory atom and populate self.t_atom_info
-
-		:param constraint: clingo TheoryAtom
-		"""
-		self.parse_constraint_times(constraint.term.arguments)
-		for atom in constraint.elements:
-			# this gives me the "type" of the term | e.g. for +~on(..) it would return +~
-			term_type: str = atom.terms[0].name
-
-			signature: Tuple[str, int] = (
-				atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments) + 1)
-
-			name: str = str(atom.terms[0].arguments[0])[:-1] + ","
-
-			uq_name: str = term_type + name
-
-			if term_type == "+.":
-				sign = 1
-				time_mod = 0
-			elif term_type == "+~":
-				sign = 1
-				time_mod = +1
-			elif term_type == "-.":
-				sign = -1
-				time_mod = 0
-			elif term_type == "-~":
-				sign = -1
-				time_mod = +1
-			else:
-				raise TypeError(f"Invalid term prefix {term_type} used in {constraint}")
-
-			self.t_atom_info[uq_name] = {"sign": sign,
-			                             "time_mod": time_mod,
-			                             "signature": signature,
-			                             "args": [clingo.parse_term(str(a)) for a in atom.terms[0].arguments[0].arguments],
-			                             "name": name}
-
-	def parse_constraint_times(self, times):
-		"""
-		Get the minimum and maximum time from the theory atom
-
-		:param times: List of theory atom arguments
-		"""
-		if len(times) == 1:
-			self.max_time = times[0].number
-			self.min_time = 0
-		else:
-			self.max_time = times[1].number
-			self.min_time = times[0].number
+	@property
+	def size(self) -> int:
+		return len(self.t_atom_names)
 
 	def init(self, init, propagate: bool = False) -> None:
 		self.init_watches(init)
@@ -317,10 +329,6 @@ class TheoryConstraint:
 	def propagate(self, control, changes):
 		pass
 
-	@property
-	def size(self) -> int:
-		return len(self.t_atom_names)
-
 
 class TheoryConstraintSize1(TheoryConstraint):
 
@@ -332,6 +340,9 @@ class TheoryConstraintSize1(TheoryConstraint):
 		"""
 		overwriting parent class method so it does nothing when called
 		"""
+		pass
+
+	def check_assignment(self, nogood, control) -> int:
 		pass
 
 	def init_watches(self, init) -> None:
