@@ -80,9 +80,9 @@ class Count:
 
 def print_stats():
 	for name, time_taken in Timer.timers.items():
-		print(f"Time {name:15}\t\t:\t{time_taken}")
+		print(f"Time {name:15}      :   {time_taken:.3f}")
 
 	for name, count in Count.counts.items():
-		print(f"Calls to {name:15}\t:\t{count}")
+		print(f"Calls to {name:15}  :   {count}")
 
 	print("DONE")
