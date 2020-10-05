@@ -209,9 +209,6 @@ class TheoryConstraint:
 
 	at_size                 -- mapping from assigned time to size of nogood
 
-	watches_to_at           -- Dictionary mapping the current watches to
-							   their respective assigned time(s)
-
 	max_time                -- Max time of the theory constraint
 
 	min_time                -- Min time of the theory constraint
@@ -220,13 +217,12 @@ class TheoryConstraint:
 
 	"""
 
-	__slots__ = ["t_atom_info", "watches_to_at", "at_size", "max_time", "min_time", "existing_at", "logger"]
+	__slots__ = ["t_atom_info", "at_size", "max_time", "min_time", "existing_at", "logger"]
 
 	def __init__(self, constraint) -> None:
 
 		self.t_atom_info: Dict[str, Dict[str, Any]] = {}
 
-		self.watches_to_at: Dict[int, Set[int]] = defaultdict(set)
 		self.at_size: Dict[int, int] = defaultdict(lambda: 0)
 
 		self.max_time: int = None
@@ -358,7 +354,24 @@ class TheoryConstraintSize1(TheoryConstraint):
 					init.add_clause([-solver_lit])
 
 
-class TheoryConstraintSize2(TheoryConstraint):
+class TheoryConstraintRegularWatch(TheoryConstraint):
+	"""
+	Parent class of Theory constraints that will Implement propagation
+	using solver literals. This class only adds the members below.
+
+	Members:
+
+	watches_to_at           -- Dictionary mapping the current watches to
+						   their respective assigned time(s)
+	"""
+
+	__slots__ = ["watches_to_at"]
+
+	def __init__(self, constraint) -> None:
+		super().__init__(constraint)
+		self.watches_to_at: Dict[int, Set[int]] = defaultdict(set)
+
+class TheoryConstraintSize2(TheoryConstraintRegularWatch):
 
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
@@ -396,7 +409,7 @@ class TheoryConstraintSize2(TheoryConstraint):
 			return
 
 
-class TheoryConstraintNaive(TheoryConstraint):
+class TheoryConstraintNaive(TheoryConstraintRegularWatch):
 
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
@@ -479,7 +492,7 @@ def get_replacement_watch(nogood: List[int], lit: int, control) -> Optional[Tupl
 	return None
 
 
-class TheoryConstraint2watch(TheoryConstraint):
+class TheoryConstraint2watch(TheoryConstraintRegularWatch):
 
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
@@ -592,7 +605,17 @@ class TimedAtomPropagator:
 						return
 
 
-class TheoryConstraintSize2Timed(TheoryConstraintSize2):
+class TheoryConstraintSize2Timed(TheoryConstraint):
+
+	def build_watches(self, init) -> None:
+		"""
+		For a naive treatment of watches, we simply
+		add all solver literals for the constraint as watches
+		"""
+		for assigned_time in self.existing_at:
+			lits = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+			for lit in lits:
+				init.add_watch(lit)
 
 	@util.Count("Propagation")
 	def propagate(self, control, change) -> None:
@@ -616,7 +639,17 @@ class TheoryConstraintSize2Timed(TheoryConstraintSize2):
 			return 1
 
 
-class TheoryConstraintNaiveTimed(TheoryConstraintNaive):
+class TheoryConstraintNaiveTimed(TheoryConstraint):
+
+	def build_watches(self, init) -> None:
+		"""
+		For a naive treatment of watches, we simply
+		add all solver literals for the constraint as watches
+		"""
+		for assigned_time in self.existing_at:
+			lits = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+			for lit in lits:
+				init.add_watch(lit)
 
 	@util.Count("Propagation")
 	def propagate(self, control, change) -> None:
