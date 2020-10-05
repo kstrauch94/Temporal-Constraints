@@ -237,10 +237,6 @@ class TheoryConstraint:
 		return self.t_atom_info.keys()
 
 	@property
-	def watches(self):
-		return self.watches_to_at.keys()
-
-	@property
 	def size(self) -> int:
 		return len(self.t_atom_names)
 
@@ -310,6 +306,8 @@ class TheoryConstraint:
 		"""
 		pass
 
+	@util.Timer("Undo")
+	@util.Count("Undo")
 	def undo(self, thread_id, assign, changes) -> None:
 		pass
 
@@ -371,6 +369,7 @@ class TheoryConstraintRegularWatch(TheoryConstraint):
 		super().__init__(constraint)
 		self.watches_to_at: Dict[int, Set[int]] = defaultdict(set)
 
+
 class TheoryConstraintSize2(TheoryConstraintRegularWatch):
 
 	def __init__(self, constraint) -> None:
@@ -387,7 +386,6 @@ class TheoryConstraintSize2(TheoryConstraintRegularWatch):
 				init.add_watch(lit)
 				self.watches_to_at[lit].add(assigned_time)
 
-	@util.Timer("Propagation")
 	@util.Count("Propagation")
 	def propagate(self, control, changes) -> None:
 		"""
@@ -586,6 +584,10 @@ class TimedAtomPropagator:
 		self.theory_constraints.append(tc)
 
 	def add_atom_observer(self, tc):
+		"""
+		Add the tc to the list of tcs to be notified when their respective atoms are propagated
+		:param tc: theory constraint for timed watches
+		"""
 		if tc.size == 1:
 			return
 
@@ -597,6 +599,7 @@ class TimedAtomPropagator:
 			tc.init(init)
 			self.add_atom_observer(tc)
 
+	@util.Timer("Propagation")
 	def propagate(self, control, changes):
 		for lit in changes:
 			for sign, name, time in Map_Name_Lit.grab_name(lit):
@@ -607,9 +610,12 @@ class TimedAtomPropagator:
 
 class TheoryConstraintSize2Timed(TheoryConstraint):
 
+	def __init__(self, constraint) -> None:
+		super().__init__(constraint)
+		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
+
 	def build_watches(self, init) -> None:
 		"""
-		For a naive treatment of watches, we simply
 		add all solver literals for the constraint as watches
 		"""
 		for assigned_time in self.existing_at:
@@ -619,31 +625,41 @@ class TheoryConstraintSize2Timed(TheoryConstraint):
 
 	@util.Count("Propagation")
 	def propagate(self, control, change) -> None:
-		with util.Timer("Propagation") as timer:
-			sign, name, time = change
+		"""
+		look for assigned times of the change and add the nogoods of those times to
+		the solver
 
-			ats = []
-			for uq_name, info in self.t_atom_info.items():
-				if info["sign"] == sign and info["name"] == name:
-					ats.append(get_assigned_time(info, time))
+		:param control: clingo PropagateControl class
+		:param change: tuple containing the info of the change. Tuple[sign, name, time]
+		:return 0 if propagation has to stop, 1 if propagation can continue
+		"""
+		sign, name, time = change
 
-			for assigned_time in ats:
-				if assigned_time not in self.existing_at:
-					continue
+		ats = []
+		for uq_name, info in self.t_atom_info.items():
+			if info["sign"] == sign and info["name"] == name:
+				ats.append(get_assigned_time(info, time))
 
-				ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+		for assigned_time in ats:
+			if assigned_time not in self.existing_at:
+				continue
 
-				if not control.add_nogood(ng) or not control.propagate():
-					return 0
+			ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
 
-			return 1
+			if not control.add_nogood(ng) or not control.propagate():
+				return 0
+
+		return 1
 
 
 class TheoryConstraintNaiveTimed(TheoryConstraint):
 
+	def __init__(self, constraint) -> None:
+		super().__init__(constraint)
+		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
+
 	def build_watches(self, init) -> None:
 		"""
-		For a naive treatment of watches, we simply
 		add all solver literals for the constraint as watches
 		"""
 		for assigned_time in self.existing_at:
@@ -653,23 +669,28 @@ class TheoryConstraintNaiveTimed(TheoryConstraint):
 
 	@util.Count("Propagation")
 	def propagate(self, control, change) -> None:
-		with util.Timer("Propagation") as timer:
-			sign, name, time = change
+		"""
 
-			ats = []
-			for uq_name, info in self.t_atom_info.items():
-				if info["sign"] == sign and info["name"] == name:
-					ats.append(get_assigned_time(info, time))
+		:param control:
+		:param change:
+		:return 0 if propagation has to stop, 1 if propagation can continue
+		"""
+		sign, name, time = change
 
-			for assigned_time in ats:
-				if assigned_time not in self.existing_at:
-					continue
+		ats = []
+		for uq_name, info in self.t_atom_info.items():
+			if info["sign"] == sign and info["name"] == name:
+				ats.append(get_assigned_time(info, time))
 
-				ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
-				update_result = check_assignment(ng, control)
+		for assigned_time in ats:
+			if assigned_time not in self.existing_at:
+				continue
 
-				if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-					if not control.add_nogood(ng) or not control.propagate():
-						return 0
+			ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+			update_result = check_assignment(ng, control)
 
-			return 1
+			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+				if not control.add_nogood(ng) or not control.propagate():
+					return 0
+
+		return 1
