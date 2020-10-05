@@ -2,7 +2,6 @@ import clingo
 
 from typing import Any, Dict
 from untimed.propagator.propagatorhandler import TheoryHandler
-from untimed.propagator.propagatorhandler import TheoryHandlerMany
 import untimed.util as util
 
 import textwrap as _textwrap
@@ -10,12 +9,7 @@ import textwrap as _textwrap
 import logging
 import sys
 
-handlers: Dict[str, Any] = {}
-handlers["many"] = TheoryHandlerMany
-handlers["single"] = TheoryHandler
-
 propagators = ["naive", "2watch"]
-
 
 class Application:
 
@@ -24,21 +18,12 @@ class Application:
 
 		self.__handler = None
 
-		self.__handler_type = TheoryHandlerMany
+		self.__handler_type = TheoryHandler
 
 		self.propagator = "2watch"
 
-		self.__prop_init = clingo.Flag(False)
-
 	def __on_stats(self, step, accu):
 		util.print_stats()
-
-	def __parse_theory_handler(self, val):
-		if val not in handlers:
-			return False
-
-		self.__handler_type = handlers[val]
-		return True
 
 	def __parse_propagator(self, prop):
 		if prop not in propagators:
@@ -53,18 +38,13 @@ class Application:
 		"""
 
 		group = "Untimed Options"
-		options.add(group, "handler", _textwrap.dedent("""Handler builds one propagator for each constraint
-				or one propagator for all constraints [many]
-				<arg>: {many|single}"""), self.__parse_theory_handler)
+
 		options.add(group, "propagator", _textwrap.dedent("""Propagator type to use [2watch]
 				<arg>: {2watch|naive}"""), self.__parse_propagator)
 
-		options.add_flag(group, "prop-init", _textwrap.dedent("""Add clauses after propagator are initialized"""),
-		                 self.__prop_init)
-
 	def __build_handler(self):
 
-		self.__handler = self.__handler_type(self.propagator, self.__prop_init.value)
+		self.__handler = self.__handler_type(self.propagator)
 
 	def main(self, prg, files):
 
