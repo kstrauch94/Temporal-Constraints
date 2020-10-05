@@ -2,6 +2,10 @@ import clingo
 
 from typing import Any, Dict
 from untimed.propagator.propagatorhandler import TheoryHandler
+from untimed.propagator.propagatorhandler import TheoryHandlerTimedWatch
+
+from untimed.propagator.propagatorhandler import add_theory
+
 import untimed.util as util
 
 import textwrap as _textwrap
@@ -9,7 +13,12 @@ import textwrap as _textwrap
 import logging
 import sys
 
+handlers: Dict[str, Any] = {}
+handlers["timed"] = TheoryHandlerTimedWatch
+handlers["regular"] = TheoryHandler
+
 propagators = ["naive", "2watch"]
+
 
 class Application:
 
@@ -18,12 +27,21 @@ class Application:
 
 		self.__handler = None
 
-		self.__handler_type = TheoryHandler
+		self.__handler_type = "regular"
 
 		self.propagator = "2watch"
 
+		self.__prop_init = clingo.Flag(False)
+
 	def __on_stats(self, step, accu):
 		util.print_stats()
+
+	def __parse_theory_handler(self, val):
+		if val not in handlers:
+			return False
+
+		self.__handler_type = val
+		return True
 
 	def __parse_propagator(self, prop):
 		if prop not in propagators:
@@ -38,13 +56,18 @@ class Application:
 		"""
 
 		group = "Untimed Options"
-
-		options.add(group, "propagator", _textwrap.dedent("""Propagator type to use [2watch]
+		options.add(group, "handler", _textwrap.dedent("""Handler builds one propagator for each constraint
+				or one propagator for all constraints [many]
+				<arg>: {regular|timed}"""), self.__parse_theory_handler)
+		options.add(group, "propagator", _textwrap.dedent("""Propagator type to use along with the regular handler [2watch]
 				<arg>: {2watch|naive}"""), self.__parse_propagator)
 
 	def __build_handler(self):
+		if self.__handler_type == "regular":
+			self.__handler = handlers[self.__handler_type](self.propagator)
 
-		self.__handler = self.__handler_type(self.propagator)
+		elif self.__handler_type == "timed":
+			self.__handler = handlers[self.__handler_type]()
 
 	def main(self, prg, files):
 
@@ -53,7 +76,7 @@ class Application:
 
 		self.__build_handler()
 
-		self.__handler.add_theory(prg)
+		add_theory(prg)
 
 		prg.ground([("base", [])])
 

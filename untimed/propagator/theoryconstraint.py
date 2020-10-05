@@ -551,3 +551,92 @@ class TheoryConstraint2watch(TheoryConstraint):
 			# if lit is not watching a constraint eliminate it
 			if len(self.watches_to_at[old_watch]) == 0:
 				control.remove_watch(old_watch)
+
+
+class TimedAtomPropagator:
+	"""
+	Propagator that handles the propagation of "time atoms"(aka theory atoms of theory constraints).
+
+	Members:
+	t_atom_to_tc                -- Mapping from a "time atom" to a theoryconstraint.
+
+	theory_constraints          -- List of all theory constraints
+	"""
+	__slots__ = ["t_atom_to_tc", "theory_constraints"]
+
+	def __init__(self):
+		self.t_atom_to_tc: Dict[Tuple[int, str], Set["TheoryConstraint"]] = defaultdict(set)
+
+		self.theory_constraints: List["TheoryConstraint"] = []
+
+	def add_tc(self, tc):
+		self.theory_constraints.append(tc)
+
+	def add_atom_observer(self, tc):
+		if tc.size == 1:
+			return
+
+		for uq_name, info in tc.t_atom_info.items():
+			self.t_atom_to_tc[info["sign"], info["name"]].add(tc)
+
+	def init(self, init):
+		for tc in self.theory_constraints:
+			tc.init(init)
+			self.add_atom_observer(tc)
+
+	def propagate(self, control, changes):
+		for lit in changes:
+			for sign, name, time in Map_Name_Lit.grab_name(lit):
+				for tc in self.t_atom_to_tc[sign, name]:
+					if not tc.propagate(control, (sign, name, time)):
+						return
+
+
+class TheoryConstraintSize2Timed(TheoryConstraintSize2):
+
+	@util.Count("Propagation")
+	def propagate(self, control, change) -> None:
+		with util.Timer("Propagation") as timer:
+			sign, name, time = change
+
+			ats = []
+			for uq_name, info in self.t_atom_info.items():
+				if info["sign"] == sign and info["name"] == name:
+					ats.append(get_assigned_time(info, time))
+
+			for assigned_time in ats:
+				if assigned_time not in self.existing_at:
+					continue
+
+				ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+
+				if not control.add_nogood(ng) or not control.propagate():
+					return 0
+
+			return 1
+
+
+class TheoryConstraintNaiveTimed(TheoryConstraintNaive):
+
+	@util.Count("Propagation")
+	def propagate(self, control, change) -> None:
+		with util.Timer("Propagation") as timer:
+			sign, name, time = change
+
+			ats = []
+			for uq_name, info in self.t_atom_info.items():
+				if info["sign"] == sign and info["name"] == name:
+					ats.append(get_assigned_time(info, time))
+
+			for assigned_time in ats:
+				if assigned_time not in self.existing_at:
+					continue
+
+				ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+				update_result = check_assignment(ng, control)
+
+				if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+					if not control.add_nogood(ng) or not control.propagate():
+						return 0
+
+			return 1
