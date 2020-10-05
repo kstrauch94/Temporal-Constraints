@@ -1,6 +1,5 @@
 import unittest
 from untimed.propagator.propagatorhandler import TheoryHandler
-from untimed.propagator.propagatorhandler import TheoryHandlerMany
 
 
 import clingo
@@ -73,59 +72,15 @@ class TestApp(unittest.TestCase):
 	#### ADD TESTS FOR COMPLEX ATOMS
 	#### E.G. :- a(b(c), d(g(1,2,3))
 
-	def test_naive_regular(self):
+	def test_naive(self):
 		handler_class = TheoryHandler
-		handler_args = {"prop_type": "naive",
-						"prop_init": False}
+		handler_args = {"prop_type": "naive"}
 
 		self.handler_test(handler_class, handler_args)
 
-	def test_naive_regular_prop_init(self):
+	def test_2watch(self):
 		handler_class = TheoryHandler
-		handler_args = {"prop_type": "naive",
-						"prop_init": True}
-
-		self.handler_test(handler_class, handler_args)
-
-	def test_naive_many(self):
-		handler_class = TheoryHandlerMany
-		handler_args = {"prop_type": "naive",
-						"prop_init": False}
-
-		self.handler_test(handler_class, handler_args)
-
-	def test_naive_many_prop_init(self):
-		handler_class = TheoryHandlerMany
-		handler_args = {"prop_type": "naive",
-						"prop_init": True}
-
-		self.handler_test(handler_class, handler_args)
-
-	def test_2watch_regular(self):
-		handler_class = TheoryHandler
-		handler_args = {"prop_type": "2watch",
-						"prop_init": False}
-
-		self.handler_test(handler_class, handler_args)
-
-	def test_2watch_regular_prop_init(self):
-		handler_class = TheoryHandler
-		handler_args = {"prop_type": "2watch",
-						"prop_init": True}
-
-		self.handler_test(handler_class, handler_args)
-
-	def test_2watch_many(self):
-		handler_class = TheoryHandlerMany
-		handler_args = {"prop_type": "2watch",
-						"prop_init": False}
-
-		self.handler_test(handler_class, handler_args)
-
-	def test_2watch_many_prop_init(self):
-		handler_class = TheoryHandlerMany
-		handler_args = {"prop_type": "2watch",
-						"prop_init": True}
+		handler_args = {"prop_type": "2watch"}
 
 		self.handler_test(handler_class, handler_args)
 
