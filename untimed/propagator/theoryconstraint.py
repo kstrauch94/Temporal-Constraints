@@ -322,24 +322,6 @@ class TheoryConstraintSize1(TheoryConstraint):
 					init.add_clause([-solver_lit])
 
 
-class TheoryConstraintRegularWatch(TheoryConstraint):
-	"""
-	Parent class of Theory constraints that will Implement propagation
-	using solver literals. This class only adds the members below.
-
-	Members:
-
-	watches_to_at           --  Dictionary mapping the current watches to
-								their respective assigned time(s)
-	"""
-
-	__slots__ = ["watches_to_at"]
-
-	def __init__(self, constraint) -> None:
-		super().__init__(constraint)
-		self.watches_to_at: Dict[int, Set[int]] = defaultdict(set)
-
-
 class TheoryConstraintSize2(TheoryConstraint):
 
 	def __init__(self, constraint) -> None:
@@ -474,7 +456,7 @@ def get_replacement_watch(nogood: List[int], lit: int, control) -> Optional[List
 	return None
 
 
-class TheoryConstraint2watch(TheoryConstraintRegularWatch):
+class TheoryConstraint2watch(TheoryConstraint):
 	"""
 	Members:
 
