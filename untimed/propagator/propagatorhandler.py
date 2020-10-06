@@ -87,9 +87,7 @@ class TheoryHandler:
 class TheoryHandlerTimedWatch:
 
 	def __init__(self) -> None:
-		"""
-		:param prop_type: type of propagator for general nogoods ["2watch", "naive"]
-		"""
+
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		self.propagator = TimedAtomPropagator()
