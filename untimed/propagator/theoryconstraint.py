@@ -293,6 +293,8 @@ class TheoryConstraint:
 
 class TheoryConstraintSize1(TheoryConstraint):
 
+	__slots__ = []
+
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
@@ -323,6 +325,8 @@ class TheoryConstraintSize1(TheoryConstraint):
 
 
 class TheoryConstraintSize2(TheoryConstraint):
+
+	__slots__ = []
 
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
@@ -366,6 +370,7 @@ class TheoryConstraintSize2(TheoryConstraint):
 
 
 class TheoryConstraintNaive(TheoryConstraint):
+	__slots__ = []
 
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
@@ -590,6 +595,8 @@ class TimedAtomPropagator:
 
 class TheoryConstraintSize2Timed(TheoryConstraint):
 
+	__slots__ = []
+
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
@@ -630,6 +637,8 @@ class TheoryConstraintSize2Timed(TheoryConstraint):
 
 
 class TheoryConstraintNaiveTimed(TheoryConstraint):
+
+	__slots__ = []
 
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
