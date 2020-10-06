@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 import clingo
 
-from typing import List, Dict, Tuple, Set, Callable, Any, Optional
+from typing import List, Dict, Tuple, Set, Any, Optional
 
 import untimed.util as util
 
@@ -205,7 +205,7 @@ class TheoryConstraint:
 
 	Members:
 	t_atom_info             -- Dictionary that holds relevant information
-	                           for all atoms in the constraint
+								for all atoms in the constraint
 
 	at_size                 -- mapping from assigned time to size of nogood
 
@@ -359,8 +359,8 @@ class TheoryConstraintRegularWatch(TheoryConstraint):
 
 	Members:
 
-	watches_to_at           -- Dictionary mapping the current watches to
-						   their respective assigned time(s)
+	watches_to_at           --  Dictionary mapping the current watches to
+								their respective assigned time(s)
 	"""
 
 	__slots__ = ["watches_to_at"]
@@ -395,7 +395,7 @@ class TheoryConstraintSize2(TheoryConstraintRegularWatch):
 		:param control: clingo PropagateControl class
 		:param changes: list of watches that were assigned
 		"""
-		with util.Timer("Propagation") as timer:
+		with util.Timer("Propagation"):
 
 			for lit in changes:
 				for assigned_time in self.watches_to_at[lit]:
@@ -435,7 +435,7 @@ class TheoryConstraintNaive(TheoryConstraintRegularWatch):
 		:return 0 if propagation has to stop, 1 if propagation can continue
 		"""
 
-		with util.Timer("Propagation") as timer:
+		with util.Timer("Propagation"):
 
 			for lit in changes:
 				for assigned_time in self.watches_to_at[lit]:
@@ -449,7 +449,7 @@ class TheoryConstraintNaive(TheoryConstraintRegularWatch):
 			return
 
 
-def choose_lit(lits: Set[int], current_watch: int, control) -> Optional[int]:
+def choose_lit(lits: List[int], current_watch: int, control) -> Optional[int]:
 	"""
 	Checks the literals for a nogood and check for new watches
 
@@ -469,7 +469,7 @@ def choose_lit(lits: Set[int], current_watch: int, control) -> Optional[int]:
 	return None
 
 
-def get_replacement_watch(nogood: List[int], lit: int, control) -> Optional[Tuple[int, int]]:
+def get_replacement_watch(nogood: List[int], lit: int, control) -> Optional[List[int]]:
 	"""
 	choose a new watch for the given assigned time if possible
 	:param int nogood: the nogood
@@ -519,9 +519,9 @@ class TheoryConstraint2watch(TheoryConstraintRegularWatch):
 		:param changes: list of watches that were assigned
 		:return 0 if propagation has to stop, 1 if propagation can continue
 		"""
-		with util.Timer("Propagation") as timer:
+		with util.Timer("Propagation"):
 
-			replacement_info: List[Tuple[int, int, int]] = []
+			replacement_info: List[List[int]] = []
 			for lit in changes:
 				for assigned_time in self.watches_to_at[lit]:
 					ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
@@ -539,7 +539,7 @@ class TheoryConstraint2watch(TheoryConstraintRegularWatch):
 
 			return
 
-	def replace_watches(self, info: List[Tuple[int, int, int]], control) -> None:
+	def replace_watches(self, info: List[List[int]], control) -> None:
 		"""
 		Update the watches_to_at dictionary based on the info returned by get_replacement_watch
 		Also, add the new watch to the solver and remove the old watch if necessary
@@ -624,7 +624,7 @@ class TheoryConstraintSize2Timed(TheoryConstraint):
 				init.add_watch(lit)
 
 	@util.Count("Propagation")
-	def propagate(self, control, change) -> None:
+	def propagate(self, control, change) -> int:
 		"""
 		look for assigned times of the change and add the nogoods of those times to
 		the solver
@@ -668,7 +668,7 @@ class TheoryConstraintNaiveTimed(TheoryConstraint):
 				init.add_watch(lit)
 
 	@util.Count("Propagation")
-	def propagate(self, control, change) -> None:
+	def propagate(self, control, change) -> int:
 		"""
 
 		:param control:
