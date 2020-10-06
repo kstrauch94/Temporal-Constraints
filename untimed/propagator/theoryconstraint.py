@@ -149,24 +149,25 @@ def reverse_assigned_time(info: Dict[str, Any], assigned_time: int) -> int:
 	return assigned_time - info["time_mod"]
 
 
-def form_nogood(t_atom_info, assigned_time: int, existing_at) -> List[int]:
+def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	"""
 	Forms a nogood based on the assigned time and atoms of a theoryconstraint
 
 	:param t_atom_info: Complete information dictionary of the theory constraint
 	:param assigned_time: the assigned time
-	:param existing_at: list of valid assigned times
 	:return: the nogood for the given assigned time and constraint
 	"""
-	if assigned_time not in existing_at:
-		return []
 
 	ng: Set[int] = set()
 
-	for uq_name in t_atom_info.keys():
-		time: int = reverse_assigned_time(t_atom_info[uq_name], assigned_time)
-		ng.add(Map_Name_Lit.grab_lit(build_symbol_id(t_atom_info[uq_name], time)))
-
+	try:
+		for uq_name in t_atom_info.keys():
+			time: int = reverse_assigned_time(t_atom_info[uq_name], assigned_time)
+			ng.add(Map_Name_Lit.grab_lit(build_symbol_id(t_atom_info[uq_name], time)))
+	except KeyError:
+		# this error would happen is an id is not in the mapping
+		# if this happens it means the nogood does not exist for this assigned time
+		return None
 	return list(ng)
 
 
@@ -178,7 +179,7 @@ def check_assignment(nogood, control) -> int:
 	:param control: clingo PropagateControl class
 	:return int value that denotes the result of the check. See CONSTRAINT_CHECK for details
 	"""
-	if nogood == []:
+	if nogood is None:
 		return CONSTRAINT_CHECK["NONE"]
 
 	true_count: int = 0
@@ -199,6 +200,17 @@ def check_assignment(nogood, control) -> int:
 		return CONSTRAINT_CHECK["NONE"]
 
 
+def get_at_from_name_id(name_id: Tuple[int, str, int], t_atom_info):
+	sign, name, time = name_id
+
+	ats = set()
+	for uq_name, info in t_atom_info.items():
+		if info["sign"] == sign and info["name"] == name:
+			ats.add(get_assigned_time(info, time))
+
+	return ats
+
+
 class TheoryConstraint:
 	"""
 	Base class for all theory constraints.
@@ -207,28 +219,20 @@ class TheoryConstraint:
 	t_atom_info             -- Dictionary that holds relevant information
 								for all atoms in the constraint
 
-	at_size                 -- mapping from assigned time to size of nogood
-
 	max_time                -- Max time of the theory constraint
 
 	min_time                -- Min time of the theory constraint
 
-	existing_at             -- List of the valid assigned times
-
 	"""
 
-	__slots__ = ["t_atom_info", "at_size", "max_time", "min_time", "existing_at", "logger"]
+	__slots__ = ["t_atom_info", "max_time", "min_time", "logger"]
 
 	def __init__(self, constraint) -> None:
 
 		self.t_atom_info: Dict[str, Dict[str, Any]] = {}
 
-		self.at_size: Dict[int, int] = defaultdict(lambda: 0)
-
 		self.max_time: int = None
 		self.min_time: int = None
-
-		self.existing_at: List[int] = []
 
 		self.t_atom_info, self.min_time, self.max_time = parse_atoms(constraint)
 
@@ -243,13 +247,12 @@ class TheoryConstraint:
 	@util.Timer("Init")
 	def init(self, init) -> None:
 		self.init_mappings(init)
-		self.purge_invalid_times(init)
 		self.build_watches(init)
 
 	def init_mappings(self, init) -> None:
 		"""
 		Loop through the symbolic atoms matching the signatures of the atoms in the theory constraint.
-		If a match is found, we add it to Map_Name_Lit and update self.at_size and self.existing_at
+		If a match is found, we add it to Map_Name_Lit
 
 		:param init: clingo PropagateInit class
 		"""
@@ -270,34 +273,7 @@ class TheoryConstraint:
 
 					solver_lit: int = init.solver_literal(s_atom.literal) * self.t_atom_info[uq_name]["sign"]
 
-					self.at_size[assigned_time] += 1
-					if assigned_time not in self.existing_at:
-						self.existing_at.append(assigned_time)
-
 					Map_Name_Lit.add(build_symbol_id(self.t_atom_info[uq_name], time), solver_lit)
-
-	def purge_invalid_times(self, init) -> None:
-		"""
-		We find out which assigned times are not valid.
-		If the assigned time is valid and propagate is True we check all nogoods of the theoryconstraint
-		for conflicts or unit and deal with them accordingly
-
-		:param init: clingo PropagateInit class
-		"""
-		invalid_at = []
-		for assigned_time in self.existing_at:
-			if self.at_size[assigned_time] < self.size:
-				# if this happens, it could be because for one
-				# of the names in the constraint for a particular
-				# assigned time there was no symbolic atom for it
-				# this means that the atom does not exist
-				# hence, it is false and the nogood is useless
-				# so we delete it
-				invalid_at.append(assigned_time)
-				continue
-
-		for iat in invalid_at:
-			self.existing_at.remove(iat)
 
 	def build_watches(self, init):
 		"""
@@ -320,12 +296,6 @@ class TheoryConstraintSize1(TheoryConstraint):
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
-
-	def purge_invalid_times(self, init, propagate: bool = False) -> None:
-		"""
-		overwriting parent class method so it does nothing when called
-		"""
-		pass
 
 	def init_mappings(self, init) -> None:
 		"""
@@ -370,7 +340,7 @@ class TheoryConstraintRegularWatch(TheoryConstraint):
 		self.watches_to_at: Dict[int, Set[int]] = defaultdict(set)
 
 
-class TheoryConstraintSize2(TheoryConstraintRegularWatch):
+class TheoryConstraintSize2(TheoryConstraint):
 
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
@@ -380,11 +350,12 @@ class TheoryConstraintSize2(TheoryConstraintRegularWatch):
 		"""
 		Since there are only 2 atoms in the constraint we add all literals as watches
 		"""
-		for assigned_time in self.existing_at:
-			lits = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+		for assigned_time in range(self.min_time, self.max_time + 1):
+			lits = form_nogood(self.t_atom_info, assigned_time)
+			if lits is None:
+				continue
 			for lit in lits:
 				init.add_watch(lit)
-				self.watches_to_at[lit].add(assigned_time)
 
 	@util.Count("Propagation")
 	def propagate(self, control, changes) -> None:
@@ -398,16 +369,21 @@ class TheoryConstraintSize2(TheoryConstraintRegularWatch):
 		with util.Timer("Propagation"):
 
 			for lit in changes:
-				for assigned_time in self.watches_to_at[lit]:
-					ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+				ats = set()
+				for name_id in Map_Name_Lit.grab_name(lit):
+					ats.update(get_at_from_name_id(name_id, self.t_atom_info))
 
+				for assigned_time in ats:
+					ng = form_nogood(self.t_atom_info, assigned_time)
+					if ng is None:
+						continue
 					if not control.add_nogood(ng) or not control.propagate():
 						return
 
 			return
 
 
-class TheoryConstraintNaive(TheoryConstraintRegularWatch):
+class TheoryConstraintNaive(TheoryConstraint):
 
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
@@ -418,11 +394,12 @@ class TheoryConstraintNaive(TheoryConstraintRegularWatch):
 		For a naive treatment of watches, we simply
 		add all solver literals for the constraint as watches
 		"""
-		for assigned_time in self.existing_at:
-			lits = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+		for assigned_time in range(self.min_time, self.max_time + 1):
+			lits = form_nogood(self.t_atom_info, assigned_time)
+			if lits is None:
+				continue
 			for lit in lits:
 				init.add_watch(lit)
-				self.watches_to_at[lit].add(assigned_time)
 
 	@util.Count("Propagation")
 	def propagate(self, control, changes) -> None:
@@ -438,8 +415,15 @@ class TheoryConstraintNaive(TheoryConstraintRegularWatch):
 		with util.Timer("Propagation"):
 
 			for lit in changes:
-				for assigned_time in self.watches_to_at[lit]:
-					ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+				ats = set()
+				for name_id in Map_Name_Lit.grab_name(lit):
+					ats.update(get_at_from_name_id(name_id, self.t_atom_info))
+
+				for assigned_time in ats:
+					ng = form_nogood(self.t_atom_info, assigned_time)
+					if ng is None:
+						continue
+
 					update_result = check_assignment(ng, control)
 
 					if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
@@ -491,17 +475,28 @@ def get_replacement_watch(nogood: List[int], lit: int, control) -> Optional[List
 
 
 class TheoryConstraint2watch(TheoryConstraintRegularWatch):
+	"""
+	Members:
+
+	watches_to_at           --  Dictionary mapping the current watches to
+								their respective assigned time(s)
+	"""
+
+	__slots__ = ["watches_to_at"]
 
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
+		self.watches_to_at: Dict[int, Set[int]] = defaultdict(set)
 
 	def build_watches(self, init) -> None:
 		"""
 		Only add watches for the first 2 literals of a nogood
 		"""
-		for assigned_time in self.existing_at:
-			lits = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+		for assigned_time in range(self.min_time, self.max_time + 1):
+			lits = form_nogood(self.t_atom_info, assigned_time)
+			if lits is None:
+				continue
 			for lit in lits[:2]:
 				self.watches_to_at[lit].add(assigned_time)
 				init.add_watch(lit)
@@ -524,7 +519,10 @@ class TheoryConstraint2watch(TheoryConstraintRegularWatch):
 			replacement_info: List[List[int]] = []
 			for lit in changes:
 				for assigned_time in self.watches_to_at[lit]:
-					ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+					ng = form_nogood(self.t_atom_info, assigned_time)
+					if ng is None:
+						continue
+
 					update_result = check_assignment(ng, control)
 
 					if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
@@ -618,8 +616,10 @@ class TheoryConstraintSize2Timed(TheoryConstraint):
 		"""
 		add all solver literals for the constraint as watches
 		"""
-		for assigned_time in self.existing_at:
-			lits = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+		for assigned_time in range(self.min_time, self.max_time + 1):
+			lits = form_nogood(self.t_atom_info, assigned_time)
+			if lits is None:
+				continue
 			for lit in lits:
 				init.add_watch(lit)
 
@@ -633,18 +633,13 @@ class TheoryConstraintSize2Timed(TheoryConstraint):
 		:param change: tuple containing the info of the change. Tuple[sign, name, time]
 		:return 0 if propagation has to stop, 1 if propagation can continue
 		"""
-		sign, name, time = change
 
-		ats = []
-		for uq_name, info in self.t_atom_info.items():
-			if info["sign"] == sign and info["name"] == name:
-				ats.append(get_assigned_time(info, time))
+		ats = get_at_from_name_id(change, self.t_atom_info)
 
 		for assigned_time in ats:
-			if assigned_time not in self.existing_at:
+			ng = form_nogood(self.t_atom_info, assigned_time)
+			if ng is None:
 				continue
-
-			ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
 
 			if not control.add_nogood(ng) or not control.propagate():
 				return 0
@@ -662,31 +657,28 @@ class TheoryConstraintNaiveTimed(TheoryConstraint):
 		"""
 		add all solver literals for the constraint as watches
 		"""
-		for assigned_time in self.existing_at:
-			lits = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
+		for assigned_time in range(self.min_time, self.max_time + 1):
+			lits = form_nogood(self.t_atom_info, assigned_time)
+			if lits is None:
+				continue
 			for lit in lits:
 				init.add_watch(lit)
 
 	@util.Count("Propagation")
 	def propagate(self, control, change) -> int:
 		"""
-
 		:param control:
 		:param change:
 		:return 0 if propagation has to stop, 1 if propagation can continue
 		"""
-		sign, name, time = change
 
-		ats = []
-		for uq_name, info in self.t_atom_info.items():
-			if info["sign"] == sign and info["name"] == name:
-				ats.append(get_assigned_time(info, time))
+		ats = get_at_from_name_id(change, self.t_atom_info)
 
 		for assigned_time in ats:
-			if assigned_time not in self.existing_at:
+			ng = form_nogood(self.t_atom_info, assigned_time)
+			if ng is None:
 				continue
 
-			ng = form_nogood(self.t_atom_info, assigned_time, self.existing_at)
 			update_result = check_assignment(ng, control)
 
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
