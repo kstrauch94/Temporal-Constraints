@@ -103,6 +103,12 @@ class TestApp(unittest.TestCase):
 
 		self.handler_test(handler_class, handler_args)
 
+	def test_2watchmap_prop(self):
+		handler_class = TheoryHandlerWithPropagator
+		handler_args = {"prop_type": "2watchmap"}
+
+		self.handler_test(handler_class, handler_args)
+
 	def handler_test(self, handler_class, handler_args):
 		# tests with constraints of size 1
 		c = """:-&constraint(1,maxtime){+.a(1)}."""

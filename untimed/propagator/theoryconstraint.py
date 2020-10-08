@@ -383,7 +383,54 @@ class TheoryConstraintSize2(TheoryConstraint):
 			return []
 
 
+class TheoryConstraintSize2ForProp2WatchMap(TheoryConstraint):
+
+	__slots__ = []
+
+	def __init__(self, constraint) -> None:
+		super().__init__(constraint)
+		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
+
+	def build_watches(self, init) -> Set[int]:
+		"""
+		Since there are only 2 atoms in the constraint we add all literals as watches
+		"""
+		watches = set()
+		for assigned_time in range(self.min_time, self.max_time + 1):
+			lits = form_nogood(self.t_atom_info, assigned_time)
+			if lits is None:
+				continue
+			for lit in lits:
+				init.add_watch(lit)
+				watches.add((lit, assigned_time))
+
+		return watches
+
+	@util.Count("Propagation")
+	def propagate(self, control, change) -> Optional[List[Tuple]]:
+		"""
+		For any relevant change, immediately form the nogood
+		for the assigned times it is in and add it to the solver
+
+		:param control: clingo PropagateControl class
+		:param changes: list of watches that were assigned
+		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
+		"""
+		with util.Timer("Propagation"):
+
+			lit, assigned_time = change
+
+			ng = form_nogood(self.t_atom_info, assigned_time)
+			if ng is None:
+				return []
+			if not control.add_nogood(ng) or not control.propagate():
+				return None
+
+			return []
+
+
 class TheoryConstraintNaive(TheoryConstraint):
+
 	__slots__ = []
 
 	def __init__(self, constraint) -> None:
@@ -549,7 +596,7 @@ class TheoryConstraint2watch(TheoryConstraint):
 						delete_add.append(info)
 						replacement_info.append(info + [assigned_time])
 
-				self.replace_watches(replacement_info, control)
+			self.replace_watches(replacement_info, control)
 
 			return delete_add
 
@@ -563,7 +610,6 @@ class TheoryConstraint2watch(TheoryConstraint):
 		"""
 
 		for old_watch, new_watch, assigned_time in info:
-
 			# remove the lit as a watch for constraint assigned_time
 			self.watches_to_at[old_watch].remove(assigned_time)
 
@@ -579,6 +625,7 @@ class TheoryConstraint2watch(TheoryConstraint):
 
 
 class TheoryConstraint2watchForProp(TheoryConstraint2watch):
+
 	__slots__ = []
 
 	def replace_watches(self, info: List[List[int]], control) -> None:
@@ -596,6 +643,62 @@ class TheoryConstraint2watchForProp(TheoryConstraint2watch):
 
 			# add new watch as a watch for constraint assigned_time
 			self.watches_to_at[new_watch].add(assigned_time)
+
+
+class TheoryConstraint2watchForPropMap(TheoryConstraint):
+
+	__slots__ = []
+
+	def __init__(self, constraint) -> None:
+		super().__init__(constraint)
+		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
+
+	def build_watches(self, init) -> List[int]:
+		"""
+		Only add watches for the first 2 literals of a nogood
+		"""
+		watches = []
+		for assigned_time in range(self.min_time, self.max_time + 1):
+			lits = form_nogood(self.t_atom_info, assigned_time)
+			if lits is None:
+				continue
+			for lit in lits[:2]:
+				init.add_watch(lit)
+				watches.append((lit, assigned_time))
+
+		return watches
+
+	def propagate(self, control, change) -> Optional[List[Tuple]]:
+		"""
+		For any relevant change, check the assignment of the whole nogood
+		for the assigned times it is in. If it it conflicting or unit add the nogood to the solver
+
+		After the check, replace the watch if possible.
+
+		:param control: clingo PropagateControl class
+		:param changes: list of watches and assigned time pairs
+		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
+		"""
+		with util.Timer("Propagation"):
+
+			delete_add = []
+
+			lit, assigned_time = change
+			ng = form_nogood(self.t_atom_info, assigned_time)
+			if ng is None:
+				return []
+
+			update_result = check_assignment(ng, control)
+
+			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+				if not control.add_nogood(ng) or not control.propagate():
+					return None
+
+			info = get_replacement_watch(ng, lit, control)
+			if info is not None:
+				delete_add.append(info)
+
+			return delete_add
 
 
 class TheoryConstraintSize2Timed(TheoryConstraint):

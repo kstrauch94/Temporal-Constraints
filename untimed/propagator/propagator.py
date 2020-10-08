@@ -150,3 +150,59 @@ class RegularAtomPropagator2watch:
 
 					if self.watch_to_tc[delete] == []:
 						control.remove_watch(delete)
+
+
+class RegularAtomPropagator2watchMap:
+	"""
+	Propagator that handles the propagation of "time atoms"(aka theory atoms of theory constraints).
+
+	Members:
+	watch_to_tc                -- Mapping from a literal to a theory constraint.
+
+	theory_constraints          -- List of all theory constraints
+	"""
+	__slots__ = ["watch_to_tc", "theory_constraints"]
+
+	def __init__(self):
+
+		self.watch_to_tc: Dict[int, List["TheoryConstraint"]] = defaultdict(list)
+
+		self.theory_constraints: List["TheoryConstraint"] = []
+
+	def add_tc(self, tc):
+		self.theory_constraints.append(tc)
+
+	def add_atom_observer(self, tc, watches):
+		"""
+		Add the tc to the list of tcs to be notified when their respective watches are propagated
+		For the given lit, we save the tc along with the respective assigned time
+		:param tc: theory constraint for timed watches
+		:param watches: List of watches, assigned time pairs
+		"""
+		if tc.size == 1:
+			return
+
+		for lit, at in watches:
+			self.watch_to_tc[lit].append((tc, at))
+
+	def init(self, init):
+		for tc in self.theory_constraints:
+			watches = tc.init(init)
+			self.add_atom_observer(tc, watches)
+
+	@util.Timer("Propagation")
+	def propagate(self, control, changes):
+		for lit in changes:
+			for tc, at in set(self.watch_to_tc[lit]):
+				result = tc.propagate(control, (lit, at))
+				if result is None:
+					return
+
+				for delete, add in result:
+					self.watch_to_tc[delete].remove((tc, at))
+					self.watch_to_tc[add].append((tc, at))
+
+					control.add_watch(add)
+
+					if self.watch_to_tc[delete] == []:
+						control.remove_watch(delete)

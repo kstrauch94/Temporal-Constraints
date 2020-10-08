@@ -7,12 +7,16 @@ from untimed.propagator.theoryconstraint import TheoryConstraintNaive
 from untimed.propagator.theoryconstraint import TheoryConstraint2watch
 from untimed.propagator.theoryconstraint import TheoryConstraintSize1
 from untimed.propagator.theoryconstraint import TheoryConstraintSize2
-
 from untimed.propagator.theoryconstraint import TheoryConstraint2watchForProp
+from untimed.propagator.theoryconstraint import TheoryConstraintSize2ForProp2WatchMap
+from untimed.propagator.theoryconstraint import TheoryConstraint2watchForPropMap
+
+
 
 from untimed.propagator.propagator import TimedAtomPropagator
 from untimed.propagator.propagator import RegularAtomPropagatorNaive
 from untimed.propagator.propagator import RegularAtomPropagator2watch
+from untimed.propagator.propagator import RegularAtomPropagator2watchMap
 
 from untimed.propagator.theoryconstraint import TheoryConstraintSize2Timed
 from untimed.propagator.theoryconstraint import TheoryConstraintNaiveTimed
@@ -39,15 +43,21 @@ TWO_WATCH_TC_PROP = {1: TheoryConstraintSize1,
                      2: TheoryConstraintSize2,
                      -1: TheoryConstraint2watchForProp}
 
+TWO_WATCH_MAP_TC_PROP = {1: TheoryConstraintSize1,
+                     2: TheoryConstraintSize2ForProp2WatchMap,
+                     -1: TheoryConstraint2watchForPropMap}
+
 TC_DICT = {"2watch": TWO_WATCH_TC,
            "naive": NAIVE_TC,
            "timed_prop": TIMED_TC,
            "naive_prop": NAIVE_TC_PROP,
-           "2watch_prop": TWO_WATCH_TC_PROP}
+           "2watch_prop": TWO_WATCH_TC_PROP,
+           "2watchmap_prop": TWO_WATCH_MAP_TC_PROP}
 
 PROPAGATORS = {"timed": TimedAtomPropagator,
                "naive": RegularAtomPropagatorNaive,
-               "2watch": RegularAtomPropagator2watch}
+               "2watch": RegularAtomPropagator2watch,
+               "2watchmap": RegularAtomPropagator2watchMap}
 
 
 def build_tc(t_atom, tc_dict) -> TheoryConstraint:
@@ -79,7 +89,7 @@ class TheoryHandler:
 		if prop_type not in TC_DICT:
 			raise ValueError("Handler does not support {} watch type".format(prop_type))
 
-		self.propagators: List[TheoryConstraint] = []
+		#self.propagators: List[TheoryConstraint] = []
 
 		self.prop_type: str = prop_type
 
@@ -92,7 +102,7 @@ class TheoryHandler:
 		for t_atom in prg.theory_atoms:
 			if t_atom.term.name == "constraint":
 				tc = build_tc(t_atom, TC_DICT[self.prop_type])
-				self.propagators.append(tc)
+				#self.propagators.append(tc)
 
 				prg.register_propagator(tc)
 

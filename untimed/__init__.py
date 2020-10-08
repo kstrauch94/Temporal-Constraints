@@ -17,7 +17,7 @@ handlers: Dict[str, Any] = {}
 handlers["prop"] = TheoryHandlerWithPropagator
 handlers["regular"] = TheoryHandler
 
-watch_types = ["naive", "2watch", "timed"]
+watch_types = ["naive", "2watch", "timed", "2watchmap"]
 
 
 class Application:
@@ -61,8 +61,8 @@ class Application:
 				<arg>: {regular|prop}"""), self.__parse_theory_handler)
 		options.add(group, "watch-type", _textwrap.dedent("""Watch type to use along with the handler. [naive]
 				regular handler supports 2watch and naive
-				prop handler support timed, naive and 2watch
-				<arg>: {2watch|naive|timed}"""), self.__parse_watch_type)
+				prop handler support timed, naive, 2watch and 2watchmap
+				<arg>: {2watch|2watchmap|naive|timed}"""), self.__parse_watch_type)
 
 	def __build_handler(self):
 		self.__handler = handlers[self.__handler_type](self.watch_types)
