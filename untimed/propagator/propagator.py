@@ -85,8 +85,7 @@ class RegularAtomPropagatorNaive:
 
 	def init(self, init):
 		for tc in self.theory_constraints:
-			tc.init_mappings(init)
-			watches = tc.build_watches(init)
+			watches = tc.init(init)
 			self.add_atom_observer(tc, watches)
 
 	@util.Timer("Propagation")
@@ -165,7 +164,7 @@ class RegularAtomPropagator2watchMap:
 
 	def __init__(self):
 
-		self.watch_to_tc: Dict[int, List["TheoryConstraint"]] = defaultdict(list)
+		self.watch_to_tc: Dict[int, List[Tuple["TheoryConstraint", int]]] = defaultdict(list)
 
 		self.theory_constraints: List["TheoryConstraint"] = []
 
