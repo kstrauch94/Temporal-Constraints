@@ -1,5 +1,5 @@
 import unittest
-from untimed.propagator.propagatorhandler import TheoryHandler, TheoryHandlerTimedWatch, add_theory
+from untimed.propagator.propagatorhandler import TheoryHandler, TheoryHandlerWithPropagator, add_theory
 
 import clingo
 
@@ -73,21 +73,33 @@ class TestApp(unittest.TestCase):
 	#### ADD TESTS FOR COMPLEX ATOMS
 	#### E.G. :- a(b(c), d(g(1,2,3))
 
-	def test_naive(self):
+	def test_naive_regular(self):
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "naive"}
 
 		self.handler_test(handler_class, handler_args)
 
-	def test_2watch(self):
+	def test_2watch_regular(self):
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "2watch"}
 
 		self.handler_test(handler_class, handler_args)
 
-	def test_Timed(self):
-		handler_class = TheoryHandlerTimedWatch
-		handler_args = {}
+	def test_timed_prop(self):
+		handler_class = TheoryHandlerWithPropagator
+		handler_args = {"prop_type": "timed"}
+
+		self.handler_test(handler_class, handler_args)
+
+	def test_naive_prop(self):
+		handler_class = TheoryHandlerWithPropagator
+		handler_args = {"prop_type": "naive"}
+
+		self.handler_test(handler_class, handler_args)
+
+	def test_2watch_prop(self):
+		handler_class = TheoryHandlerWithPropagator
+		handler_args = {"prop_type": "2watch"}
 
 		self.handler_test(handler_class, handler_args)
 
