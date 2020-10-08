@@ -2,7 +2,7 @@ import clingo
 
 from typing import Any, Dict
 from untimed.propagator.propagatorhandler import TheoryHandler
-from untimed.propagator.propagatorhandler import TheoryHandlerTimedWatch
+from untimed.propagator.propagatorhandler import TheoryHandlerWithPropagator
 
 from untimed.propagator.propagatorhandler import add_theory
 
@@ -14,10 +14,10 @@ import logging
 import sys
 
 handlers: Dict[str, Any] = {}
-handlers["timed"] = TheoryHandlerTimedWatch
+handlers["prop"] = TheoryHandlerWithPropagator
 handlers["regular"] = TheoryHandler
 
-propagators = ["naive", "2watch"]
+watch_types = ["naive", "2watch", "timed"]
 
 
 class Application:
@@ -27,9 +27,9 @@ class Application:
 
 		self.__handler = None
 
-		self.__handler_type = "regular"
+		self.__handler_type = "prop"
 
-		self.propagator = "2watch"
+		self.watch_types = "naive"
 
 		self.__prop_init = clingo.Flag(False)
 
@@ -43,11 +43,11 @@ class Application:
 		self.__handler_type = val
 		return True
 
-	def __parse_propagator(self, prop):
-		if prop not in propagators:
+	def __parse_watch_type(self, prop):
+		if prop not in watch_types:
 			return False
 
-		self.propagator = prop
+		self.watch_types = prop
 		return True
 
 	def register_options(self, options):
@@ -56,18 +56,16 @@ class Application:
 		"""
 
 		group = "Untimed Options"
-		options.add(group, "handler", _textwrap.dedent("""Handler builds one propagator for each constraint
-				or one propagator for all constraints [many]
-				<arg>: {regular|timed}"""), self.__parse_theory_handler)
-		options.add(group, "propagator", _textwrap.dedent("""Propagator type to use along with the regular handler [2watch]
-				<arg>: {2watch|naive}"""), self.__parse_propagator)
+		options.add(group, "handler", _textwrap.dedent("""Handler directly adds theory constraints as propagator
+				or it creates a propagator that manages all theory constraints [prop]
+				<arg>: {regular|prop}"""), self.__parse_theory_handler)
+		options.add(group, "watch-type", _textwrap.dedent("""Watch type to use along with the handler. [naive]
+				regular handler supports 2watch and naive
+				prop handler support timed, naive and 2watch
+				<arg>: {2watch|naive|timed}"""), self.__parse_watch_type)
 
 	def __build_handler(self):
-		if self.__handler_type == "regular":
-			self.__handler = handlers[self.__handler_type](self.propagator)
-
-		elif self.__handler_type == "timed":
-			self.__handler = handlers[self.__handler_type]()
+		self.__handler = handlers[self.__handler_type](self.watch_types)
 
 	def main(self, prg, files):
 

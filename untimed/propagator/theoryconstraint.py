@@ -24,7 +24,7 @@ class Map_Name_Lit:
 	"""
 	name_to_lit: Dict[Tuple[int, str, int], int] = {}
 
-	lit_to_name: Dict[int, Set[str]] = defaultdict(set)
+	lit_to_name: Dict[int, Set[Tuple[int, str, int]]] = defaultdict(set)
 
 	@classmethod
 	def add(cls, name_id, lit):
@@ -151,7 +151,7 @@ def reverse_assigned_time(info: Dict[str, Any], assigned_time: int) -> int:
 
 def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	"""
-	Forms a nogood based on the assigned time and atoms of a theoryconstraint
+	Forms a nogood based on the assigned time and atoms of a theory constraint
 
 	:param t_atom_info: Complete information dictionary of the theory constraint
 	:param assigned_time: the assigned time
@@ -245,9 +245,9 @@ class TheoryConstraint:
 		return len(self.t_atom_names)
 
 	@util.Timer("Init")
-	def init(self, init) -> None:
+	def init(self, init) -> List[int]:
 		self.init_mappings(init)
-		self.build_watches(init)
+		return self.build_watches(init)
 
 	def init_mappings(self, init) -> None:
 		"""
@@ -278,10 +278,11 @@ class TheoryConstraint:
 			del info["signature"]
 			del info["args"]
 
-	def build_watches(self, init):
+	def build_watches(self, init) -> List[int]:
 		"""
 		Add watches to the solver. This should be implemented by child class
 		:param init: clingo PropagateInit class
+		:return: List of literals that are watches by this theory constraint
 		"""
 		pass
 
@@ -295,7 +296,6 @@ class TheoryConstraint:
 
 
 class TheoryConstraintSize1(TheoryConstraint):
-
 	__slots__ = []
 
 	def __init__(self, constraint) -> None:
@@ -333,34 +333,40 @@ class TheoryConstraintSize1(TheoryConstraint):
 
 
 class TheoryConstraintSize2(TheoryConstraint):
-
 	__slots__ = []
 
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-	def build_watches(self, init) -> None:
+	def build_watches(self, init) -> Set[int]:
 		"""
 		Since there are only 2 atoms in the constraint we add all literals as watches
 		"""
+		watches = set()
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits:
 				init.add_watch(lit)
+				watches.add(lit)
+
+		return watches
 
 	@util.Count("Propagation")
-	def propagate(self, control, changes) -> None:
+	def propagate(self, control, changes) -> Optional[List[Tuple]]:
 		"""
 		For any relevant change, immediately form the nogood
 		for the assigned times it is in and add it to the solver
 
 		:param control: clingo PropagateControl class
 		:param changes: list of watches that were assigned
+		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 		with util.Timer("Propagation"):
+			if type(changes) == int:
+				changes = [changes]
 
 			for lit in changes:
 				ats = set()
@@ -372,9 +378,9 @@ class TheoryConstraintSize2(TheoryConstraint):
 					if ng is None:
 						continue
 					if not control.add_nogood(ng) or not control.propagate():
-						return
+						return None
 
-			return
+			return []
 
 
 class TheoryConstraintNaive(TheoryConstraint):
@@ -384,30 +390,35 @@ class TheoryConstraintNaive(TheoryConstraint):
 		super().__init__(constraint)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-	def build_watches(self, init) -> None:
+	def build_watches(self, init) -> Set[int]:
 		"""
-		For a naive treatment of watches, we simply
-		add all solver literals for the constraint as watches
+		Since there are only 2 atoms in the constraint we add all literals as watches
 		"""
+		watches = set()
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits:
 				init.add_watch(lit)
+				watches.add(lit)
+
+		return watches
 
 	@util.Count("Propagation")
-	def propagate(self, control, changes) -> None:
+	def propagate(self, control, changes) -> Optional[List[Tuple]]:
 		"""
 		For any relevant change, check the assignment of the whole nogood
 		for the assigned times it is in. If it it conflicting or unit add the nogood to the solver
 
 		:param control: clingo PropagateControl class
 		:param changes: list of watches that were assigned
-		:return 0 if propagation has to stop, 1 if propagation can continue
+		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 
 		with util.Timer("Propagation"):
+			if type(changes) == int:
+				changes = [changes]
 
 			for lit in changes:
 				ats = set()
@@ -423,9 +434,9 @@ class TheoryConstraintNaive(TheoryConstraint):
 
 					if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 						if not control.add_nogood(ng) or not control.propagate():
-							return
+							return None
 
-			return
+			return []
 
 
 def choose_lit(lits: List[int], current_watch: int, control) -> Optional[int]:
@@ -484,10 +495,11 @@ class TheoryConstraint2watch(TheoryConstraint):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 		self.watches_to_at: Dict[int, Set[int]] = defaultdict(set)
 
-	def build_watches(self, init) -> None:
+	def build_watches(self, init) -> List[int]:
 		"""
 		Only add watches for the first 2 literals of a nogood
 		"""
+		watches = []
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
@@ -495,10 +507,13 @@ class TheoryConstraint2watch(TheoryConstraint):
 			for lit in lits[:2]:
 				self.watches_to_at[lit].add(assigned_time)
 				init.add_watch(lit)
+				watches.append(lit)
+
+		return watches
 
 	# @profile
 	@util.Count("Propagation")
-	def propagate(self, control, changes) -> None:
+	def propagate(self, control, changes) -> Optional[List[Tuple]]:
 		"""
 		For any relevant change, check the assignment of the whole nogood
 		for the assigned times it is in. If it it conflicting or unit add the nogood to the solver
@@ -507,11 +522,16 @@ class TheoryConstraint2watch(TheoryConstraint):
 
 		:param control: clingo PropagateControl class
 		:param changes: list of watches that were assigned
-		:return 0 if propagation has to stop, 1 if propagation can continue
+		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 		with util.Timer("Propagation"):
 
+			delete_add = []
+
 			replacement_info: List[List[int]] = []
+			if type(changes) == int:
+				changes = [changes]
+
 			for lit in changes:
 				for assigned_time in self.watches_to_at[lit]:
 					ng = form_nogood(self.t_atom_info, assigned_time)
@@ -522,15 +542,16 @@ class TheoryConstraint2watch(TheoryConstraint):
 
 					if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 						if not control.add_nogood(ng) or not control.propagate():
-							return
+							return None
 
 					info = get_replacement_watch(ng, lit, control)
 					if info is not None:
+						delete_add.append(info)
 						replacement_info.append(info + [assigned_time])
 
-			self.replace_watches(replacement_info, control)
+				self.replace_watches(replacement_info, control)
 
-			return
+			return delete_add
 
 	def replace_watches(self, info: List[List[int]], control) -> None:
 		"""
@@ -557,52 +578,27 @@ class TheoryConstraint2watch(TheoryConstraint):
 				control.remove_watch(old_watch)
 
 
-class TimedAtomPropagator:
-	"""
-	Propagator that handles the propagation of "time atoms"(aka theory atoms of theory constraints).
+class TheoryConstraint2watchForProp(TheoryConstraint2watch):
+	__slots__ = []
 
-	Members:
-	t_atom_to_tc                -- Mapping from a "time atom" to a theoryconstraint.
-
-	theory_constraints          -- List of all theory constraints
-	"""
-	__slots__ = ["t_atom_to_tc", "theory_constraints"]
-
-	def __init__(self):
-		self.t_atom_to_tc: Dict[Tuple[int, str], Set["TheoryConstraint"]] = defaultdict(set)
-
-		self.theory_constraints: List["TheoryConstraint"] = []
-
-	def add_tc(self, tc):
-		self.theory_constraints.append(tc)
-
-	def add_atom_observer(self, tc):
+	def replace_watches(self, info: List[List[int]], control) -> None:
 		"""
-		Add the tc to the list of tcs to be notified when their respective atoms are propagated
-		:param tc: theory constraint for timed watches
+		Update the watches_to_at dictionary based on the info returned by get_replacement_watch
+		control parameter is only there for compatibility
+
+		:param info: List of info about the replacement. Each element is a return type of get_replacement_watch
+		:param control: clingo PropagateControl
 		"""
-		if tc.size == 1:
-			return
 
-		for uq_name, info in tc.t_atom_info.items():
-			self.t_atom_to_tc[info["sign"], info["name"]].add(tc)
+		for old_watch, new_watch, assigned_time in info:
+			# remove the lit as a watch for constraint assigned_time
+			self.watches_to_at[old_watch].remove(assigned_time)
 
-	def init(self, init):
-		for tc in self.theory_constraints:
-			tc.init(init)
-			self.add_atom_observer(tc)
-
-	@util.Timer("Propagation")
-	def propagate(self, control, changes):
-		for lit in changes:
-			for sign, name, time in Map_Name_Lit.grab_name(lit):
-				for tc in self.t_atom_to_tc[sign, name]:
-					if not tc.propagate(control, (sign, name, time)):
-						return
+			# add new watch as a watch for constraint assigned_time
+			self.watches_to_at[new_watch].add(assigned_time)
 
 
 class TheoryConstraintSize2Timed(TheoryConstraint):
-
 	__slots__ = []
 
 	def __init__(self, constraint) -> None:
@@ -621,14 +617,14 @@ class TheoryConstraintSize2Timed(TheoryConstraint):
 				init.add_watch(lit)
 
 	@util.Count("Propagation")
-	def propagate(self, control, change) -> int:
+	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		look for assigned times of the change and add the nogoods of those times to
 		the solver
 
 		:param control: clingo PropagateControl class
 		:param change: tuple containing the info of the change. Tuple[sign, name, time]
-		:return 0 if propagation has to stop, 1 if propagation can continue
+		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 
 		ats = get_at_from_name_id(change, self.t_atom_info)
@@ -639,13 +635,12 @@ class TheoryConstraintSize2Timed(TheoryConstraint):
 				continue
 
 			if not control.add_nogood(ng) or not control.propagate():
-				return 0
+				return None
 
-		return 1
+		return []
 
 
 class TheoryConstraintNaiveTimed(TheoryConstraint):
-
 	__slots__ = []
 
 	def __init__(self, constraint) -> None:
@@ -664,11 +659,11 @@ class TheoryConstraintNaiveTimed(TheoryConstraint):
 				init.add_watch(lit)
 
 	@util.Count("Propagation")
-	def propagate(self, control, change) -> int:
+	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		:param control:
 		:param change:
-		:return 0 if propagation has to stop, 1 if propagation can continue
+		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 
 		ats = get_at_from_name_id(change, self.t_atom_info)
@@ -682,6 +677,6 @@ class TheoryConstraintNaiveTimed(TheoryConstraint):
 
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 				if not control.add_nogood(ng) or not control.propagate():
-					return 0
+					return None
 
-		return 1
+		return []
