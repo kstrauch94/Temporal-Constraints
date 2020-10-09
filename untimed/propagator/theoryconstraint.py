@@ -244,11 +244,13 @@ class TheoryConstraint:
 	def size(self) -> int:
 		return len(self.t_atom_names)
 
+	@util.Count("Init")
 	@util.Timer("Init")
 	def init(self, init) -> List[int]:
 		self.init_mappings(init)
 		return self.build_watches(init)
 
+	#@profile
 	def init_mappings(self, init) -> None:
 		"""
 		Loop through the symbolic atoms matching the signatures of the atoms in the theory constraint.
