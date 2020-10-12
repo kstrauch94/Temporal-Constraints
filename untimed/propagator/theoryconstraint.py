@@ -123,7 +123,8 @@ def parse_time(s_atom) -> int:
 	:param s_atom: clingo symbolic atom
 	:return: time
 	"""
-	time = str(s_atom.symbol).split(",")[-1].replace(")", "").strip()
+	#time = str(s_atom.symbol).split(",")[-1].replace(")", "").strip()
+	time = s_atom.symbol.arguments[-1].number
 	return int(time)
 
 
@@ -228,6 +229,7 @@ class TheoryConstraint:
 	__slots__ = ["t_atom_info", "max_time", "min_time", "logger"]
 
 	def __init__(self, constraint) -> None:
+		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		self.t_atom_info: Dict[str, Dict[str, Any]] = {}
 
@@ -414,8 +416,8 @@ class TheoryConstraintSize2ForProp2WatchMap(TheoryConstraint):
 		For any relevant change, immediately form the nogood
 		for the assigned times it is in and add it to the solver
 
-		:param control: clingo PropagateControl class
-		:param changes: list of watches that were assigned
+		:param control: clingo PropagateControl object
+		:param change: lit and assigned time pair
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 		with util.Timer("Propagation"):
@@ -460,7 +462,7 @@ class TheoryConstraintNaive(TheoryConstraint):
 		For any relevant change, check the assignment of the whole nogood
 		for the assigned times it is in. If it it conflicting or unit add the nogood to the solver
 
-		:param control: clingo PropagateControl class
+		:param control: clingo PropagateControl object
 		:param changes: list of watches that were assigned
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
@@ -494,7 +496,7 @@ def choose_lit(lits: List[int], current_watch: int, control) -> Optional[int]:
 
 	:param lits: the current nogood
 	:param current_watch: the watch being propagated
-	:param  control: A clingo PropagateControl object for the current solver thread
+	:param  control: A clingo PropagateControl object
 
 	:return: None or the new watch
 	:rtype: None or int
@@ -513,7 +515,7 @@ def get_replacement_watch(nogood: List[int], lit: int, control) -> Optional[List
 	choose a new watch for the given assigned time if possible
 	:param int nogood: the nogood
 	:param int lit: the current literal being propagated
-	:param PropagateControl control: A clingo PropagateControl object for the current solver thread
+	:param control: A clingo PropagateControl object
 
 	if a new watch can be found:
 	:return: old_watch: int, new_watch: int, assigned_time: int
@@ -569,7 +571,7 @@ class TheoryConstraint2watch(TheoryConstraint):
 
 		After the check, replace the watch if possible.
 
-		:param control: clingo PropagateControl class
+		:param control: clingo PropagateControl object
 		:param changes: list of watches that were assigned
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
@@ -608,7 +610,7 @@ class TheoryConstraint2watch(TheoryConstraint):
 		Also, add the new watch to the solver and remove the old watch if necessary
 
 		:param info: List of info about the replacement. Each element is a return type of get_replacement_watch
-		:param control: clingo PropagateControl
+		:param control: clingo PropagateControl object
 		"""
 
 		for old_watch, new_watch, assigned_time in info:
@@ -636,7 +638,7 @@ class TheoryConstraint2watchForProp(TheoryConstraint2watch):
 		control parameter is only there for compatibility
 
 		:param info: List of info about the replacement. Each element is a return type of get_replacement_watch
-		:param control: clingo PropagateControl
+		:param control: clingo PropagateControl object
 		"""
 
 		for old_watch, new_watch, assigned_time in info:
@@ -677,8 +679,8 @@ class TheoryConstraint2watchForPropMap(TheoryConstraint):
 
 		After the check, replace the watch if possible.
 
-		:param control: clingo PropagateControl class
-		:param changes: list of watches and assigned time pairs
+		:param control: clingo PropagateControl object
+		:param change: watch and assigned time pair
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 		with util.Timer("Propagation"):
@@ -727,7 +729,7 @@ class TheoryConstraintSize2Timed(TheoryConstraint):
 		look for assigned times of the change and add the nogoods of those times to
 		the solver
 
-		:param control: clingo PropagateControl class
+		:param control: clingo PropagateControl object
 		:param change: tuple containing the info of the change. Tuple[sign, name, time]
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
@@ -766,8 +768,8 @@ class TheoryConstraintNaiveTimed(TheoryConstraint):
 	@util.Count("Propagation")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
-		:param control:
-		:param change:
+		:param control: clingo PropagateControl object
+		:param change: literal that was assigned
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 
