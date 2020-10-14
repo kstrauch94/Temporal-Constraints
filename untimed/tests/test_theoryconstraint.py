@@ -9,6 +9,8 @@ from untimed.propagator.theoryconstraint import TheoryConstraint
 from untimed.propagator.theoryconstraint import Map_Name_Lit
 from untimed.propagator.theoryconstraint import form_nogood
 
+from untimed.propagator.propagator import initialize_symbol_mapping
+
 import clingo
 
 from clingo import parse_term
@@ -194,8 +196,11 @@ class TestApp(unittest.TestCase):
 		prg = prepare_prg([program, c])
 		init_mock = MockInit(prg)
 
+
+
 		for t_atom in prg.theory_atoms:
 			tc = TheoryConstraint(t_atom)
+			initialize_symbol_mapping(prg, [tc])
 
 			tc.init_mappings(init_mock)
 
