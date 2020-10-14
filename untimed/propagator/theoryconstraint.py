@@ -299,8 +299,13 @@ class TheoryConstraint:
 					continue
 
 				symbol = clingo.parse_term(f"{info['name']}{time})")
-				solver_lit: int = init.solver_literal(SymbolToProgramLit.grab_lit(symbol)) * self.t_atom_info[uq_name]["sign"]
-
+				try:
+					solver_lit: int = init.solver_literal(SymbolToProgramLit.grab_lit(symbol)) * self.t_atom_info[uq_name]["sign"]
+				except KeyError:
+					# If this happens, it means that the symbol is not in the SymbolToProgramLit mapping
+					# this can only happen if the symbol does not exist!
+					# so, just continue
+					continue
 				Map_Name_Lit.add(build_symbol_id(self.t_atom_info[uq_name], time), solver_lit)
 
 			del info["signature"]
