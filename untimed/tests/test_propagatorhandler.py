@@ -70,9 +70,6 @@ def solve_regular(programs, print_r=False):
 
 class TestApp(unittest.TestCase):
 
-	#### ADD TESTS FOR COMPLEX ATOMS
-	#### E.G. :- a(b(c), d(g(1,2,3))
-
 	def test_naive_regular(self):
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "naive"}
@@ -234,6 +231,14 @@ class TestApp(unittest.TestCase):
 				   :- a(2,T), b(1,T), not a(1,T-1), time(T), time(T-1)."""
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
+
+
+		program2 = """{ c(a(D),b(D2),T) : domain(D), domain(D2)} 1 :- time(T)."""
+
+		c = """:-&constraint(1,maxtime){+.c(a(D),b(D2)); -~a(D), -~b(D2)}, domain(D), domain(D2)."""
+		c_reg = ":- c(a(D),b(D2),T), not a(D,T-1), not b(D2,T-1), domain(D), domain(D2), time(T), time(T-1)."
+		self.assertEqual(solve([program, program2, c], handler_class, handler_args),
+		                 solve_regular([program, program2, c_reg]))
 
 
 if __name__ == "__main__":
