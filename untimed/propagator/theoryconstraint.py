@@ -45,6 +45,28 @@ class Map_Name_Lit:
 	def has_name(cls, name_id):
 		return name_id in cls.name_to_lit
 
+	@classmethod
+	def reset(cls):
+		cls.name_to_lit = {}
+		cls.lit_to_name = defaultdict(set)
+
+
+class SymbolToProgramLit:
+	symbol_to_lit: Dict[Any, int] = {}
+
+	@classmethod
+	def add(cls, symbol, lit):
+		if symbol not in cls.symbol_to_lit:
+			cls.symbol_to_lit[symbol] = lit
+
+	@classmethod
+	def grab_lit(cls, symbol):
+		return cls.symbol_to_lit[symbol]
+
+	@classmethod
+	def reset(cls):
+		cls.symbol_to_lit = {}
+
 
 def parse_atoms(constraint) -> Tuple[Dict[str, Dict[str, Any]], int, int]:
 	"""
@@ -246,6 +268,14 @@ class TheoryConstraint:
 	def size(self) -> int:
 		return len(self.t_atom_names)
 
+	@property
+	def signatures(self) -> List[Any]:
+		signatures = set()
+		for uq_name, info in self.t_atom_info.items():
+			signatures.add(info["signature"])
+
+		return signatures
+
 	@util.Count("Init")
 	@util.Timer("Init")
 	def init(self, init) -> List[int]:
@@ -261,23 +291,17 @@ class TheoryConstraint:
 		:param init: clingo PropagateInit class
 		"""
 		for uq_name, info in self.t_atom_info.items():
-			for s_atom in init.symbolic_atoms.by_signature(*info["signature"]):
-				if s_atom.symbol.arguments[:-1] == info["args"]:
-					time: int = parse_time(s_atom)
-					assigned_time: int = get_assigned_time(self.t_atom_info[uq_name], time)
+			for time in range(self.min_time, self.max_time + 1):
+				assigned_time: int = get_assigned_time(self.t_atom_info[uq_name], time)
 
-					# max time and min time can not be none! add some detection just in case?
-					if self.max_time is not None and assigned_time > self.max_time:
-						self.logger.debug("no watch for lit cause assigned time would be too big: %s", s_atom.symbol)
-						continue
+				# max time and min time can not be none! add some detection just in case?
+				if not (self.min_time <= assigned_time <= self.max_time):
+					continue
 
-					elif self.min_time is not None and assigned_time < self.min_time:
-						self.logger.debug("no watch for lit cause assigned time would be too small: %s", s_atom.symbol)
-						continue
+				symbol = clingo.parse_term(f"{info['name']}{time})")
+				solver_lit: int = init.solver_literal(SymbolToProgramLit.grab_lit(symbol)) * self.t_atom_info[uq_name]["sign"]
 
-					solver_lit: int = init.solver_literal(s_atom.literal) * self.t_atom_info[uq_name]["sign"]
-
-					Map_Name_Lit.add(build_symbol_id(self.t_atom_info[uq_name], time), solver_lit)
+				Map_Name_Lit.add(build_symbol_id(self.t_atom_info[uq_name], time), solver_lit)
 
 			del info["signature"]
 			del info["args"]

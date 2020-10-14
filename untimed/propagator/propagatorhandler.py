@@ -11,12 +11,12 @@ from untimed.propagator.theoryconstraint import TheoryConstraint2watchForProp
 from untimed.propagator.theoryconstraint import TheoryConstraintSize2ForProp2WatchMap
 from untimed.propagator.theoryconstraint import TheoryConstraint2watchForPropMap
 
-
-
 from untimed.propagator.propagator import TimedAtomPropagator
 from untimed.propagator.propagator import RegularAtomPropagatorNaive
 from untimed.propagator.propagator import RegularAtomPropagator2watch
 from untimed.propagator.propagator import RegularAtomPropagator2watchMap
+
+from untimed.propagator.propagator import initialize_symbol_mapping
 
 from untimed.propagator.theoryconstraint import TheoryConstraintSize2Timed
 from untimed.propagator.theoryconstraint import TheoryConstraintNaiveTimed
@@ -99,12 +99,15 @@ class TheoryHandler:
 		because it relies on looking at the grounded theory atoms 
 		to create a propagator for each one
 		"""
+		theory_constraints: List[TheoryConstraint] = []
 		for t_atom in prg.theory_atoms:
 			if t_atom.term.name == "constraint":
 				tc = build_tc(t_atom, TC_DICT[self.prop_type])
-				#self.propagators.append(tc)
+				theory_constraints.append(tc)
 
 				prg.register_propagator(tc)
+
+		initialize_symbol_mapping(prg, theory_constraints)
 
 	def __str__(self) -> str:
 		return self.__class__.__name__ + " with propagator type {}".format(self.prop_type)

@@ -5,6 +5,17 @@ import untimed.util as util
 
 from untimed.propagator.theoryconstraint import Map_Name_Lit
 from untimed.propagator.theoryconstraint import TheoryConstraint
+from untimed.propagator.theoryconstraint import SymbolToProgramLit
+
+
+def initialize_symbol_mapping(init, theory_constraints):
+	signatures = set()
+	for tc in theory_constraints:
+		signatures.update(tc.signatures)
+
+	for sig in signatures:
+		for s_atom in init.symbolic_atoms.by_signature(*sig):
+			SymbolToProgramLit.add(s_atom.symbol, s_atom.literal)
 
 
 class Propagator:
@@ -41,9 +52,14 @@ class Propagator:
 			self.watch_to_tc[lit].append(tc)
 
 	def init(self, init):
+
+		initialize_symbol_mapping(init, self.theory_constraints)
+
 		for tc in self.theory_constraints:
 			watches = tc.init(init)
 			self.add_atom_observer(tc, watches)
+
+		SymbolToProgramLit.reset()
 
 	def propagate(self, control, changes):
 		...
