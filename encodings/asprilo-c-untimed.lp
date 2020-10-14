@@ -67,8 +67,8 @@ abnormal(carry(R,S),T) :- holds(carry(R,S),T-1), do(R,action(putdown),T-1), time
 
 :- highway(X,Y), not node(X,Y).
 % can not place shelf on a highway
-:- holds(at(R,node(X,Y)),T), do(R,action(putdown),T), highway(X,Y), time(T).
-%:-&constraint(1,horizon){ +.holds(at(R,node(X,Y))); +.do(R,action(putdown))}, highway(X,Y), robot(R).
+%:- holds(at(R,node(X,Y)),T), do(R,action(putdown),T), highway(X,Y), time(T).
+:-&constraint(1,horizon){ +.holds(at(R,node(X,Y))); +.do(R,action(putdown))}, highway(X,Y), robot(R).
 
 % robots cant do nothing for more than 1 timestep if they are in a highway
 %init(at(robot(R),node(X,Y))) :- init(object(robot,R), value(at, (X,Y))).
