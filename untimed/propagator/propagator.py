@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Any
 from collections import defaultdict
 
 import untimed.util as util
@@ -8,7 +8,14 @@ from untimed.propagator.theoryconstraint import TheoryConstraint
 from untimed.propagator.theoryconstraint import SymbolToProgramLit
 
 
-def initialize_symbol_mapping(init, theory_constraints):
+def initialize_symbol_mapping(init, theory_constraints: List["TheoryConstraint"]):
+	"""
+	Initialize the mapping from symbols to program literals
+	This mapping is used in TheoryConstraint to avoid having to loop through symbolic atoms many times
+	:param init: clingo PropagateInit object
+	:param theory_constraints: List of theory constraint objects
+	:return:
+	"""
 	signatures = set()
 	for tc in theory_constraints:
 		signatures.update(tc.signatures)
@@ -32,7 +39,7 @@ class Propagator:
 
 	def __init__(self):
 
-		self.watch_to_tc: Dict[int, List["TheoryConstraint"]] = defaultdict(list)
+		self.watch_to_tc: Dict[Any, List["TheoryConstraint"]] = defaultdict(list)
 
 		self.theory_constraints: List["TheoryConstraint"] = []
 
