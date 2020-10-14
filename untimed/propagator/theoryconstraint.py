@@ -295,7 +295,7 @@ class TheoryConstraint:
 	def undo(self, thread_id, assign, changes) -> None:
 		pass
 
-	def propagate(self, control, changes) -> None:
+	def propagate(self, control, changes) -> Optional[List[Tuple[int, int]]]:
 		pass
 
 
