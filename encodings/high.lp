@@ -1,5 +1,3 @@
-#const maxtime=20.
-#const maxdom=25.
 
 time(1..maxtime).
 
