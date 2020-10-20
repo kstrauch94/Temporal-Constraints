@@ -106,7 +106,6 @@ def parse_atoms(constraint) -> Tuple[Dict[str, Dict[str, Any]], int, int]:
 		t_atom_info[uq_name] = {"sign": sign,
 		                        "time_mod": time_mod,
 		                        "signature": signature,
-		                        "args": [clingo.parse_term(str(a)) for a in atom.terms[0].arguments[0].arguments],
 		                        "name": name}
 
 	return t_atom_info, min_time, max_time
@@ -266,7 +265,7 @@ class TheoryConstraint:
 
 	@property
 	def size(self) -> int:
-		return len(self.t_atom_names)
+		return len(self.t_atom_info.keys())
 
 	@property
 	def signatures(self) -> List[Any]:
@@ -309,7 +308,6 @@ class TheoryConstraint:
 				Map_Name_Lit.add(build_symbol_id(self.t_atom_info[uq_name], time), solver_lit)
 
 			del info["signature"]
-			del info["args"]
 
 	def build_watches(self, init) -> List[int]:
 		"""
@@ -340,24 +338,25 @@ class TheoryConstraintSize1(TheoryConstraint):
 		Instead of adding to Map_Name_Lit it immediately adds a clause for the nogood
 		"""
 		for uq_name, info in self.t_atom_info.items():
-			for s_atom in init.symbolic_atoms.by_signature(*info["signature"]):
-				if s_atom.symbol.arguments[:-1] == info["args"]:
-					time: int = parse_time(s_atom)
-					assigned_time: int = get_assigned_time(self.t_atom_info[uq_name], time)
+			for time in range(self.min_time, self.max_time + 1):
+				assigned_time: int = get_assigned_time(self.t_atom_info[uq_name], time)
 
-					# max time and min time can not be none! add some detection just in case?
-					if self.max_time is not None and assigned_time > self.max_time:
-						self.logger.debug("no watch for lit cause assigned time would be too big: %s", s_atom.symbol)
-						continue
+				# max time and min time can not be none! add some detection just in case?
+				if not (self.min_time <= assigned_time <= self.max_time):
+					continue
 
-					elif self.min_time is not None and assigned_time < self.min_time:
-						self.logger.debug("no watch for lit cause assigned time would be too small: %s", s_atom.symbol)
-						continue
+				symbol = clingo.parse_term(f"{info['name']}{time})")
+				try:
+					solver_lit: int = init.solver_literal(SymbolToProgramLit.grab_lit(symbol)) * \
+					                  self.t_atom_info[uq_name]["sign"]
+				except KeyError:
+					# If this happens, it means that the symbol is not in the SymbolToProgramLit mapping
+					# this can only happen if the symbol does not exist!
+					# so, just continue
+					continue
 
-					solver_lit: int = init.solver_literal(s_atom.literal) * self.t_atom_info[uq_name]["sign"]
-
-					# add nogood
-					init.add_clause([-solver_lit])
+				# add nogood
+				init.add_clause([-solver_lit])
 
 			self.t_atom_info[uq_name] = {}
 
