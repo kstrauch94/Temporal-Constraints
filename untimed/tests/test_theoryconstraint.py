@@ -8,6 +8,7 @@ from untimed.propagator.theoryconstraint import parse_time
 from untimed.propagator.theoryconstraint import TheoryConstraint
 from untimed.propagator.theoryconstraint import Map_Name_Lit
 from untimed.propagator.theoryconstraint import form_nogood
+from untimed.propagator.theoryconstraint import atom_info
 
 from untimed.propagator.propagator import initialize_symbol_mapping
 
@@ -73,18 +74,22 @@ class TestApp(unittest.TestCase):
 	def test_parse_atoms(self):
 		c = """:-&constraint(1,maxtime){+.a(1); +.a(2); -.b(1); +~b(1)}."""
 
-		real_info = {"+.a(1,": {"sign": 1,  "time_mod": 0,  "signature": ("a", 2), "args": [parse_term("1")], "name": "a(1,"},
-		             "+.a(2,": {"sign": 1,  "time_mod": 0,  "signature": ("a", 2), "args": [parse_term("2")], "name": "a(2,"},
-		             "-.b(1,": {"sign": -1, "time_mod": 0,  "signature": ("b", 2), "args": [parse_term("1")], "name": "b(1,"},
-		             "+~b(1,": {"sign": 1,  "time_mod": +1, "signature": ("b", 2), "args": [parse_term("1")], "name": "b(1,"}}
+		real_info = {"+.a(1,": atom_info(sign=1, time_mod=0, name="a(1,"),
+		             "+.a(2,": atom_info(sign=1, time_mod=0, name="a(2,"),
+		             "-.b(1,": atom_info(sign=-1, time_mod=0, name="b(1,"),
+		             "+~b(1,": atom_info(sign=1, time_mod=1, name="b(1,")}
 		prg = prepare_prg([program, c])
 
 		t_atom = next(prg.theory_atoms)
 
-		info, min_t, max_t = parse_atoms(t_atom)
+		info, min_t, max_t, sigs = parse_atoms(t_atom)
 
 		self.assertEqual(1, min_t)
 		self.assertEqual(3, max_t) # maxtime in program in 3
+
+		real_sigs = set( [("a", 2), ("b", 2)] )
+
+		self.assertEqual(sigs, real_sigs)
 
 		self.assertDictEqual(info, real_info)
 
@@ -92,19 +97,14 @@ class TestApp(unittest.TestCase):
 
 		c = """:-&constraint(0,5){+.a(b(1,c(1,2,3))); -.b("this. is. TEST.", 3)}."""
 
-		real_info = {"+.a(b(1,c(1,2,3)),": {"sign": 1,  "time_mod": 0,  "signature": ("a", 2),
-		                                    "args": [parse_term("b(1,c(1,2,3))")],
-		                                    "name": "a(b(1,c(1,2,3)),"},
-		             '-.b("this. is. TEST.",3,': {"sign": -1, "time_mod": 0, "signature": ("b", 3),
-		                                    "args": [parse_term('"this. is. TEST."'), parse_term("3")],
-		                                    "name": 'b("this. is. TEST.",3,'}
-		             }
+		real_info = {"+.a(b(1,c(1,2,3)),": atom_info(sign=1, time_mod=0, name="a(b(1,c(1,2,3)),"),
+		             '-.b("this. is. TEST.",3,': atom_info(sign=-1, time_mod=0, name='b("this. is. TEST.",3,')}
 
 		prg = prepare_prg([program, c])
 
 		t_atom = next(prg.theory_atoms)
 
-		info, min_t, max_t = parse_atoms(t_atom)
+		info, min_t, max_t, sigs = parse_atoms(t_atom)
 
 		self.assertEqual(0, min_t)
 		self.assertEqual(5, max_t) # maxtime in program in 3
@@ -228,10 +228,10 @@ class TestApp(unittest.TestCase):
 		Map_Name_Lit.add((1, "b(1,", 2), 3)
 		Map_Name_Lit.add((-1, "c(1,", 2), -4)
 
-		real_info = {"+.a(1,": {"sign": 1,  "time_mod": 0,  "name": "a(1,"},
-		             "+~a(2,": {"sign": 1,  "time_mod": +1, "name": "a(2,"},
-		             "+.b(1,": {"sign": 1,  "time_mod": 0,  "name": "b(1,"},
-		             "-.c(1,": {"sign": -1, "time_mod": 0,  "name": "c(1,"}}
+		real_info = {"+.a(1,": atom_info(sign=1, time_mod=0, name="a(1,"),
+		             "+~a(2,": atom_info(sign=1, time_mod=1, name="a(2,"),
+		             "+.b(1,": atom_info(sign=1, time_mod=0, name="b(1,"),
+		             "-.c(1,": atom_info(sign=-1, time_mod=0, name="c(1,")}
 
 		ng = form_nogood(real_info, 2)
 		actual_ng = [-4, 1, 2, 3]
