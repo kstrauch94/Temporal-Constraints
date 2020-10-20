@@ -8,7 +8,7 @@ from untimed.propagator.theoryconstraint import TheoryConstraint
 from untimed.propagator.theoryconstraint import SymbolToProgramLit
 
 
-@util.Timer("init_mapping")
+@util.Timer("init_symb_mapping")
 def initialize_symbol_mapping(init, theory_constraints: List["TheoryConstraint"]):
 	"""
 	Initialize the mapping from symbols to program literals
