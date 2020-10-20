@@ -89,7 +89,7 @@ class TimedAtomPropagator(Propagator):
 			return
 
 		for uq_name, info in tc.t_atom_info.items():
-			self.watch_to_tc[info["sign"], info["name"]].append(tc)
+			self.watch_to_tc[info.sign, info.name].append(tc)
 
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):

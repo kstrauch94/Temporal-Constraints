@@ -1,5 +1,5 @@
 import logging
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 import clingo
 
 from typing import List, Dict, Tuple, Set, Any, Optional
@@ -10,6 +10,8 @@ CONSTRAINT_CHECK = {"NONE": 0,
                     "UNIT": 1,
                     "CONFLICT": -1}
 
+
+atom_info = namedtuple("atom_info", "sign time_mod name")
 
 class PropagationError(Exception):
 	pass
@@ -74,9 +76,11 @@ def parse_atoms(constraint) -> Tuple[Dict[str, Dict[str, Any]], int, int]:
 
 	:param constraint: clingo TheoryAtom
 	"""
-	t_atom_info: Dict[str, Dict[str, Any]] = {}
+	t_atom_info: Dict[str, atom_info] = {}
 
 	min_time, max_time = parse_constraint_times(constraint.term.arguments)
+
+	signatures = set()
 	for atom in constraint.elements:
 		# this gives me the "type" of the term | e.g. for +~on(..) it would return +~
 		term_type: str = atom.terms[0].name
@@ -103,12 +107,15 @@ def parse_atoms(constraint) -> Tuple[Dict[str, Dict[str, Any]], int, int]:
 		else:
 			raise TypeError(f"Invalid term prefix {term_type} used in {constraint}")
 
-		t_atom_info[uq_name] = {"sign": sign,
-		                        "time_mod": time_mod,
-		                        "signature": signature,
-		                        "name": name}
+		t_atom_info[uq_name] = atom_info(sign=sign, time_mod=time_mod, name=name)
 
-	return t_atom_info, min_time, max_time
+		signatures.add(signature)
+
+		#t_atom_info[uq_name] = {"sign": sign,
+		#                        "time_mod": time_mod,
+		#                        "name": name}
+
+	return t_atom_info, min_time, max_time, signatures
 
 
 def parse_constraint_times(times) -> Tuple[int, int]:
@@ -135,7 +142,7 @@ def build_symbol_id(info, time):
 	:param time: The time point
 	:return: A name_id Triple
 	"""
-	return info["sign"], info["name"], time
+	return info.sign, info.name, time
 
 
 def parse_time(s_atom) -> int:
@@ -149,7 +156,7 @@ def parse_time(s_atom) -> int:
 	return int(time)
 
 
-def get_assigned_time(info: Dict[str, Any], time: int) -> int:
+def get_assigned_time(info: atom_info, time: int) -> int:
 	"""
 	Calculates the assigned time based on the real time point
 
@@ -157,10 +164,10 @@ def get_assigned_time(info: Dict[str, Any], time: int) -> int:
 	:param time: The time point
 	:return: assigned time
 	"""
-	return time + info["time_mod"]
+	return time + info.time_mod
 
 
-def reverse_assigned_time(info: Dict[str, Any], assigned_time: int) -> int:
+def reverse_assigned_time(info: atom_info, assigned_time: int) -> int:
 	"""
 	Calculates the real time point based on the assigned time
 
@@ -168,7 +175,7 @@ def reverse_assigned_time(info: Dict[str, Any], assigned_time: int) -> int:
 	:param assigned_time: The assigned time
 	:return: time
 	"""
-	return assigned_time - info["time_mod"]
+	return assigned_time - info.time_mod
 
 
 def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
@@ -227,7 +234,7 @@ def get_at_from_name_id(name_id: Tuple[int, str, int], t_atom_info):
 
 	ats = set()
 	for uq_name, info in t_atom_info.items():
-		if info["sign"] == sign and info["name"] == name:
+		if info.sign == sign and info.name == name:
 			ats.add(get_assigned_time(info, time))
 
 	return ats
@@ -247,17 +254,19 @@ class TheoryConstraint:
 
 	"""
 
-	__slots__ = ["t_atom_info", "max_time", "min_time", "logger"]
+	__slots__ = ["t_atom_info", "max_time", "min_time", "signatures", "logger"]
 
 	def __init__(self, constraint) -> None:
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-		self.t_atom_info: Dict[str, Dict[str, Any]] = {}
+		self.t_atom_info: Dict[str, atom_info] = {}
 
 		self.max_time: int = None
 		self.min_time: int = None
 
-		self.t_atom_info, self.min_time, self.max_time = parse_atoms(constraint)
+		self.signatures: Set[Tuple[str, int]]
+
+		self.t_atom_info, self.min_time, self.max_time, self.signatures = parse_atoms(constraint)
 
 	@property
 	def t_atom_names(self):
@@ -267,18 +276,11 @@ class TheoryConstraint:
 	def size(self) -> int:
 		return len(self.t_atom_info.keys())
 
-	@property
-	def signatures(self) -> List[Any]:
-		signatures = set()
-		for uq_name, info in self.t_atom_info.items():
-			signatures.add(info["signature"])
-
-		return signatures
-
 	@util.Count("Init")
 	@util.Timer("Init")
 	def init(self, init) -> List[int]:
 		self.init_mappings(init)
+		self.signatures = 0
 		return self.build_watches(init)
 
 	#@profile
@@ -291,23 +293,21 @@ class TheoryConstraint:
 		"""
 		for uq_name, info in self.t_atom_info.items():
 			for time in range(self.min_time, self.max_time + 1):
-				assigned_time: int = get_assigned_time(self.t_atom_info[uq_name], time)
+				assigned_time: int = get_assigned_time(info, time)
 
 				# max time and min time can not be none! add some detection just in case?
 				if not (self.min_time <= assigned_time <= self.max_time):
 					continue
 
-				symbol = clingo.parse_term(f"{info['name']}{time})")
+				symbol = clingo.parse_term(f"{info.name}{time})")
 				try:
-					solver_lit: int = init.solver_literal(SymbolToProgramLit.grab_lit(symbol)) * self.t_atom_info[uq_name]["sign"]
+					solver_lit: int = init.solver_literal(SymbolToProgramLit.grab_lit(symbol)) * info.sign
 				except KeyError:
 					# If this happens, it means that the symbol is not in the SymbolToProgramLit mapping
 					# this can only happen if the symbol does not exist!
 					# so, just continue
 					continue
-				Map_Name_Lit.add(build_symbol_id(self.t_atom_info[uq_name], time), solver_lit)
-
-			del info["signature"]
+				Map_Name_Lit.add(build_symbol_id(info, time), solver_lit)
 
 	def build_watches(self, init) -> List[int]:
 		"""
@@ -339,16 +339,15 @@ class TheoryConstraintSize1(TheoryConstraint):
 		"""
 		for uq_name, info in self.t_atom_info.items():
 			for time in range(self.min_time, self.max_time + 1):
-				assigned_time: int = get_assigned_time(self.t_atom_info[uq_name], time)
+				assigned_time: int = get_assigned_time(info, time)
 
 				# max time and min time can not be none! add some detection just in case?
 				if not (self.min_time <= assigned_time <= self.max_time):
 					continue
 
-				symbol = clingo.parse_term(f"{info['name']}{time})")
+				symbol = clingo.parse_term(f"{info.name}{time})")
 				try:
-					solver_lit: int = init.solver_literal(SymbolToProgramLit.grab_lit(symbol)) * \
-					                  self.t_atom_info[uq_name]["sign"]
+					solver_lit: int = init.solver_literal(SymbolToProgramLit.grab_lit(symbol)) * info.sign
 				except KeyError:
 					# If this happens, it means that the symbol is not in the SymbolToProgramLit mapping
 					# this can only happen if the symbol does not exist!
