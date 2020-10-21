@@ -6,7 +6,7 @@ from collections import defaultdict
 from untimed.propagator.theoryconstraint import parse_atoms
 from untimed.propagator.theoryconstraint import parse_time
 from untimed.propagator.theoryconstraint import TheoryConstraint
-from untimed.propagator.theoryconstraint import Map_Name_Lit
+from untimed.propagator.theoryconstraint import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint import form_nogood
 from untimed.propagator.theoryconstraint import atom_info
 
@@ -64,8 +64,8 @@ def get_2watch_handler():
 
 
 def reset_mapping():
-	Map_Name_Lit.lit_to_name = defaultdict(set)
-	Map_Name_Lit.name_to_lit = {}
+	TimeAtomToSolverLit.lit_to_name = defaultdict(set)
+	TimeAtomToSolverLit.name_to_lit = {}
 
 
 class TestApp(unittest.TestCase):
@@ -204,29 +204,29 @@ class TestApp(unittest.TestCase):
 
 			tc.init_mappings(init_mock)
 
-		self.assertIn((1, "a(1,", 1), Map_Name_Lit.name_to_lit)
-		self.assertIn((1, "a(1,", 2), Map_Name_Lit.name_to_lit)
-		self.assertIn((1, "a(1,", 3), Map_Name_Lit.name_to_lit)
+		self.assertIn((1, "a(1,", 1), TimeAtomToSolverLit.name_to_lit)
+		self.assertIn((1, "a(1,", 2), TimeAtomToSolverLit.name_to_lit)
+		self.assertIn((1, "a(1,", 3), TimeAtomToSolverLit.name_to_lit)
 
-		self.assertIn((-1, "b(2,", 1), Map_Name_Lit.name_to_lit)
-		self.assertIn((-1, "b(2,", 2), Map_Name_Lit.name_to_lit)
-		self.assertNotIn((-1, "b(2,", 3), Map_Name_Lit.name_to_lit) # this is not in cause assigned time would be too high
+		self.assertIn((-1, "b(2,", 1), TimeAtomToSolverLit.name_to_lit)
+		self.assertIn((-1, "b(2,", 2), TimeAtomToSolverLit.name_to_lit)
+		self.assertNotIn((-1, "b(2,", 3), TimeAtomToSolverLit.name_to_lit) # this is not in cause assigned time would be too high
 
-		self.assertIn((1, "a(1,", 1), Map_Name_Lit.name_to_lit)
-		self.assertIn((1, "a(1,", 2), Map_Name_Lit.name_to_lit)
-		self.assertIn((1, "a(1,", 3), Map_Name_Lit.name_to_lit) # even is assigned time is too high for this one, it should still be in cause of the other a
+		self.assertIn((1, "a(1,", 1), TimeAtomToSolverLit.name_to_lit)
+		self.assertIn((1, "a(1,", 2), TimeAtomToSolverLit.name_to_lit)
+		self.assertIn((1, "a(1,", 3), TimeAtomToSolverLit.name_to_lit) # even is assigned time is too high for this one, it should still be in cause of the other a
 
-		self.assertNotIn((1, "c(1,", 1), Map_Name_Lit.name_to_lit) # not in because assigned time is too low
-		self.assertIn((1, "c(1,", 2), Map_Name_Lit.name_to_lit)
-		self.assertIn((1, "c(1,", 3), Map_Name_Lit.name_to_lit)
+		self.assertNotIn((1, "c(1,", 1), TimeAtomToSolverLit.name_to_lit) # not in because assigned time is too low
+		self.assertIn((1, "c(1,", 2), TimeAtomToSolverLit.name_to_lit)
+		self.assertIn((1, "c(1,", 3), TimeAtomToSolverLit.name_to_lit)
 
 	def test_form_nogood(self):
 		reset_mapping()
 
-		Map_Name_Lit.add((1, "a(1,", 2), 1)
-		Map_Name_Lit.add((1, "a(2,", 1), 2)
-		Map_Name_Lit.add((1, "b(1,", 2), 3)
-		Map_Name_Lit.add((-1, "c(1,", 2), -4)
+		TimeAtomToSolverLit.add((1, "a(1,", 2), 1)
+		TimeAtomToSolverLit.add((1, "a(2,", 1), 2)
+		TimeAtomToSolverLit.add((1, "b(1,", 2), 3)
+		TimeAtomToSolverLit.add((-1, "c(1,", 2), -4)
 
 		real_info = {"+.a(1,": atom_info(sign=1, time_mod=0, name="a(1,"),
 		             "+~a(2,": atom_info(sign=1, time_mod=1, name="a(2,"),

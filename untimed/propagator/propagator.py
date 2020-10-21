@@ -3,7 +3,7 @@ from collections import defaultdict
 
 import untimed.util as util
 
-from untimed.propagator.theoryconstraint import Map_Name_Lit
+from untimed.propagator.theoryconstraint import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint import TheoryConstraint
 from untimed.propagator.theoryconstraint import SymbolToProgramLit
 
@@ -95,7 +95,7 @@ class TimedAtomPropagator(Propagator):
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
 		for lit in changes:
-			for sign, name, time in Map_Name_Lit.grab_name(lit):
+			for sign, name, time in TimeAtomToSolverLit.grab_name(lit):
 				for tc in self.watch_to_tc[sign, name]:
 					if tc.propagate(control, (sign, name, time)) is None:
 						return

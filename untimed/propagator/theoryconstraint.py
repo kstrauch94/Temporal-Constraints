@@ -17,7 +17,7 @@ class PropagationError(Exception):
 	pass
 
 
-class Map_Name_Lit:
+class TimeAtomToSolverLit:
 	"""
 	Maps a name id to a solver literal.
 	Has helper methods to retrieve either a literal or a name id
@@ -70,7 +70,7 @@ class SymbolToProgramLit:
 		cls.symbol_to_lit = {}
 
 
-def parse_atoms(constraint) -> Tuple[Dict[str, Dict[str, Any]], int, int]:
+def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[str, int]]]:
 	"""
 	Extract the relevant information of the given theory atom and populate self.t_atom_info
 
@@ -136,7 +136,7 @@ def parse_constraint_times(times) -> Tuple[int, int]:
 
 def build_symbol_id(info, time):
 	"""
-	Builds the name_id for Map_Name_Lit
+	Builds the name_id for TimeAtomToSolverLit
 
 	:param info: Information dictionary for a particular atom
 	:param time: The time point
@@ -192,7 +192,7 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	try:
 		for uq_name in t_atom_info.keys():
 			time: int = reverse_assigned_time(t_atom_info[uq_name], assigned_time)
-			ng.append(Map_Name_Lit.grab_lit(build_symbol_id(t_atom_info[uq_name], time)))
+			ng.append(TimeAtomToSolverLit.grab_lit(build_symbol_id(t_atom_info[uq_name], time)))
 	except KeyError:
 		# this error would happen if an id is not in the mapping
 		# if this happens it means the nogood does not exist for this assigned time
@@ -287,7 +287,7 @@ class TheoryConstraint:
 	def init_mappings(self, init) -> None:
 		"""
 		Loop through the symbolic atoms matching the signatures of the atoms in the theory constraint.
-		If a match is found, we add it to Map_Name_Lit
+		If a match is found, we add it to TimeAtomToSolverLit
 
 		:param init: clingo PropagateInit class
 		"""
@@ -307,7 +307,7 @@ class TheoryConstraint:
 					# this can only happen if the symbol does not exist!
 					# so, just continue
 					continue
-				Map_Name_Lit.add(build_symbol_id(info, time), solver_lit)
+				TimeAtomToSolverLit.add(build_symbol_id(info, time), solver_lit)
 
 	def build_watches(self, init) -> List[int]:
 		"""
@@ -335,7 +335,7 @@ class TheoryConstraintSize1(TheoryConstraint):
 
 	def init_mappings(self, init) -> None:
 		"""
-		Instead of adding to Map_Name_Lit it immediately adds a clause for the nogood
+		Instead of adding to TimeAtomToSolverLit it immediately adds a clause for the nogood
 		"""
 		for uq_name, info in self.t_atom_info.items():
 			for time in range(self.min_time, self.max_time + 1):
@@ -401,7 +401,7 @@ class TheoryConstraintSize2(TheoryConstraint):
 
 			for lit in changes:
 				ats = set()
-				for name_id in Map_Name_Lit.grab_name(lit):
+				for name_id in TimeAtomToSolverLit.grab_name(lit):
 					ats.update(get_at_from_name_id(name_id, self.t_atom_info))
 
 				for assigned_time in ats:
@@ -500,7 +500,7 @@ class TheoryConstraintNaive(TheoryConstraint):
 
 			for lit in changes:
 				ats = set()
-				for name_id in Map_Name_Lit.grab_name(lit):
+				for name_id in TimeAtomToSolverLit.grab_name(lit):
 					ats.update(get_at_from_name_id(name_id, self.t_atom_info))
 
 				for assigned_time in ats:
