@@ -11,7 +11,19 @@ CONSTRAINT_CHECK = {"NONE": 0,
                     "CONFLICT": -1}
 
 
-atom_info = namedtuple("atom_info", "sign time_mod name")
+class AtomInfo:
+
+	__slots__ = ["sign", "time_mod", "name"]
+
+	def __init__(self, sign, time_mod, name):
+		self.sign = sign
+		self.time_mod = time_mod
+		self.name = name
+
+
+# just an alias
+atom_info = AtomInfo
+
 
 class PropagationError(Exception):
 	pass
@@ -111,10 +123,6 @@ def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[s
 
 		signatures.add(signature)
 
-		#t_atom_info[uq_name] = {"sign": sign,
-		#                        "time_mod": time_mod,
-		#                        "name": name}
-
 	return t_atom_info, min_time, max_time, signatures
 
 
@@ -151,7 +159,7 @@ def parse_time(s_atom) -> int:
 	:param s_atom: clingo symbolic atom
 	:return: time
 	"""
-	#time = str(s_atom.symbol).split(",")[-1].replace(")", "").strip()
+	# time = str(s_atom.symbol).split(",")[-1].replace(")", "").strip()
 	time = s_atom.symbol.arguments[-1].number
 	return int(time)
 
@@ -283,7 +291,7 @@ class TheoryConstraint:
 		self.signatures = 0
 		return self.build_watches(init)
 
-	#@profile
+	# @profile
 	def init_mappings(self, init) -> None:
 		"""
 		Loop through the symbolic atoms matching the signatures of the atoms in the theory constraint.
@@ -415,7 +423,6 @@ class TheoryConstraintSize2(TheoryConstraint):
 
 
 class TheoryConstraintSize2ForProp2WatchMap(TheoryConstraint):
-
 	__slots__ = []
 
 	def __init__(self, constraint) -> None:
@@ -461,7 +468,6 @@ class TheoryConstraintSize2ForProp2WatchMap(TheoryConstraint):
 
 
 class TheoryConstraintNaive(TheoryConstraint):
-
 	__slots__ = []
 
 	def __init__(self, constraint) -> None:
@@ -656,7 +662,6 @@ class TheoryConstraint2watch(TheoryConstraint):
 
 
 class TheoryConstraint2watchForProp(TheoryConstraint2watch):
-
 	__slots__ = []
 
 	def replace_watches(self, info: List[List[int]], control) -> None:
@@ -677,7 +682,6 @@ class TheoryConstraint2watchForProp(TheoryConstraint2watch):
 
 
 class TheoryConstraint2watchForPropMap(TheoryConstraint):
-
 	__slots__ = []
 
 	def __init__(self, constraint) -> None:
