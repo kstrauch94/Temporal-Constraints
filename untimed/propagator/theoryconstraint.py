@@ -577,7 +577,7 @@ class TheoryConstraint2watch(TheoryConstraint):
 		"""
 		Only add watches for the first 2 literals of a nogood
 		"""
-		watches = []
+		watches = set()
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
@@ -585,7 +585,7 @@ class TheoryConstraint2watch(TheoryConstraint):
 			for lit in lits[:2]:
 				self.watches_to_at[lit].add(assigned_time)
 				init.add_watch(lit)
-				watches.append(lit)
+				watches.add(lit)
 
 		return watches
 
@@ -688,14 +688,14 @@ class TheoryConstraint2watchForPropMap(TheoryConstraint):
 		"""
 		Only add watches for the first 2 literals of a nogood
 		"""
-		watches = []
+		watches = set()
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits[:2]:
 				init.add_watch(lit)
-				watches.append((lit, assigned_time))
+				watches.add((lit, assigned_time))
 
 		return watches
 

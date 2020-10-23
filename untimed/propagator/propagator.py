@@ -59,6 +59,7 @@ class Propagator:
 		for lit in watches:
 			self.watch_to_tc[lit].append(tc)
 
+	@util.Timer("Prop_init")
 	def init(self, init):
 
 		initialize_symbol_mapping(init, self.theory_constraints)
