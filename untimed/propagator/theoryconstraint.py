@@ -46,7 +46,7 @@ class TimeAtomToSolverLit:
 		if name_id not in cls.name_to_lit:
 			cls.name_to_lit[name_id] = lit
 
-		cls.lit_to_name[lit].add(name_id)
+			cls.lit_to_name[lit].add(name_id)
 
 	@classmethod
 	def grab_lit(cls, name_id):
@@ -82,6 +82,15 @@ class SymbolToProgramLit:
 	def reset(cls):
 		cls.symbol_to_lit = {}
 		cls.symbol_to_lit.clear()
+
+
+class SymbolsLooked:
+	looked: Set[Tuple[Any, int]] = set()
+
+	@classmethod
+	def reset(cls):
+		cls.looked = set()
+
 
 @util.Timer("parse_atom")
 #@profile
@@ -251,8 +260,6 @@ def check_assignment_complete(nogood, control) -> int:
 	if nogood is None:
 		return CONSTRAINT_CHECK["NONE"]
 
-	true_count: int = 0
-
 	for lit in nogood:
 		if control.assignment.is_false(lit):
 			# if one is false then it doesnt matter
@@ -273,7 +280,7 @@ def get_at_from_name_id(name_id: Tuple[int, str, int], t_atom_info):
 
 	return ats
 
-SYMBOLS_LOOKED = set()
+
 class TheoryConstraint:
 	"""
 	Base class for all theory constraints.
@@ -331,10 +338,12 @@ class TheoryConstraint:
 			for time in range(min_time, max_time + 1):
 
 				symbol = clingo.parse_term(f"{info.name}{time})")
-				if symbol in SYMBOLS_LOOKED:
+
+				if (symbol, info.sign) in SymbolsLooked.looked:
 					continue
 
-				SYMBOLS_LOOKED.add(symbol)
+				SymbolsLooked.looked.add((symbol, info.sign))
+
 				try:
 					solver_lit: int = init.solver_literal(SymbolToProgramLit.grab_lit(symbol)) * info.sign
 				except KeyError:
@@ -370,6 +379,7 @@ class TheoryConstraint:
 					return None
 		return 0
 
+
 class TheoryConstraintSize1(TheoryConstraint):
 	__slots__ = []
 
@@ -398,7 +408,7 @@ class TheoryConstraintSize1(TheoryConstraint):
 				# add nogood
 				init.add_clause([-solver_lit])
 
-			self.t_atom_info[uq_name].clear()
+			self.t_atom_info[uq_name] = False
 
 		del self.min_time
 		del self.max_time
