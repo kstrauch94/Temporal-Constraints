@@ -8,24 +8,6 @@ from untimed.propagator.theoryconstraint import TheoryConstraint
 from untimed.propagator.theoryconstraint import SymbolToProgramLit
 
 
-@util.Timer("init_symb_mapping")
-def initialize_symbol_mapping(init, theory_constraints: List["TheoryConstraint"]):
-	"""
-	Initialize the mapping from symbols to program literals
-	This mapping is used in TheoryConstraint to avoid having to loop through symbolic atoms many times
-	:param init: clingo PropagateInit object
-	:param theory_constraints: List of theory constraint objects
-	:return:
-	"""
-	signatures = set()
-	for tc in theory_constraints:
-		signatures.update(tc.signatures)
-
-	for sig in signatures:
-		for s_atom in init.symbolic_atoms.by_signature(*sig):
-			SymbolToProgramLit.add(s_atom.symbol, s_atom.literal)
-
-
 class Propagator:
 	"""
 	Propagator that handles the propagation of "time atoms"(aka theory atoms of theory constraints).
@@ -60,9 +42,8 @@ class Propagator:
 			self.watch_to_tc[lit].append(tc)
 
 	@util.Timer("Prop_init")
+	#@profile
 	def init(self, init):
-
-		initialize_symbol_mapping(init, self.theory_constraints)
 
 		for tc in self.theory_constraints:
 			watches = tc.init(init)
@@ -70,8 +51,18 @@ class Propagator:
 
 		SymbolToProgramLit.reset()
 
+		#print("size: {}".format(util.get_size(self.watch_to_tc)))
+
 	def propagate(self, control, changes):
 		...
+
+	@util.Timer("check")
+	@util.Count("check")
+	def check(self, control):
+		for tc in self.theory_constraints:
+			if tc.check(control) is None:
+				#print("check failed?")
+				return
 
 
 class TimedAtomPropagator(Propagator):
