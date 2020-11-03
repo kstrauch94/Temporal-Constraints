@@ -273,7 +273,7 @@ def get_at_from_name_id(name_id: Tuple[int, str, int], t_atom_info):
 
 	return ats
 
-
+SYMBOLS_LOOKED = set()
 class TheoryConstraint:
 	"""
 	Base class for all theory constraints.
@@ -331,6 +331,10 @@ class TheoryConstraint:
 			for time in range(min_time, max_time + 1):
 
 				symbol = clingo.parse_term(f"{info.name}{time})")
+				if symbol in SYMBOLS_LOOKED:
+					continue
+
+				SYMBOLS_LOOKED.add(symbol)
 				try:
 					solver_lit: int = init.solver_literal(SymbolToProgramLit.grab_lit(symbol)) * info.sign
 				except KeyError:
@@ -394,7 +398,7 @@ class TheoryConstraintSize1(TheoryConstraint):
 				# add nogood
 				init.add_clause([-solver_lit])
 
-			self.t_atom_info[uq_name] = {}
+			self.t_atom_info[uq_name].clear()
 
 		del self.min_time
 		del self.max_time
