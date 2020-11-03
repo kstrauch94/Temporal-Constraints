@@ -1,6 +1,6 @@
 import unittest
 from untimed.propagator.propagatorhandler import TheoryHandler, TheoryHandlerWithPropagator, add_theory
-from untimed.propagator.theoryconstraint import TimeAtomToSolverLit, SymbolToProgramLit
+from untimed.propagator.theoryconstraint import TimeAtomToSolverLit, SymbolToProgramLit, SymbolsLooked
 
 import clingo
 
@@ -74,6 +74,7 @@ class TestApp(unittest.TestCase):
 	def reset_mappings(self):
 		SymbolToProgramLit.reset()
 		TimeAtomToSolverLit.reset()
+		SymbolsLooked.reset()
 
 	def test_naive_regular(self):
 		self.reset_mappings()
