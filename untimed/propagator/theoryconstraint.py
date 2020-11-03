@@ -41,6 +41,7 @@ class TimeAtomToSolverLit:
 	lit_to_name: Dict[int, Set[Tuple[int, str, int]]] = defaultdict(set)
 
 	@classmethod
+	#@profile
 	def add(cls, name_id, lit):
 		if name_id not in cls.name_to_lit:
 			cls.name_to_lit[name_id] = lit
@@ -80,8 +81,10 @@ class SymbolToProgramLit:
 	@classmethod
 	def reset(cls):
 		cls.symbol_to_lit = {}
+		cls.symbol_to_lit.clear()
 
-
+@util.Timer("parse_atom")
+#@profile
 def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[str, int]]]:
 	"""
 	Extract the relevant information of the given theory atom and populate self.t_atom_info
@@ -237,6 +240,29 @@ def check_assignment(nogood, control) -> int:
 		return CONSTRAINT_CHECK["NONE"]
 
 
+def check_assignment_complete(nogood, control) -> int:
+	"""
+	Checks if a nogood is a conflict under a complete assignment
+
+	:param nogood: nogood that will be checked
+	:param control: clingo PropagateControl class
+	:return int value that denotes the result of the check. See CONSTRAINT_CHECK for details
+	"""
+	if nogood is None:
+		return CONSTRAINT_CHECK["NONE"]
+
+	true_count: int = 0
+
+	for lit in nogood:
+		if control.assignment.is_false(lit):
+			# if one is false then it doesnt matter
+			return CONSTRAINT_CHECK["NONE"]
+
+	# if no literal is false it means they are all true
+	# which leads to a conflict
+	return CONSTRAINT_CHECK["CONFLICT"]
+
+
 def get_at_from_name_id(name_id: Tuple[int, str, int], t_atom_info):
 	sign, name, time = name_id
 
@@ -291,7 +317,7 @@ class TheoryConstraint:
 		self.signatures = 0
 		return self.build_watches(init)
 
-	# @profile
+	#@profile
 	def init_mappings(self, init) -> None:
 		"""
 		Loop through the symbolic atoms matching the signatures of the atoms in the theory constraint.
@@ -300,12 +326,9 @@ class TheoryConstraint:
 		:param init: clingo PropagateInit class
 		"""
 		for uq_name, info in self.t_atom_info.items():
-			for time in range(self.min_time, self.max_time + 1):
-				assigned_time: int = get_assigned_time(info, time)
-
-				# max time and min time can not be none! add some detection just in case?
-				if not (self.min_time <= assigned_time <= self.max_time):
-					continue
+			max_time = self.max_time - info.time_mod
+			min_time = self.min_time - info.time_mod
+			for time in range(min_time, max_time + 1):
 
 				symbol = clingo.parse_term(f"{info.name}{time})")
 				try:
@@ -333,6 +356,15 @@ class TheoryConstraint:
 	def propagate(self, control, changes) -> Optional[List[Tuple[int, int]]]:
 		pass
 
+	def check(self, control):
+		for assigned_time in range(self.min_time, self.max_time + 1):
+			ng = form_nogood(self.t_atom_info, assigned_time)
+			if check_assignment_complete(ng, control) == CONSTRAINT_CHECK["CONFLICT"]:
+				if not control.add_nogood(ng) or not control.propagate():
+					for lit in ng:
+						print("lit: {}, val: {}".format(lit, str(control.assignment.value)))
+					return None
+		return 0
 
 class TheoryConstraintSize1(TheoryConstraint):
 	__slots__ = []
@@ -346,12 +378,9 @@ class TheoryConstraintSize1(TheoryConstraint):
 		Instead of adding to TimeAtomToSolverLit it immediately adds a clause for the nogood
 		"""
 		for uq_name, info in self.t_atom_info.items():
-			for time in range(self.min_time, self.max_time + 1):
-				assigned_time: int = get_assigned_time(info, time)
-
-				# max time and min time can not be none! add some detection just in case?
-				if not (self.min_time <= assigned_time <= self.max_time):
-					continue
+			max_time = self.max_time - info.time_mod
+			min_time = self.min_time - info.time_mod
+			for time in range(min_time, max_time + 1):
 
 				symbol = clingo.parse_term(f"{info.name}{time})")
 				try:
@@ -369,6 +398,9 @@ class TheoryConstraintSize1(TheoryConstraint):
 
 		del self.min_time
 		del self.max_time
+
+	def check(self, *args, **kwargs):
+		return 0
 
 
 class TheoryConstraintSize2(TheoryConstraint):

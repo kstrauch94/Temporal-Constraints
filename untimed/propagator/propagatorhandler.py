@@ -2,6 +2,8 @@ import logging
 import os
 from typing import List
 
+from untimed import util
+
 from untimed.propagator.theoryconstraint import TheoryConstraint
 from untimed.propagator.theoryconstraint import TheoryConstraintNaive
 from untimed.propagator.theoryconstraint import TheoryConstraint2watch
@@ -10,16 +12,15 @@ from untimed.propagator.theoryconstraint import TheoryConstraintSize2
 from untimed.propagator.theoryconstraint import TheoryConstraint2watchForProp
 from untimed.propagator.theoryconstraint import TheoryConstraintSize2ForProp2WatchMap
 from untimed.propagator.theoryconstraint import TheoryConstraint2watchForPropMap
+from untimed.propagator.theoryconstraint import TheoryConstraintSize2Timed
+from untimed.propagator.theoryconstraint import TheoryConstraintNaiveTimed
+
+from untimed.propagator.theoryconstraint import SymbolToProgramLit
 
 from untimed.propagator.propagator import TimedAtomPropagator
 from untimed.propagator.propagator import RegularAtomPropagatorNaive
 from untimed.propagator.propagator import RegularAtomPropagator2watch
 from untimed.propagator.propagator import RegularAtomPropagator2watchMap
-
-from untimed.propagator.propagator import initialize_symbol_mapping
-
-from untimed.propagator.theoryconstraint import TheoryConstraintSize2Timed
-from untimed.propagator.theoryconstraint import TheoryConstraintNaiveTimed
 
 theory_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../theory/untimed_theory.lp"))
 
@@ -58,6 +59,24 @@ PROPAGATORS = {"timed": TimedAtomPropagator,
                "naive": RegularAtomPropagatorNaive,
                "2watch": RegularAtomPropagator2watch,
                "2watchmap": RegularAtomPropagator2watchMap}
+
+
+@util.Timer("init_symb_mapping")
+def initialize_symbol_mapping(init, theory_constraints: List["TheoryConstraint"]):
+	"""
+	Initialize the mapping from symbols to program literals
+	This mapping is used in TheoryConstraint to avoid having to loop through symbolic atoms many times
+	:param init: clingo PropagateInit object
+	:param theory_constraints: List of theory constraint objects
+	:return:
+	"""
+	signatures = set()
+	for tc in theory_constraints:
+		signatures.update(tc.signatures)
+
+	for sig in signatures:
+		for s_atom in init.symbolic_atoms.by_signature(*sig):
+			SymbolToProgramLit.add(s_atom.symbol, s_atom.literal)
 
 
 def build_tc(t_atom, tc_dict) -> TheoryConstraint:
@@ -126,6 +145,7 @@ class TheoryHandlerWithPropagator:
 
 		self.tc_dict = TC_DICT[prop_type + "_prop"]
 
+	#@profile
 	def register(self, prg) -> None:
 		"""
 		This function needs to be called AFTER grounding
@@ -138,6 +158,8 @@ class TheoryHandlerWithPropagator:
 				self.propagator.add_tc(tc)
 
 		prg.register_propagator(self.propagator)
+
+		initialize_symbol_mapping(prg, self.propagator.theory_constraints)
 
 	def __str__(self) -> str:
 		return self.__class__.__name__
