@@ -7,8 +7,8 @@ from typing import List, Dict, Tuple, Set, Any, Optional
 import untimed.util as util
 
 CONSTRAINT_CHECK = {"NONE": 0,
-                    "UNIT": 1,
-                    "CONFLICT": -1}
+					"UNIT": 1,
+					"CONFLICT": -1}
 
 
 class AtomInfo:
@@ -112,7 +112,14 @@ def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[s
 		signature: Tuple[str, int] = (
 			atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments) + 1)
 
-		name: str = str(atom.terms[0].arguments[0])[:-1] + ","
+		# after selecting the atom we convert it to a string and delete the parenthesis
+		name: str = str(atom.terms[0].arguments[0])[:-1]
+
+		# after selecting the atom we further select its arguments
+		# if the length is 0 we don't add a ","
+		# if it is longer then we add "," for ease of use later on
+		if len(atom.terms[0].arguments[0].arguments) != 0:
+			name = f"{name},"
 
 		uq_name: str = term_type + name
 

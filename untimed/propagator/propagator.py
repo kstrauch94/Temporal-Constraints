@@ -6,6 +6,9 @@ import untimed.util as util
 from untimed.propagator.theoryconstraint import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint import TheoryConstraint
 from untimed.propagator.theoryconstraint import SymbolToProgramLit
+from untimed.propagator.theoryconstraint import SymbolsLooked
+
+from untimed.propagator.theoryconstraint import parse_time
 
 
 class Propagator:
@@ -42,16 +45,35 @@ class Propagator:
 			self.watch_to_tc[lit].append(tc)
 
 	@util.Timer("Prop_init")
-	#@profile
 	def init(self, init):
 
+		signatures = set()
 		for tc in self.theory_constraints:
-			watches = tc.init(init)
-			self.add_atom_observer(tc, watches)
+			signatures.update(tc.signatures)
+
+		for sig in signatures:
+			for s_atom in init.symbolic_atoms.by_signature(*sig):
+				time = parse_time(s_atom)
+				# if argument size is 1 then only time is present
+				if len(s_atom.symbol.arguments) == 1:
+					name: str = f"{s_atom.symbol.name}("
+				else:
+					name: str = str(s_atom.symbol).split(",")[:-1]
+					name = "".join(name)
+					name = f"{name},"
+
+				lit = init.solver_literal(s_atom.literal)
+				TimeAtomToSolverLit.add((-1, name, time), -lit)
+				TimeAtomToSolverLit.add((1, name, time), lit)
+
+		for tc in self.theory_constraints:
+			if tc.size == 1:
+				tc.init(init)
+			else:
+				watches = tc.build_watches(init)
+				self.add_atom_observer(tc, watches)
 
 		SymbolToProgramLit.reset()
-
-		#print("size: {}".format(util.get_size(self.watch_to_tc)))
 
 	def propagate(self, control, changes):
 		...
