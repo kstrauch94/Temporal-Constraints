@@ -32,7 +32,7 @@ class TheoryConstraintSize2Reg(TheoryConstraint):
 		Since there are only 2 atoms in the constraint we add all literals as watches
 		"""
 		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
+			lits = form_nogood(self, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits:
@@ -57,7 +57,7 @@ class TheoryConstraintSize2Reg(TheoryConstraint):
 					ats.update(get_at_from_name_id(name_id, self.t_atom_info))
 
 				for assigned_time in ats:
-					ng = form_nogood(self.t_atom_info, assigned_time)
+					ng = form_nogood(self, assigned_time)
 					if ng is None:
 						continue
 					if not control.add_nogood(ng) or not control.propagate():
@@ -77,7 +77,7 @@ class TheoryConstraintNaiveReg(TheoryConstraint):
 		Since there are only 2 atoms in the constraint we add all literals as watches
 		"""
 		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
+			lits = form_nogood(self, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits:
@@ -103,7 +103,7 @@ class TheoryConstraintNaiveReg(TheoryConstraint):
 
 			# no indent here so it first gathers all assigned times
 			for assigned_time in ats:
-				ng = form_nogood(self.t_atom_info, assigned_time)
+				ng = form_nogood(self, assigned_time)
 				if ng is None:
 					continue
 
@@ -177,7 +177,7 @@ class TheoryConstraint2watchReg(TheoryConstraint):
 		Only add watches for the first 2 literals of a nogood
 		"""
 		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
+			lits = form_nogood(self, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits[:2]:
@@ -205,7 +205,7 @@ class TheoryConstraint2watchReg(TheoryConstraint):
 
 			for lit in changes:
 				for assigned_time in self.watches_to_at[lit]:
-					ng = form_nogood(self.t_atom_info, assigned_time)
+					ng = form_nogood(self, assigned_time)
 					if ng is None:
 						continue
 
