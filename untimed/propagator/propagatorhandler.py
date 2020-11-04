@@ -4,18 +4,23 @@ from typing import List
 
 from untimed import util
 
-from untimed.propagator.theoryconstraint import TheoryConstraint
-from untimed.propagator.theoryconstraint import TheoryConstraintNaive
-from untimed.propagator.theoryconstraint import TheoryConstraint2watch
-from untimed.propagator.theoryconstraint import TheoryConstraintSize1
-from untimed.propagator.theoryconstraint import TheoryConstraintSize2
-from untimed.propagator.theoryconstraint import TheoryConstraint2watchForProp
-from untimed.propagator.theoryconstraint import TheoryConstraintSize2ForProp2WatchMap
-from untimed.propagator.theoryconstraint import TheoryConstraint2watchForPropMap
-from untimed.propagator.theoryconstraint import TheoryConstraintSize2Timed
-from untimed.propagator.theoryconstraint import TheoryConstraintNaiveTimed
+from untimed.propagator.theoryconstraint_base import SymbolToProgramLit
+from untimed.propagator.theoryconstraint_base import Signatures
+from untimed.propagator.theoryconstraint_base import TheoryConstraintSize1
 
-from untimed.propagator.theoryconstraint import SymbolToProgramLit
+from untimed.propagator.theoryconstraint_reg import TheoryConstraint
+from untimed.propagator.theoryconstraint_reg import TheoryConstraintNaiveReg
+from untimed.propagator.theoryconstraint_reg import TheoryConstraint2watchReg
+from untimed.propagator.theoryconstraint_reg import TheoryConstraintSize2Reg
+
+from untimed.propagator.theoryconstraint_prop import TheoryConstraintSize2Prop
+from untimed.propagator.theoryconstraint_prop import TheoryConstraintNaiveProp
+from untimed.propagator.theoryconstraint_prop import TheoryConstraint2watchProp
+from untimed.propagator.theoryconstraint_prop import TheoryConstraintSize2Prop2WatchMap
+from untimed.propagator.theoryconstraint_prop import TheoryConstraint2watchPropMap
+from untimed.propagator.theoryconstraint_prop import TheoryConstraintSize2TimedProp
+from untimed.propagator.theoryconstraint_prop import TheoryConstraintTimedProp
+
 
 from untimed.propagator.propagator import TimedAtomPropagator
 from untimed.propagator.propagator import RegularAtomPropagatorNaive
@@ -25,28 +30,28 @@ from untimed.propagator.propagator import RegularAtomPropagator2watchMap
 theory_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../theory/untimed_theory.lp"))
 
 TWO_WATCH_TC = {1: TheoryConstraintSize1,
-                2: TheoryConstraintSize2,
-                -1: TheoryConstraint2watch}
+                2: TheoryConstraintSize2Reg,
+                -1: TheoryConstraint2watchReg}
 
 NAIVE_TC = {1: TheoryConstraintSize1,
-            2: TheoryConstraintSize2,
-            -1: TheoryConstraintNaive}
+            2: TheoryConstraintSize2Reg,
+            -1: TheoryConstraintNaiveReg}
 
 TIMED_TC = {1: TheoryConstraintSize1,
-            2: TheoryConstraintSize2Timed,
-            -1: TheoryConstraintNaiveTimed}
+            2: TheoryConstraintSize2TimedProp,
+            -1: TheoryConstraintTimedProp}
 
 NAIVE_TC_PROP = {1: TheoryConstraintSize1,
-                 2: TheoryConstraintSize2,
-                 -1: TheoryConstraintNaive}
+                 2: TheoryConstraintSize2Prop,
+                 -1: TheoryConstraintNaiveProp}
 
 TWO_WATCH_TC_PROP = {1: TheoryConstraintSize1,
-                     2: TheoryConstraintSize2,
-                     -1: TheoryConstraint2watchForProp}
+                     2: TheoryConstraintSize2Prop,
+                     -1: TheoryConstraint2watchProp}
 
 TWO_WATCH_MAP_TC_PROP = {1: TheoryConstraintSize1,
-                     2: TheoryConstraintSize2ForProp2WatchMap,
-                     -1: TheoryConstraint2watchForPropMap}
+                     2: TheoryConstraintSize2Prop2WatchMap,
+                     -1: TheoryConstraint2watchPropMap}
 
 TC_DICT = {"2watch": TWO_WATCH_TC,
            "naive": NAIVE_TC,
@@ -61,7 +66,6 @@ PROPAGATORS = {"timed": TimedAtomPropagator,
                "2watchmap": RegularAtomPropagator2watchMap}
 
 
-@util.Timer("init_symb_mapping")
 def initialize_symbol_mapping(init, theory_constraints: List["TheoryConstraint"]):
 	"""
 	Initialize the mapping from symbols to program literals
@@ -70,11 +74,8 @@ def initialize_symbol_mapping(init, theory_constraints: List["TheoryConstraint"]
 	:param theory_constraints: List of theory constraint objects
 	:return:
 	"""
-	signatures = set()
-	for tc in theory_constraints:
-		signatures.update(tc.signatures)
 
-	for sig in signatures:
+	for sig in Signatures.sigs:
 		for s_atom in init.symbolic_atoms.by_signature(*sig):
 			SymbolToProgramLit.add(s_atom.symbol, s_atom.literal)
 
@@ -108,10 +109,9 @@ class TheoryHandler:
 		if prop_type not in TC_DICT:
 			raise ValueError("Handler does not support {} watch type".format(prop_type))
 
-		#self.propagators: List[TheoryConstraint] = []
-
 		self.prop_type: str = prop_type
 
+	@util.Timer("Register")
 	def register(self, prg) -> None:
 		"""
 		This function needs to be called AFTER grounding
@@ -145,7 +145,7 @@ class TheoryHandlerWithPropagator:
 
 		self.tc_dict = TC_DICT[prop_type + "_prop"]
 
-	#@profile
+	@util.Timer("Register")
 	def register(self, prg) -> None:
 		"""
 		This function needs to be called AFTER grounding
