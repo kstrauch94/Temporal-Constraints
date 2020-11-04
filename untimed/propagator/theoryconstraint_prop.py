@@ -30,7 +30,7 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 		"""
 		watches = set()
 		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self, assigned_time)
+			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits:
@@ -57,7 +57,7 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 				ats.update(get_at_from_name_id(name_id, self.t_atom_info))
 
 			for assigned_time in ats:
-				ng = form_nogood(self, assigned_time)
+				ng = form_nogood(self.t_atom_info, assigned_time)
 				if ng is None:
 					continue
 				if not control.add_nogood(ng) or not control.propagate():
@@ -79,7 +79,7 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 		"""
 		watches = set()
 		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self, assigned_time)
+			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits:
@@ -102,7 +102,7 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 
 			lit, assigned_time = change
 
-			ng = form_nogood(self, assigned_time)
+			ng = form_nogood(self.t_atom_info, assigned_time)
 			if ng is None:
 				return []
 			if not control.add_nogood(ng) or not control.propagate():
@@ -125,7 +125,7 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 		"""
 		watches = set()
 		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self, assigned_time)
+			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits:
@@ -152,7 +152,7 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 				ats.update(get_at_from_name_id(name_id, self.t_atom_info))
 
 			for assigned_time in ats:
-				ng = form_nogood(self, assigned_time)
+				ng = form_nogood(self.t_atom_info, assigned_time)
 				if ng is None:
 					continue
 
@@ -186,7 +186,7 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 		"""
 		watches = set()
 		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self, assigned_time)
+			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits[:2]:
@@ -216,7 +216,7 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 			replacement_info: List[List[int]] = []
 
 			for assigned_time in self.watches_to_at[change]:
-				ng = form_nogood(self, assigned_time)
+				ng = form_nogood(self.t_atom_info, assigned_time)
 				if ng is None:
 					continue
 
@@ -265,7 +265,7 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 		"""
 		watches = set()
 		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self, assigned_time)
+			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits[:2]:
@@ -290,7 +290,7 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 			delete_add = []
 
 			lit, assigned_time = change
-			ng = form_nogood(self, assigned_time)
+			ng = form_nogood(self.t_atom_info, assigned_time)
 			if ng is None:
 				return []
 
@@ -319,7 +319,7 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 		add all solver literals for the constraint as watches
 		"""
 		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self, assigned_time)
+			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits:
@@ -339,7 +339,7 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 		ats = get_at_from_name_id(change, self.t_atom_info)
 
 		for assigned_time in ats:
-			ng = form_nogood(self, assigned_time)
+			ng = form_nogood(self.t_atom_info, assigned_time)
 			if ng is None:
 				continue
 
@@ -361,7 +361,7 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 		add all solver literals for the constraint as watches
 		"""
 		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self, assigned_time)
+			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits:
@@ -378,7 +378,7 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 		ats = get_at_from_name_id(change, self.t_atom_info)
 
 		for assigned_time in ats:
-			ng = form_nogood(self, assigned_time)
+			ng = form_nogood(self.t_atom_info, assigned_time)
 			if ng is None:
 				continue
 

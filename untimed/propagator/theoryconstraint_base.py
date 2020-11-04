@@ -127,7 +127,7 @@ def reverse_assigned_time(info: atom_info, assigned_time: int) -> int:
 looked: Dict[Tuple[Any, int], Optional[List[int]]] = {}
 
 #@profile
-def form_nogood(tc, assigned_time: int) -> Optional[List[int]]:
+def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	"""
 	Forms a nogood based on the assigned time and atoms of a theory constraint
 
@@ -135,22 +135,23 @@ def form_nogood(tc, assigned_time: int) -> Optional[List[int]]:
 	:param assigned_time: the assigned time
 	:return: the nogood for the given assigned time and constraint
 	"""
-	if (tc, assigned_time) in looked:
-		return looked[tc, assigned_time]
+	tup = tuple(t_atom_info.keys())
+	if (tup, assigned_time) in looked:
+		return looked[tup, assigned_time]
 
 	ng: List[int] = []
 
 	try:
-		for uq_name, info in tc.t_atom_info.items():
-			time: int = reverse_assigned_time(info, assigned_time)
-			ng.append(TimeAtomToSolverLit.grab_lit(build_symbol_id(info, time)))
+		for uq_name in t_atom_info.keys():
+			time: int = reverse_assigned_time(t_atom_info[uq_name], assigned_time)
+			ng.append(TimeAtomToSolverLit.grab_lit(build_symbol_id(t_atom_info[uq_name], time)))
 	except KeyError:
 		# this error would happen if an id is not in the mapping
 		# if this happens it means the nogood does not exist for this assigned time
-		looked[tc, assigned_time] = None
+		looked[tup, assigned_time] = None
 		return None
 
-	looked[tc, assigned_time] = ng
+	looked[tup, assigned_time] = ng
 	return ng
 
 
@@ -343,7 +344,7 @@ class TheoryConstraint:
 
 	def check(self, control):
 		for assigned_time in range(self.min_time, self.max_time + 1):
-			ng = form_nogood(self, assigned_time)
+			ng = form_nogood(self.t_atom_info, assigned_time)
 			if check_assignment_complete(ng, control) == CONSTRAINT_CHECK["CONFLICT"]:
 				if not control.add_nogood(ng) or not control.propagate():
 					for lit in ng:
