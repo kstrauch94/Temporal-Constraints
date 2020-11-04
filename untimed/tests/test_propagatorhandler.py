@@ -1,6 +1,6 @@
 import unittest
 from untimed.propagator.propagatorhandler import TheoryHandler, TheoryHandlerWithPropagator, add_theory
-from untimed.propagator.theoryconstraint import TimeAtomToSolverLit, SymbolToProgramLit, SymbolsLooked
+from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit, SymbolToProgramLit, Signatures
 
 import clingo
 
@@ -11,6 +11,15 @@ domain_ab(1..2).
 
 {a(V,T)} :- domain_ab(V), time(T).
 {b(V,T)} :- domain_ab(V), time(T).
+
+"""
+
+program_no_dom = """
+#const maxtime = 7.
+time(1..maxtime).
+
+{a(T)} :- time(T).
+{b(T)} :- time(T).
 
 """
 
@@ -74,7 +83,7 @@ class TestApp(unittest.TestCase):
 	def reset_mappings(self):
 		SymbolToProgramLit.reset()
 		TimeAtomToSolverLit.reset()
-		SymbolsLooked.reset()
+		Signatures.reset()
 
 	def test_naive_regular(self):
 		self.reset_mappings()
@@ -119,6 +128,29 @@ class TestApp(unittest.TestCase):
 		self.handler_test(handler_class, handler_args)
 
 	def handler_test(self, handler_class, handler_args):
+
+		# tests with atoms only having time
+
+		c = ":-&constraint(1,maxtime){+.a()}."
+		c_reg = ":- a(T), time(T)."
+		self.assertEqual(solve([program_no_dom, c], handler_class, handler_args),
+		                 solve_regular([program_no_dom, c_reg]))
+
+		c = ":-&constraint(1,maxtime){+.a(); +.b()}."
+		c_reg = ":- a(T), b(T), time(T)."
+		self.assertEqual(solve([program_no_dom, c], handler_class, handler_args),
+		                 solve_regular([program_no_dom, c_reg]))
+
+		c = ":-&constraint(1,maxtime){+.a(); +~b()}."
+		c_reg = ":- a(T), b(T-1), time(T), time(T-1)."
+		self.assertEqual(solve([program_no_dom, c], handler_class, handler_args),
+		                 solve_regular([program_no_dom, c_reg]))
+
+		c = ":-&constraint(1,maxtime){+.a(); -~b()}."
+		c_reg = ":- a(T), not b(T-1), time(T), time(T-1)."
+		self.assertEqual(solve([program_no_dom, c], handler_class, handler_args),
+		                 solve_regular([program_no_dom, c_reg]))
+
 		# tests with constraints of size 1
 		c = """:-&constraint(1,maxtime){+.a(1)}."""
 		c_reg = ":- a(1,T), time(T)."
