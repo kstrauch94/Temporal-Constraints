@@ -12,6 +12,8 @@ import textwrap as _textwrap
 
 import logging
 import sys
+from untimed.propagator.theoryconstraint_base import looked
+
 
 handlers: Dict[str, Any] = {}
 handlers["prop"] = TheoryHandlerWithPropagator
@@ -68,20 +70,24 @@ class Application:
 		self.__handler = handlers[self.__handler_type](self.watch_types)
 
 	def main(self, prg, files):
+		with util.Timer("until solve"):
+			for name in files:
+				prg.load(name)
 
-		for name in files:
-			prg.load(name)
+			self.__build_handler()
 
-		self.__build_handler()
+			add_theory(prg)
 
-		add_theory(prg)
+			with util.Timer("ground time"):
+				prg.ground([("base", [])])
 
-		prg.ground([("base", [])])
+			self.__handler.register(prg)
 
-		self.__handler.register(prg)
-
-		prg.solve(on_statistics=self.__on_stats)
-
+		with util.Timer("solve time"):
+			prg.solve(on_statistics=self.__on_stats)
+		print("done!")
+		print(util.get_size(looked))
+		util.print_stats()
 
 def setup_logger():
 	root_logger = logging.getLogger()
