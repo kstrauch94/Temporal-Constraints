@@ -12,7 +12,6 @@ import textwrap as _textwrap
 
 import logging
 import sys
-from untimed.propagator.theoryconstraint_base import looked
 
 
 handlers: Dict[str, Any] = {}
@@ -86,7 +85,6 @@ class Application:
 		with util.Timer("solve time"):
 			prg.solve(on_statistics=self.__on_stats)
 		print("done!")
-		print(util.get_size(looked))
 		util.print_stats()
 
 def setup_logger():
