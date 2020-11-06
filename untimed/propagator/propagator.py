@@ -5,7 +5,6 @@ import untimed.util as util
 
 from untimed.propagator.theoryconstraint_reg import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_reg import TheoryConstraint
-from untimed.propagator.theoryconstraint_base import SymbolToProgramLit
 from untimed.propagator.theoryconstraint_base import init_TA2L_mapping
 
 
@@ -55,8 +54,7 @@ class Propagator:
 				watches = tc.build_watches(init)
 				self.add_atom_observer(tc, watches)
 
-		print("Theory Constrains : {}\n".format(len(self.theory_constraints)))
-		SymbolToProgramLit.reset()
+		util.Stats.add("Theory Constrains", len(self.theory_constraints))
 
 	def propagate(self, control, changes):
 		...

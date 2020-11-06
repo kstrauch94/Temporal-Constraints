@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from typing import Dict, Tuple, Set, Any
+from typing import Dict, Tuple, Set, Any, Optional, List
 
 CONSTRAINT_CHECK = {"NONE": 0,
 					"UNIT": 1,
@@ -20,6 +20,7 @@ class AtomInfo:
 # just an alias
 atom_info = AtomInfo
 
+
 class TimeAtomToSolverLit:
 	"""
 	Maps a name id to a solver literal.
@@ -30,6 +31,8 @@ class TimeAtomToSolverLit:
 	name_to_lit: Dict[Tuple[int, str, int], int] = {}
 
 	lit_to_name: Dict[int, Set[Tuple[int, str, int]]] = defaultdict(set)
+
+	initialized: bool = False
 
 	@classmethod
 	#@profile
@@ -55,24 +58,7 @@ class TimeAtomToSolverLit:
 	def reset(cls):
 		cls.name_to_lit = {}
 		cls.lit_to_name = defaultdict(set)
-
-
-class SymbolToProgramLit:
-	symbol_to_lit: Dict[Any, int] = {}
-
-	@classmethod
-	def add(cls, symbol, lit):
-		if symbol not in cls.symbol_to_lit:
-			cls.symbol_to_lit[symbol] = lit
-
-	@classmethod
-	def grab_lit(cls, symbol):
-		return cls.symbol_to_lit[symbol]
-
-	@classmethod
-	def reset(cls):
-		cls.symbol_to_lit = {}
-		cls.symbol_to_lit.clear()
+		cls.initialized = False
 
 
 class Signatures:
@@ -83,3 +69,11 @@ class Signatures:
 	def reset(cls):
 		cls.sigs = set()
 		cls.finished = False
+
+
+class Looked:
+	looked: Dict[Tuple[Any, int], Optional[List[int]]] = {}
+
+	@classmethod
+	def reset(cls):
+		cls.looked = {}

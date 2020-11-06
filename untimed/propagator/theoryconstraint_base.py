@@ -1,6 +1,4 @@
 import logging
-from collections import defaultdict
-import clingo
 
 from typing import List, Dict, Tuple, Set, Any, Optional
 
@@ -8,8 +6,8 @@ import untimed.util as util
 
 from untimed.propagator.theoryconstraint_data import atom_info
 from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
-from untimed.propagator.theoryconstraint_data import SymbolToProgramLit
 from untimed.propagator.theoryconstraint_data import Signatures
+from untimed.propagator.theoryconstraint_data import Looked
 from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
 
 
@@ -125,9 +123,6 @@ def reverse_assigned_time(info: atom_info, assigned_time: int) -> int:
 	return assigned_time - info.time_mod
 
 
-looked: Dict[Tuple[Any, int], Optional[List[int]]] = {}
-
-
 # @profile
 def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	"""
@@ -138,8 +133,8 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	:return: the nogood for the given assigned time and constraint
 	"""
 	tup = tuple(t_atom_info.keys())
-	if (tup, assigned_time) in looked:
-		return looked[tup, assigned_time]
+	if (tup, assigned_time) in Looked.looked:
+		return Looked.looked[tup, assigned_time]
 
 	ng: List[int] = []
 
@@ -150,10 +145,10 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	except KeyError:
 		# this error would happen if an id is not in the mapping
 		# if this happens it means the nogood does not exist for this assigned time
-		looked[tup, assigned_time] = None
+		Looked.looked[tup, assigned_time] = None
 		return None
 
-	looked[tup, assigned_time] = ng
+	Looked.looked[tup, assigned_time] = ng
 	return ng
 
 
@@ -365,6 +360,9 @@ class TheoryConstraintSize1(TheoryConstraint):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	def init(self, init):
+		if not TimeAtomToSolverLit.initialized:
+			init_TA2L_mapping(init)
+
 		self.init_mappings(init)
 
 	def init_mappings(self, init) -> None:
@@ -372,26 +370,16 @@ class TheoryConstraintSize1(TheoryConstraint):
 		Instead of adding to TimeAtomToSolverLit it immediately adds a clause for the nogood
 		"""
 		for uq_name, info in self.t_atom_info.items():
-			max_time = self.max_time - info.time_mod
-			min_time = self.min_time - info.time_mod
-			for time in range(min_time, max_time + 1):
-
-				symbol = clingo.parse_term(f"{info.name}{time})")
+			for assigned_time in range(self.min_time, self.max_time + 1):
 				try:
-					solver_lit: int = init.solver_literal(SymbolToProgramLit.grab_lit(symbol)) * info.sign
+					solver_lit = TimeAtomToSolverLit.grab_lit((info.sign, info.name, assigned_time - info.time_mod))
 				except KeyError:
-					# If this happens, it means that the symbol is not in the SymbolToProgramLit mapping
-					# this can only happen if the symbol does not exist!
-					# so, just continue
 					continue
 
 				# add nogood
 				init.add_clause([-solver_lit])
 
 			self.t_atom_info[uq_name] = False
-
-		del self.min_time
-		del self.max_time
 
 	def check(self, *args, **kwargs):
 		return 0

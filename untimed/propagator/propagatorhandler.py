@@ -4,8 +4,6 @@ from typing import List
 
 from untimed import util
 
-from untimed.propagator.theoryconstraint_base import SymbolToProgramLit
-from untimed.propagator.theoryconstraint_base import Signatures
 from untimed.propagator.theoryconstraint_base import TheoryConstraintSize1
 
 from untimed.propagator.theoryconstraint_reg import TheoryConstraint
@@ -26,6 +24,7 @@ from untimed.propagator.propagator import TimedAtomPropagator
 from untimed.propagator.propagator import RegularAtomPropagatorNaive
 from untimed.propagator.propagator import RegularAtomPropagator2watch
 from untimed.propagator.propagator import RegularAtomPropagator2watchMap
+
 
 theory_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../theory/untimed_theory.lp"))
 
@@ -64,20 +63,6 @@ PROPAGATORS = {"timed": TimedAtomPropagator,
                "naive": RegularAtomPropagatorNaive,
                "2watch": RegularAtomPropagator2watch,
                "2watchmap": RegularAtomPropagator2watchMap}
-
-
-def initialize_symbol_mapping(init, theory_constraints: List["TheoryConstraint"]):
-	"""
-	Initialize the mapping from symbols to program literals
-	This mapping is used in TheoryConstraint to avoid having to loop through symbolic atoms many times
-	:param init: clingo PropagateInit object
-	:param theory_constraints: List of theory constraint objects
-	:return:
-	"""
-
-	for sig in Signatures.sigs:
-		for s_atom in init.symbolic_atoms.by_signature(*sig):
-			SymbolToProgramLit.add(s_atom.symbol, s_atom.literal)
 
 
 def build_tc(t_atom, tc_dict) -> TheoryConstraint:
@@ -126,8 +111,6 @@ class TheoryHandler:
 
 				prg.register_propagator(tc)
 
-		initialize_symbol_mapping(prg, theory_constraints)
-
 	def __str__(self) -> str:
 		return self.__class__.__name__ + " with propagator type {}".format(self.prop_type)
 
@@ -158,8 +141,6 @@ class TheoryHandlerWithPropagator:
 				self.propagator.add_tc(tc)
 
 		prg.register_propagator(self.propagator)
-
-		initialize_symbol_mapping(prg, self.propagator.theory_constraints)
 
 	def __str__(self) -> str:
 		return self.__class__.__name__

@@ -1,6 +1,5 @@
 import logging
 from collections import defaultdict
-import clingo
 
 from typing import List, Dict, Tuple, Set, Optional
 
@@ -16,7 +15,6 @@ from untimed.propagator.theoryconstraint_base import get_at_from_name_id
 from untimed.propagator.theoryconstraint_base import check_assignment
 from untimed.propagator.theoryconstraint_base import choose_lit
 from untimed.propagator.theoryconstraint_base import get_replacement_watch
-
 
 
 class TheoryConstraintSize2Reg(TheoryConstraint):
