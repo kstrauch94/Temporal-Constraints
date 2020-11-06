@@ -12,8 +12,9 @@ from untimed.propagator.theoryconstraint_data import SymbolToProgramLit
 from untimed.propagator.theoryconstraint_data import Signatures
 from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
 
+
 @util.Timer("parse_atom")
-#@profile
+# @profile
 def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[str, int]]]:
 	"""
 	Extract the relevant information of the given theory atom and populate self.t_atom_info
@@ -126,7 +127,8 @@ def reverse_assigned_time(info: atom_info, assigned_time: int) -> int:
 
 looked: Dict[Tuple[Any, int], Optional[List[int]]] = {}
 
-#@profile
+
+# @profile
 def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	"""
 	Forms a nogood based on the assigned time and atoms of a theory constraint
@@ -231,6 +233,7 @@ def init_TA2L_mapping(init):
 			lit = init.solver_literal(s_atom.literal)
 			TimeAtomToSolverLit.add((-1, name, time), -lit)
 			TimeAtomToSolverLit.add((1, name, time), lit)
+
 
 def choose_lit(lits: List[int], current_watch: int, control) -> Optional[int]:
 	"""
@@ -342,6 +345,7 @@ class TheoryConstraint:
 	def propagate(self, control, changes) -> Optional[List[Tuple[int, int]]]:
 		pass
 
+	@util.Timer("check")
 	def check(self, control):
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			ng = form_nogood(self.t_atom_info, assigned_time)
@@ -351,6 +355,7 @@ class TheoryConstraint:
 						print("lit: {}, val: {}".format(lit, str(control.assignment.value)))
 					return None
 		return 0
+
 
 class TheoryConstraintSize1(TheoryConstraint):
 	__slots__ = []

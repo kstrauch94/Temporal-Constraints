@@ -55,12 +55,12 @@ class Propagator:
 				watches = tc.build_watches(init)
 				self.add_atom_observer(tc, watches)
 
+		print("Theory Constrains : {}\n".format(len(self.theory_constraints)))
 		SymbolToProgramLit.reset()
 
 	def propagate(self, control, changes):
 		...
 
-	@util.Timer("check")
 	@util.Count("check")
 	def check(self, control):
 		for tc in self.theory_constraints:
