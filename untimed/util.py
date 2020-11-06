@@ -5,6 +5,8 @@ from collections import defaultdict
 
 from typing import Any, Optional, Callable
 
+import sys
+
 
 class TimerError(Exception):
 	pass
@@ -78,6 +80,14 @@ class Count:
 		return wrapper_count
 
 
+class Stats:
+	stats: Dict[str, Any] = {}
+
+	@classmethod
+	def add(cls, name, val):
+		cls.stats[name] = val
+
+
 def print_stats():
 	for name, time_taken in Timer.timers.items():
 		print(f"Time {name:15}      :   {time_taken:.3f}")
@@ -85,4 +95,29 @@ def print_stats():
 	for name, count in Count.counts.items():
 		print(f"Calls to {name:15}  :   {count}")
 
-	print("DONE")
+	for name, val in Stats.stats.items():
+		print(f"{name:15}   :   {val}")
+
+def get_size(obj, seen=None):
+	"""
+	Recursively finds size of objects
+	from this website(14.10.2020):
+	https://goshippo.com/blog/measure-real-size-any-python-object/
+	"""
+	size = sys.getsizeof(obj)
+	if seen is None:
+		seen = set()
+	obj_id = id(obj)
+	if obj_id in seen:
+		return 0
+	# Important mark as seen *before* entering recursion to gracefully handle
+	# self-referential objects
+	seen.add(obj_id)
+	if isinstance(obj, dict):
+		size += sum([get_size(v, seen) for v in obj.values()])
+		size += sum([get_size(k, seen) for k in obj.keys()])
+	elif hasattr(obj, '__dict__'):
+		size += get_size(obj.__dict__, seen)
+	elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+		size += sum([get_size(i, seen) for i in obj])
+	return size
