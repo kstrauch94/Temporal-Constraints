@@ -28,14 +28,14 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 		"""
 		Since there are only 2 atoms in the constraint we add all literals as watches
 		"""
-		watches = set()
+		# has to be a list so that a watch can be added multiple times in case it is watched by multiple timepoints
+		watches = []
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
-			for lit in lits:
-				init.add_watch(lit)
-				watches.add(lit)
+
+			watches.extend(lits)
 
 		return watches
 
@@ -50,20 +50,20 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 		:param change: watch that was assigned
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
-		with util.Timer("Propagation"):
 
-			ats = set()
-			for name_id in TimeAtomToSolverLit.grab_name(change):
-				ats.update(get_at_from_name_id(name_id, self.t_atom_info))
+		ats = set()
+		for name_id in TimeAtomToSolverLit.grab_name(change):
+			ats.update(get_at_from_name_id(name_id, self.t_atom_info))
 
-			for assigned_time in ats:
-				ng = form_nogood(self.t_atom_info, assigned_time)
-				if ng is None:
-					continue
-				if not control.add_nogood(ng) or not control.propagate():
-					return None
+		for assigned_time in ats:
+			ng = form_nogood(self.t_atom_info, assigned_time)
+			if ng is None:
+				continue
+			util.Count.add("useful_prop_2")
+			if not control.add_nogood(ng) or not control.propagate():
+				return None
 
-			return []
+		return []
 
 
 class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
@@ -83,7 +83,6 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 			if lits is None:
 				continue
 			for lit in lits:
-				init.add_watch(lit)
 				watches.add((lit, assigned_time))
 
 		return watches
@@ -98,17 +97,18 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 		:param change: lit and assigned time pair
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
-		with util.Timer("Propagation"):
 
-			lit, assigned_time = change
+		lit, assigned_time = change
 
-			ng = form_nogood(self.t_atom_info, assigned_time)
-			if ng is None:
-				return []
-			if not control.add_nogood(ng) or not control.propagate():
-				return None
-
+		ng = form_nogood(self.t_atom_info, assigned_time)
+		if ng is None:
 			return []
+
+		util.Count.add("useful_prop_2")
+		if not control.add_nogood(ng) or not control.propagate():
+			return None
+
+		return []
 
 
 class TheoryConstraintNaiveProp(TheoryConstraint):
@@ -128,9 +128,7 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
-			for lit in lits:
-				init.add_watch(lit)
-				watches.add(lit)
+			watches.update(lits)
 
 		return watches
 
@@ -146,21 +144,21 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 
-		with util.Timer("Propagation"):
-			ats = set()
-			for name_id in TimeAtomToSolverLit.grab_name(change):
-				ats.update(get_at_from_name_id(name_id, self.t_atom_info))
+		ats = set()
+		for name_id in TimeAtomToSolverLit.grab_name(change):
+			ats.update(get_at_from_name_id(name_id, self.t_atom_info))
 
-			for assigned_time in ats:
-				ng = form_nogood(self.t_atom_info, assigned_time)
-				if ng is None:
-					continue
+		for assigned_time in ats:
+			ng = form_nogood(self.t_atom_info, assigned_time)
+			if ng is None:
+				continue
 
-				update_result = check_assignment(ng, control)
+			update_result = check_assignment(ng, control)
 
-				if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-					if not control.add_nogood(ng) or not control.propagate():
-						return None
+			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+				util.Count.add("useful_prop")
+				if not control.add_nogood(ng) or not control.propagate():
+					return None
 		return 1
 
 
@@ -184,15 +182,14 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 		"""
 		Only add watches for the first 2 literals of a nogood
 		"""
-		watches = set()
+		watches = []
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits[:2]:
 				self.watches_to_at[lit].add(assigned_time)
-				init.add_watch(lit)
-				watches.add(lit)
+				watches.append(lit)
 
 		return watches
 
@@ -209,31 +206,37 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 		:param change: watch that was assigned
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
-		with util.Timer("Propagation"):
 
-			delete_add = []
+		delete_add = []
 
-			replacement_info: List[List[int]] = []
+		replacement_info: List[List[int]] = []
 
-			for assigned_time in self.watches_to_at[change]:
-				ng = form_nogood(self.t_atom_info, assigned_time)
-				if ng is None:
-					continue
+		for assigned_time in self.watches_to_at[change]:
+			ng = form_nogood(self.t_atom_info, assigned_time)
+			if ng is None:
+				continue
 
-				update_result = check_assignment(ng, control)
+			update_result = check_assignment(ng, control)
 
-				if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-					if not control.add_nogood(ng) or not control.propagate():
-						return None
+			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+				util.Count.add("useful_prop")
+				if not control.add_nogood(ng) or not control.propagate():
+					return None
 
-				info = get_replacement_watch(ng, change, control)
-				if info is not None:
-					delete_add.append(info)
-					replacement_info.append(info + [assigned_time])
+			for lit, ats in self.watches_to_at.items():
+				if lit != change:
+					if assigned_time in ats:
+						second_watch = lit
+						break
 
-			self.replace_watches(replacement_info, control)
+			new_watch = get_replacement_watch(ng, [change, second_watch], control)
+			if new_watch is not None:
+				delete_add.append((change, new_watch))
+				replacement_info.append([change, new_watch, assigned_time])
 
-			return delete_add
+		self.replace_watches(replacement_info, control)
+
+		return delete_add
 
 	def replace_watches(self, info: List[List[int]], control) -> None:
 		"""
@@ -263,17 +266,17 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 		"""
 		Only add watches for the first 2 literals of a nogood
 		"""
-		watches = set()
+		watches = []
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			for lit in lits[:2]:
-				init.add_watch(lit)
-				watches.add((lit, assigned_time))
+				watches.append((lit, assigned_time))
 
 		return watches
 
+	@util.Count("Propagation")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		For any relevant change, check the assignment of the whole nogood
@@ -285,26 +288,20 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 		:param change: watch and assigned time pair
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
-		with util.Timer("Propagation"):
 
-			delete_add = []
+		lit, assigned_time = change
+		ng = form_nogood(self.t_atom_info, assigned_time)
+		if ng is None:
+			return []
 
-			lit, assigned_time = change
-			ng = form_nogood(self.t_atom_info, assigned_time)
-			if ng is None:
-				return []
+		update_result = check_assignment(ng, control)
 
-			update_result = check_assignment(ng, control)
+		if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+			util.Count.add("useful_prop")
+			if not control.add_nogood(ng) or not control.propagate():
+				return None
 
-			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-				if not control.add_nogood(ng) or not control.propagate():
-					return None
-
-			info = get_replacement_watch(ng, lit, control)
-			if info is not None:
-				delete_add.append(info)
-
-			return delete_add
+		return ng
 
 
 class TheoryConstraintSize2TimedProp(TheoryConstraint):
@@ -322,8 +319,7 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
-			for lit in lits:
-				init.add_watch(lit)
+			yield lits
 
 	@util.Count("Propagation")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
@@ -343,6 +339,7 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 			if ng is None:
 				continue
 
+			util.Count.add("useful_prop_2")
 			if not control.add_nogood(ng) or not control.propagate():
 				return None
 
@@ -364,8 +361,7 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
-			for lit in lits:
-				init.add_watch(lit)
+			yield lits
 
 	@util.Count("Propagation")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
@@ -385,6 +381,7 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 			update_result = check_assignment(ng, control)
 
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+				util.Count.add("useful_prop")
 				if not control.add_nogood(ng) or not control.propagate():
 					return None
 
