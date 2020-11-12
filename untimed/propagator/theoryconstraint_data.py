@@ -16,6 +16,12 @@ class AtomInfo:
 		self.time_mod = time_mod
 		self.name = name
 
+	def __eq__(self, other):
+		if other.sign == self.sign and other.time_mod == self.time_mod and other.name == self.name:
+			return True
+
+		return False
+
 
 # just an alias
 atom_info = AtomInfo
