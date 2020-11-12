@@ -1,6 +1,6 @@
 import unittest
 from untimed.propagator.propagatorhandler import TheoryHandler, TheoryHandlerWithPropagator, add_theory
-from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit, Signatures, Looked
+from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit, Signatures
 
 import clingo
 
@@ -83,7 +83,6 @@ class TestApp(unittest.TestCase):
 	def reset_mappings(self):
 		TimeAtomToSolverLit.reset()
 		Signatures.reset()
-		Looked.reset()
 
 	def test_naive_regular(self):
 		self.reset_mappings()
@@ -131,46 +130,51 @@ class TestApp(unittest.TestCase):
 
 		# tests with atoms only having time
 
-		c = ":-&constraint(1,maxtime){+.a()}."
+		c = "&constraint(1,maxtime){+.a()}."
 		c_reg = ":- a(T), time(T)."
 		self.assertEqual(solve([program_no_dom, c], handler_class, handler_args),
 		                 solve_regular([program_no_dom, c_reg]))
 
-		c = ":-&constraint(1,maxtime){+.a(); +.b()}."
+		self.reset_mappings()
+		c = "&constraint(1,maxtime){+.a(); +.b()}."
 		c_reg = ":- a(T), b(T), time(T)."
 		self.assertEqual(solve([program_no_dom, c], handler_class, handler_args),
 		                 solve_regular([program_no_dom, c_reg]))
 
-		c = ":-&constraint(1,maxtime){+.a(); +~b()}."
+		self.reset_mappings()
+		c = "&constraint(1,maxtime){+.a(); +~b()}."
 		c_reg = ":- a(T), b(T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program_no_dom, c], handler_class, handler_args),
 		                 solve_regular([program_no_dom, c_reg]))
 
-		c = ":-&constraint(1,maxtime){+.a(); -~b()}."
+		self.reset_mappings()
+		c = "&constraint(1,maxtime){+.a(); -~b()}."
 		c_reg = ":- a(T), not b(T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program_no_dom, c], handler_class, handler_args),
 		                 solve_regular([program_no_dom, c_reg]))
 
+
 		# tests with constraints of size 1
-		c = """:-&constraint(1,maxtime){+.a(1)}."""
+		self.reset_mappings()
+		c = """&constraint(1,maxtime){+.a(1)}."""
 		c_reg = ":- a(1,T), time(T)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){-.a(1)}. """
+		c = """&constraint(1,maxtime){-.a(1)}. """
 		c_reg = ":- not a(1,T), time(T)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){-~a(1)}. """
+		c = """&constraint(1,maxtime){-~a(1)}. """
 		c_reg = ":- not a(1,T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+~a(1)}. """
+		c = """&constraint(1,maxtime){+~a(1)}. """
 		c_reg = ":- a(1,T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
@@ -178,49 +182,49 @@ class TestApp(unittest.TestCase):
 		# tests with constraints of size 2
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+.a(1); +.b(1)}. """
+		c = """&constraint(1,maxtime){+.a(1); +.b(1)}. """
 		c_reg = ":- a(1,T), b(1,T), time(T)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+.a(1); -.b(1)}. """
+		c = """&constraint(1,maxtime){+.a(1); -.b(1)}. """
 		c_reg = ":- a(1,T), not b(1,T), time(T)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){-.a(1); -.b(1)}. """
+		c = """&constraint(1,maxtime){-.a(1); -.b(1)}. """
 		c_reg = ":- not a(1,T), not b(1,T), time(T)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){-.a(1); +.b(1)}. """
+		c = """&constraint(1,maxtime){-.a(1); +.b(1)}. """
 		c_reg = ":- not a(1,T), b(1,T), time(T)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+~a(1); -.b(1)}. """
+		c = """&constraint(1,maxtime){+~a(1); -.b(1)}. """
 		c_reg = ":- a(1,T-1), not b(1,T), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){-~a(1); +.b(1)}. """
+		c = """&constraint(1,maxtime){-~a(1); +.b(1)}. """
 		c_reg = ":- not a(1,T-1), b(1,T), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){-~a(1); -.b(1)}. """
+		c = """&constraint(1,maxtime){-~a(1); -.b(1)}. """
 		c_reg = ":- not a(1,T-1), not b(1,T), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){-~a(1); -~b(1)}. """
+		c = """&constraint(1,maxtime){-~a(1); -~b(1)}. """
 		c_reg = ":- not a(1,T-1), not b(1,T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
@@ -228,19 +232,19 @@ class TestApp(unittest.TestCase):
 		# size 2 but with same atom
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+.a(1); +~a(1)}. """
+		c = """&constraint(1,maxtime){+.a(1); +~a(1)}. """
 		c_reg = ":- a(1,T), a(1,T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){-.a(1); -~a(1)}. """
+		c = """&constraint(1,maxtime){-.a(1); -~a(1)}. """
 		c_reg = ":- not a(1,T), not a(1,T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+.a(1); -~a(1)}. """
+		c = """&constraint(1,maxtime){+.a(1); -~a(1)}. """
 		c_reg = ":- a(1,T), not a(1,T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
@@ -248,31 +252,31 @@ class TestApp(unittest.TestCase):
 		# tests with size > 2
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+.a(1); +.b(1); +~b(1)}. """
+		c = """&constraint(1,maxtime){+.a(1); +.b(1); +~b(1)}. """
 		c_reg = ":- a(1,T), b(1,T), b(1,T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+.a(1); +.b(1); +~b(1)}. """
+		c = """&constraint(1,maxtime){+.a(1); +.b(1); +~b(1)}. """
 		c_reg = ":- a(1,T), b(1,T), b(1,T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+.a(1); +.a(2); +.b(1); +~b(1)}."""
+		c = """&constraint(1,maxtime){+.a(1); +.a(2); +.b(1); +~b(1)}."""
 		c_reg = ":- a(1,T), a(2,T), b(1,T), b(1,T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+.a(1); -.a(2); -.b(1); +~b(1)}."""
+		c = """&constraint(1,maxtime){+.a(1); -.a(2); -.b(1); +~b(1)}."""
 		c_reg = ":- a(1,T), not a(2,T), not b(1,T), b(1,T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+.a(1); -.a(2); +.b(1); -~b(1)}."""
+		c = """&constraint(1,maxtime){+.a(1); -.a(2); +.b(1); -~b(1)}."""
 		c_reg = ":- a(1,T), not a(2,T), b(1,T), not b(1,T-1), time(T), time(T-1)."
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
@@ -280,17 +284,17 @@ class TestApp(unittest.TestCase):
 		# multiple constraints
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+.a(1); +.a(2); +.b(1); +~b(1)}.
-			   :-&constraint(1,maxtime){+~b(2); -.a(2)}."""
+		c = """&constraint(1,maxtime){+.a(1); +.a(2); +.b(1); +~b(1)}.
+			   &constraint(1,maxtime){+~b(2); -.a(2)}."""
 		c_reg = """:- a(1,T), a(2,T), b(1,T), b(1,T-1), time(T), time(T-1).
 				   :- b(2,T-1), not a(2,T), time(T), time(T-1)."""
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
 		self.reset_mappings()
-		c = """:-&constraint(1,maxtime){+.a(1); +.a(2); +.b(1); +~b(1)}.
-			   :-&constraint(1,maxtime){+~b(2); -.a(2)}.
-			   :-&constraint(1,maxtime){+.a(2); +.b(1); -~a(1)}."""
+		c = """&constraint(1,maxtime){+.a(1); +.a(2); +.b(1); +~b(1)}.
+			   &constraint(1,maxtime){+~b(2); -.a(2)}.
+			   &constraint(1,maxtime){+.a(2); +.b(1); -~a(1)}."""
 		c_reg = """:- a(1,T), a(2,T), b(1,T), b(1,T-1), time(T), time(T-1).
 				   :- b(2,T-1), not a(2,T), time(T), time(T-1).
 				   :- a(2,T), b(1,T), not a(1,T-1), time(T), time(T-1)."""
@@ -298,12 +302,11 @@ class TestApp(unittest.TestCase):
 		                 solve_regular([program, c_reg]))
 
 		# more complex atoms
-
 		self.reset_mappings()
-		program2 = """{ c(a(D),b(D2),T) : domain(D), domain(D2)} 1 :- time(T)."""
+		program2 = """{ c((a(D),b(D)),T) : domain_ab(D), domain_ab(D)} 1 :- time(T)."""
 
-		c = """:-&constraint(1,maxtime){+.c(a(D),b(D2)); -~a(D), -~b(D2)}, domain(D), domain(D2)."""
-		c_reg = ":- c(a(D),b(D2),T), not a(D,T-1), not b(D2,T-1), domain(D), domain(D2), time(T), time(T-1)."
+		c = """&constraint(1,maxtime){+.c((a(D),b(D))); -~a(D); -~b(D)} :- domain_ab(D), domain_ab(D)."""
+		c_reg = ":- c((a(D),b(D)),T), not a(D,T-1), not b(D,T-1), domain_ab(D), domain_ab(D), time(T), time(T-1)."
 		self.assertEqual(solve([program, program2, c], handler_class, handler_args),
 		                 solve_regular([program, program2, c_reg]))
 
