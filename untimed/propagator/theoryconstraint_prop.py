@@ -189,7 +189,7 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 				continue
 			for lit in lits[:2]:
 				self.watches_to_at[lit].add(assigned_time)
-				watches.append(lit)
+			watches.extend(lits)
 
 		return watches
 
