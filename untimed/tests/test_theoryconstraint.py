@@ -3,14 +3,15 @@ from untimed.propagator.propagatorhandler import TheoryHandler, add_theory
 
 from collections import defaultdict
 
-from untimed.propagator.theoryconstraint import parse_atoms
-from untimed.propagator.theoryconstraint import parse_time
-from untimed.propagator.theoryconstraint import TheoryConstraint
-from untimed.propagator.theoryconstraint import TimeAtomToSolverLit
-from untimed.propagator.theoryconstraint import form_nogood
-from untimed.propagator.theoryconstraint import atom_info
+from untimed.propagator.theoryconstraint_base import parse_atoms
+from untimed.propagator.theoryconstraint_base import parse_time
+from untimed.propagator.theoryconstraint_base import TheoryConstraint
+from untimed.propagator.theoryconstraint_base import TimeAtomToSolverLit
+from untimed.propagator.theoryconstraint_base import form_nogood
+from untimed.propagator.theoryconstraint_base import atom_info
+from untimed.propagator.theoryconstraint_base import init_TA2L_mapping
 
-from untimed.propagator.propagator import initialize_symbol_mapping
+from untimed.propagator.theoryconstraint_data import Signatures
 
 import clingo
 
@@ -63,15 +64,34 @@ def get_2watch_handler():
 	return handler_class(*handler_args)
 
 
-def reset_mapping():
-	TimeAtomToSolverLit.lit_to_name = defaultdict(set)
-	TimeAtomToSolverLit.name_to_lit = {}
+def reset_mappings():
+	TimeAtomToSolverLit.reset()
+	Signatures.reset()
+
+
+class MockInit:
+	solver_lit_map = {}
+
+	def __init__(self, control):
+		self.control = control
+
+	@property
+	def symbolic_atoms(self):
+		return self.control.symbolic_atoms
+
+	def solver_literal(self, some_int):
+		if some_int not in MockInit.solver_lit_map:
+			MockInit.solver_lit_map[some_int] = len(MockInit.solver_lit_map)
+
+		return MockInit.solver_lit_map[some_int]
 
 
 class TestApp(unittest.TestCase):
 
 
 	def test_parse_atoms(self):
+		reset_mappings()
+
 		c = """:-&constraint(1,maxtime){+.a(1); +.a(2); -.b(1); +~b(1)}."""
 
 		real_info = {"+.a(1,": atom_info(sign=1, time_mod=0, name="a(1,"),
@@ -82,18 +102,19 @@ class TestApp(unittest.TestCase):
 
 		t_atom = next(prg.theory_atoms)
 
-		info, min_t, max_t, sigs = parse_atoms(t_atom)
+		info, min_t, max_t = parse_atoms(t_atom)
 
 		self.assertEqual(1, min_t)
 		self.assertEqual(3, max_t) # maxtime in program in 3
 
-		real_sigs = set( [("a", 2), ("b", 2)] )
+		real_sigs = set( [(1, ("a", 2)), (1, ("b", 2)), (-1, ("b", 2))] )
 
-		self.assertEqual(sigs, real_sigs)
+		self.assertEqual(Signatures.sigs, real_sigs)
 
 		self.assertDictEqual(info, real_info)
 
 		#################################
+		reset_mappings()
 
 		c = """:-&constraint(0,5){+.a(b(1,c(1,2,3))); -.b("this. is. TEST.", 3)}."""
 
@@ -104,7 +125,7 @@ class TestApp(unittest.TestCase):
 
 		t_atom = next(prg.theory_atoms)
 
-		info, min_t, max_t, sigs = parse_atoms(t_atom)
+		info, min_t, max_t = parse_atoms(t_atom)
 
 		self.assertEqual(0, min_t)
 		self.assertEqual(5, max_t) # maxtime in program in 3
@@ -112,6 +133,7 @@ class TestApp(unittest.TestCase):
 		self.assertDictEqual(info, real_info)
 
 		#######################
+		reset_mappings()
 
 		c = """:-&constraint(-1,5){+.a(1); -~b(3)}."""
 
@@ -130,7 +152,7 @@ class TestApp(unittest.TestCase):
 		self.assertRaises(RuntimeError, parse_atoms, t_atom)
 
 	def test_parse_time(self):
-
+		reset_mappings()
 		class SymbolicAtomMock:
 
 			def __init__(self, symbol_str):
@@ -161,8 +183,8 @@ class TestApp(unittest.TestCase):
 		s = SymbolicAtomMock("a((1,d))")
 		self.assertRaises(TypeError, parse_time, s)
 
-	def test_TheoryConstraint(self):
-		reset_mapping()
+	def test_init_TA2L_mapping(self):
+		reset_mappings()
 
 		program = """
 		#const maxtime = 3.
@@ -177,32 +199,13 @@ class TestApp(unittest.TestCase):
 		c = """:-&constraint(1,maxtime){+.a(1); -~b(2); +~a(2)}.
 				:-&constraint(2,maxtime){+.c(1)}."""
 
-		class MockInit:
-			solver_lit_map = {}
-
-			def __init__(self, control):
-				self.control = control
-
-			@property
-			def symbolic_atoms(self):
-				return self.control.symbolic_atoms
-
-			def solver_literal(self, some_int):
-				if some_int not in MockInit.solver_lit_map:
-					MockInit.solver_lit_map[some_int] = len(MockInit.solver_lit_map)
-
-				return MockInit.solver_lit_map[some_int]
-
 		prg = prepare_prg([program, c])
 		init_mock = MockInit(prg)
 
-
-
 		for t_atom in prg.theory_atoms:
-			tc = TheoryConstraint(t_atom)
-			initialize_symbol_mapping(prg, [tc])
+			TheoryConstraint(t_atom)
 
-			tc.init_mappings(init_mock)
+		init_TA2L_mapping(init_mock)
 
 		self.assertIn((1, "a(1,", 1), TimeAtomToSolverLit.name_to_lit)
 		self.assertIn((1, "a(1,", 2), TimeAtomToSolverLit.name_to_lit)
@@ -210,18 +213,14 @@ class TestApp(unittest.TestCase):
 
 		self.assertIn((-1, "b(2,", 1), TimeAtomToSolverLit.name_to_lit)
 		self.assertIn((-1, "b(2,", 2), TimeAtomToSolverLit.name_to_lit)
-		self.assertNotIn((-1, "b(2,", 3), TimeAtomToSolverLit.name_to_lit) # this is not in cause assigned time would be too high
+		self.assertIn((-1, "b(2,", 3), TimeAtomToSolverLit.name_to_lit) # this is not in cause assigned time would be too high
 
-		self.assertIn((1, "a(1,", 1), TimeAtomToSolverLit.name_to_lit)
-		self.assertIn((1, "a(1,", 2), TimeAtomToSolverLit.name_to_lit)
-		self.assertIn((1, "a(1,", 3), TimeAtomToSolverLit.name_to_lit) # even is assigned time is too high for this one, it should still be in cause of the other a
-
-		self.assertNotIn((1, "c(1,", 1), TimeAtomToSolverLit.name_to_lit) # not in because assigned time is too low
+		self.assertIn((1, "c(1,", 1), TimeAtomToSolverLit.name_to_lit) # not in because assigned time is too low
 		self.assertIn((1, "c(1,", 2), TimeAtomToSolverLit.name_to_lit)
 		self.assertIn((1, "c(1,", 3), TimeAtomToSolverLit.name_to_lit)
 
 	def test_form_nogood(self):
-		reset_mapping()
+		reset_mappings()
 
 		TimeAtomToSolverLit.add((1, "a(1,", 2), 1)
 		TimeAtomToSolverLit.add((1, "a(2,", 1), 2)
