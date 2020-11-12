@@ -62,18 +62,10 @@ class TimeAtomToSolverLit:
 
 
 class Signatures:
-	sigs: Set[Tuple[Any, int]] = set()
+	sigs: Set[Tuple[int, Tuple[Any, int]]] = set()
 	finished = False
 
 	@classmethod
 	def reset(cls):
 		cls.sigs = set()
 		cls.finished = False
-
-
-class Looked:
-	looked: Dict[Tuple[Any, int], Optional[List[int]]] = {}
-
-	@classmethod
-	def reset(cls):
-		cls.looked = {}
