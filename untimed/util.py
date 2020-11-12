@@ -80,8 +80,8 @@ class Count:
 		return wrapper_count
 
 	@classmethod
-	def add(cls, name) -> None:
-		Count.counts[name] += 1
+	def add(cls, name, amt=1) -> None:
+		Count.counts[name] += amt
 
 class Stats:
 	stats: Dict[str, Any] = {}
