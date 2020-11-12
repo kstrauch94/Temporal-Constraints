@@ -7,7 +7,6 @@ import untimed.util as util
 from untimed.propagator.theoryconstraint_data import atom_info
 from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_data import Signatures
-from untimed.propagator.theoryconstraint_data import Looked
 from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
 
 
@@ -26,11 +25,6 @@ def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[s
 	for atom in constraint.elements:
 		# this gives me the "type" of the term | e.g. for +~on(..) it would return +~
 		term_type: str = atom.terms[0].name
-
-		signature: Tuple[str, int] = (
-			atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments) + 1)
-
-		Signatures.sigs.add(signature)
 
 		# after selecting the atom we convert it to a string and delete the parenthesis
 		name: str = str(atom.terms[0].arguments[0])[:-1]
@@ -57,6 +51,11 @@ def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[s
 			time_mod = +1
 		else:
 			raise TypeError(f"Invalid term prefix {term_type} used in {constraint}")
+
+		signature: Tuple[str, int] = (
+			atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments) + 1)
+
+		Signatures.sigs.add((sign, signature))
 
 		t_atom_info[uq_name] = atom_info(sign=sign, time_mod=time_mod, name=name)
 
@@ -132,24 +131,19 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	:param assigned_time: the assigned time
 	:return: the nogood for the given assigned time and constraint
 	"""
-	tup = tuple(t_atom_info.keys())
-	if (tup, assigned_time) in Looked.looked:
-		return Looked.looked[tup, assigned_time]
 
-	ng: List[int] = []
+	ng: Set[int] = set()
 
 	try:
 		for uq_name in t_atom_info.keys():
 			time: int = reverse_assigned_time(t_atom_info[uq_name], assigned_time)
-			ng.append(TimeAtomToSolverLit.grab_lit(build_symbol_id(t_atom_info[uq_name], time)))
+			ng.add(TimeAtomToSolverLit.grab_lit(build_symbol_id(t_atom_info[uq_name], time)))
 	except KeyError:
 		# this error would happen if an id is not in the mapping
 		# if this happens it means the nogood does not exist for this assigned time
-		Looked.looked[tup, assigned_time] = None
 		return None
 
-	Looked.looked[tup, assigned_time] = ng
-	return ng
+	return sorted(ng)
 
 
 def check_assignment(nogood, control) -> int:
@@ -214,7 +208,7 @@ def get_at_from_name_id(name_id: Tuple[int, str, int], t_atom_info):
 
 
 def init_TA2L_mapping(init):
-	for sig in Signatures.sigs:
+	for sign, sig in Signatures.sigs:
 		for s_atom in init.symbolic_atoms.by_signature(*sig):
 			time = parse_time(s_atom)
 			# if argument size is 1 then only time is present
@@ -222,20 +216,20 @@ def init_TA2L_mapping(init):
 				name: str = f"{s_atom.symbol.name}("
 			else:
 				name: str = str(s_atom.symbol).split(",")[:-1]
-				name = "".join(name)
+				name = ",".join(name)
 				name = f"{name},"
 
 			lit = init.solver_literal(s_atom.literal)
-			TimeAtomToSolverLit.add((-1, name, time), -lit)
-			TimeAtomToSolverLit.add((1, name, time), lit)
+			TimeAtomToSolverLit.add((sign, name, time), lit * sign)
+			#TimeAtomToSolverLit.add((1, name, time), lit)
 
 
-def choose_lit(lits: List[int], current_watch: int, control) -> Optional[int]:
+def choose_lit(lits: List[int], current_watches: int, control) -> Optional[int]:
 	"""
 	Checks the literals for a nogood and check for new watches
 
 	:param lits: the current nogood
-	:param current_watch: the watch being propagated
+	:param current_watches: the current 2 watches
 	:param  control: A clingo PropagateControl object
 
 	:return: None or the new watch
@@ -243,18 +237,18 @@ def choose_lit(lits: List[int], current_watch: int, control) -> Optional[int]:
 
 	"""
 	for possible_watch in lits:
-		if possible_watch != current_watch:
-			if control.assignment.value(possible_watch) is None and not control.has_watch(possible_watch):
+		if possible_watch not in current_watches:
+			if control.assignment.value(possible_watch) is None:# and not control.has_watch(possible_watch):
 				return possible_watch
 
 	return None
 
 
-def get_replacement_watch(nogood: List[int], lit: int, control) -> Optional[List[int]]:
+def get_replacement_watch(nogood: List[int], current_watches: List[int], control) -> Optional[List[int]]:
 	"""
 	choose a new watch for the given assigned time if possible
-	:param int nogood: the nogood
-	:param int lit: the current literal being propagated
+	:param nogood: the nogood
+	:param current_watches: The current 2 watches
 	:param control: A clingo PropagateControl object
 
 	if a new watch can be found:
@@ -264,9 +258,9 @@ def get_replacement_watch(nogood: List[int], lit: int, control) -> Optional[List
 	:returns None
 	"""
 
-	new_watch: Optional[int] = choose_lit(nogood, lit, control)
+	new_watch: Optional[int] = choose_lit(nogood, current_watches, control)
 	if new_watch is not None:
-		return [lit, new_watch]
+		return new_watch
 
 	return None
 
