@@ -74,8 +74,10 @@ def build_tc(t_atom, tc_dict) -> TheoryConstraint:
 	"""
 	size = len(t_atom.elements)
 	if size in tc_dict:
+		util.Count.add("size_{}".format(size))
 		return tc_dict[size](t_atom)
 	else:
+		util.Count.add("size_{}".format(-1))
 		return tc_dict[-1](t_atom)
 
 
