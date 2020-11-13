@@ -57,7 +57,7 @@ class Propagator:
 		for lit in self.watch_to_tc:
 			init.add_watch(lit)
 
-		util.Stats.add("Theory Constrains", len(self.theory_constraints))
+		util.Stats.add("Theory Constraints", len(self.theory_constraints))
 
 	def propagate(self, control, changes):
 		...
@@ -105,7 +105,7 @@ class TimedAtomPropagator(Propagator):
 		for lit in watches:
 			init.add_watch(lit)
 
-		util.Stats.add("Theory Constrains", len(self.theory_constraints))
+		util.Stats.add("Theory Constraints", len(self.theory_constraints))
 
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
