@@ -82,10 +82,10 @@ init(at(robot(R),node(X,Y))) :- init(object(robot,R), value(at, (X,Y))).
 :- shelf(S), time(T), 2{holds(at(S,node(X,Y)),T) : node(X,Y)}.
 
 % robots cant swap places
-:- holds(at(robot(R1),node(X1,Y1)),T), holds(at(robot(R2),node(X2,Y2)),T), holds(at(robot(R1),node(X2,Y2)),T-1), holds(at(robot(R2),node(X1,Y1)),T-1), R1 > R2, |X2-X1|+|Y2-Y1|==1, time(T), T>0.
+%:- holds(at(robot(R1),node(X1,Y1)),T), holds(at(robot(R2),node(X2,Y2)),T), holds(at(robot(R1),node(X2,Y2)),T-1), holds(at(robot(R2),node(X1,Y1)),T-1), R1 > R2, |X2-X1|+|Y2-Y1|==1, time(T), T>0.
 
-%:- holds(at(R1,node(X1,Y1)),T), holds(at(R2,node(X1,Y1-1)),T), do(R1,action(move(0,-1)),T), do(R2,action(move(0,1)),T), R1 != R2, time(T).
-%:- holds(at(R1,node(X1,Y1)),T), holds(at(R2,node(X1-1,Y1)),T), do(R1,action(move(-1,0)),T), do(R2,action(move(1,0)),T), R1 != R2, time(T).
+:- holds(at(robot(R1),node(X1,Y1)),T), holds(at(robot(R2),node(X1,Y1-1)),T), do(robot(R1),action(move(0,-1)),T), do(robot(R2),action(move(0,1)),T), R1 < R2, time(T).
+:- holds(at(robot(R1),node(X1,Y1)),T), holds(at(robot(R2),node(X1-1,Y1)),T), do(robot(R1),action(move(-1,0)),T), do(robot(R2),action(move(1,0)),T), R1 < R2, time(T).
 
 % a robot can only carry 1 shelf
 :- robot(R), time(T), 2{holds(carry(R,S),T) : shelf(S)}.

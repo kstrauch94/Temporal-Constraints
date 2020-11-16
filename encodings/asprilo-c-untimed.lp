@@ -68,11 +68,13 @@ abnormal(carry(R,S),T) :- holds(carry(R,S),T-1), do(R,action(putdown),T-1), time
 :- highway(X,Y), not node(X,Y).
 % can not place shelf on a highway
 %:- holds(at(R,node(X,Y)),T), do(R,action(putdown),T), highway(X,Y), time(T).
-:-&constraint(1,horizon){ +.holds(at(R,node(X,Y))); +.do(R,action(putdown))}, highway(X,Y), robot(R).
+&constraint(1,horizon){ +.holds(at(R,node(X,Y))); +.do(R,action(putdown))} :- highway(X,Y), robot(R).
 
 % robots cant do nothing for more than 1 timestep if they are in a highway
 %init(at(robot(R),node(X,Y))) :- init(object(robot,R), value(at, (X,Y))).
 %:- highway(X,Y), holds(at(R,node(X,Y)),T), not moved(R,T-1), not moved(R,T), not init(at(R,node(X,Y))), robot(R), time(T),T>0.
+
+
 
 % no 2+ robots/shelfs in the same spot
 :- node(X,Y), time(T), 2{holds(at(R,node(X,Y)),T) : robot(R)}.
@@ -81,6 +83,8 @@ abnormal(carry(R,S),T) :- holds(carry(R,S),T-1), do(R,action(putdown),T-1), time
 % robot/shelf can only be in 1 node
 :- robot(R), time(T), 2{holds(at(R,node(X,Y)),T) : node(X,Y)}.
 :- shelf(S), time(T), 2{holds(at(S,node(X,Y)),T) : node(X,Y)}.
+
+
 
 % robots cant swap places
 %:- holds(at(robot(R1),node(X1,Y1)),T), holds(at(robot(R2),node(X2,Y2)),T),
@@ -94,25 +98,25 @@ abnormal(carry(R,S),T) :- holds(carry(R,S),T-1), do(R,action(putdown),T-1), time
 %:- holds(at(R1,node(X1,Y1)),T), holds(at(R2,node(X1,Y1-1)),T), do(R1,action(move(0,-1)),T), do(R2,action(move(0,1)),T), R1 != R2, time(T).
 %:- holds(at(R1,node(X1,Y1)),T), holds(at(R2,node(X1-1,Y1)),T), do(R1,action(move(-1,0)),T), do(R2,action(move(1,0)),T), R1 != R2, time(T).
 
-:-&constraint(1,horizon){+.holds(at(robot(R1),node(X1,Y1))); +.holds(at(robot(R2),node(X1,Y2)));
-+.do(robot(R1),action(move(0,MY))); +.do(robot(R2),action(move(0,1)))},
+&constraint(1,horizon){+.holds(at(robot(R1),node(X1,Y1))); +.holds(at(robot(R2),node(X1,Y2)));
++.do(robot(R1),action(move(0,MY))); +.do(robot(R2),action(move(0,1)))} :-
  R1 > R2, node(X1,Y1), Y2=Y1-1, node(X1,Y2), robot(robot(R1)), robot(robot(R2)), MY=-1.
 
-:-&constraint(1,horizon){+.holds(at(robot(R1),node(X1,Y1))); +.holds(at(robot(R2),node(X2,Y1)));
-+.do(robot(R1),action(move(MY,0))); +.do(robot(R2),action(move(1,0)))},
- R1 > R2, node(X1,Y1), X2=X1-1, node(X2,Y1), robot(robot(R1)), robot(robot(R2)), MY=-1.
+&constraint(1,horizon){+.holds(at(robot(R1),node(X1,Y1))); +.holds(at(robot(R2),node(X2,Y1)));
++.do(robot(R1),action(move(MX,0))); +.do(robot(R2),action(move(1,0)))} :-
+ R1 > R2, node(X1,Y1), X2=X1-1, node(X2,Y1), robot(robot(R1)), robot(robot(R2)), MX=-1.
 
 % a robot can only carry 1 shelf
 :- robot(R), time(T), 2{holds(carry(R,S),T) : shelf(S)}.
 
 %:- do(R,action(move(DX,DY)),T), do(R,action(move(-DX,-DY)),T-1), time(T), T>0.
-:-&constraint(1,horizon){ +.do(R,action(move(DX,DY))); +~do(R,action(move(DX2,DY2))) }, action(move(DX,DY)), DX2=-DX, DY2=-DY, robot(R).
+&constraint(1,horizon){ +.do(R,action(move(DX,DY))); +~do(R,action(move(DX2,DY2))) } :- action(move(DX,DY)), DX2=-DX, DY2=-DY, robot(R).
 
 %:- do(R,action(pickup),T), do(R,action(putdown),T-1), time(T), T>0.
-:-&constraint(1,horizon){ +.do(R,action(pickup)); +~do(R,action(putdown)) }, robot(R).
+&constraint(1,horizon){ +.do(R,action(pickup)); +~do(R,action(putdown)) } :- robot(R).
 
 %:- do(R,action(putdown),T), do(R,action(pickup),T-1), time(T), T>0.
-:-&constraint(1,horizon){ +.do(R,action(putdown)); +~do(R,action(pickup)) }, robot(R).
+&constraint(1,horizon){ +.do(R,action(putdown)); +~do(R,action(pickup)) } :- robot(R).
 
 on(product(P),shelf(S)) :- init(object(product,P),value(on,(S,A))).
 

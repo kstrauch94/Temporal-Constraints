@@ -1,5 +1,5 @@
 
-time(1..maxtime).
+time(0..maxtime).
 
 domain(1..maxdom).
 
@@ -17,22 +17,12 @@ f(1,0).
 1{e(D,T): domain(D) }1 :- time(T).
 1{f(D,T): domain(D) }1 :- time(T).
 
-:- a(D,T), a(D2,T-1), D - D2 > 3, time(T).
-%:-&constraint(1,maxtime){ +.a(D); +~a(D2) }, D - D2 > 3, domain(D), domain(D2).
+:- b(D,T), c(D2,T-1), d(D3,T-1), e(D4,T-1), f(D5,T-1), D - D2 > 3, D - D3 > 3, D - D4 > 3, D - D5 > 3, time(T), time(T-1),
+                                                        domain(D), domain(D2), domain(D3), domain(D4), domain(D5).
+%&constraint(0,maxtime){ +.b(D); +~c(D2); +~d(D3); +~e(D4); +~f(D5) } :- D - D2 > 3, D - D3 > 3, D - D4 > 3, D - D5 > 3,
+%                                                            domain(D), domain(D2), domain(D3), domain(D4), domain(D5).
 
-:- a(D,T), a(D2,T-1), D < D2, time(T).
-%:-&constraint(1,maxtime){ +.a(D); +~a(D2) }, D < D2, domain(D), domain(D2).
-
-:- a(D,T), b(D2,T), D < D2, time(T).
-%:-&constraint(1,maxtime){ +.a(D); +.b(D2) }, D < D2, domain(D), domain(D2).
-
-:- b(D,T), b(D2,T-1), a(D3,T), D3 > D + D2, time(T).
-%:-&constraint(1,maxtime){ +.b(D); +~b(D2); +.a(D3)  }, D3 > D + D2, domain(D), domain(D2), domain(D3).
-
-:- b(D,T), c(D2,T-1), d(D3,T-1), e(D4,T-1), f(D5,T-1), D - D2 > 3, D - D3 > 3, D - D4 > 3, D - D5 > 3, time(T), time(T-1).
-%:-&constraint(1,maxtime){ +.b(D); +~c(D2), +~d(D3), +~e(D4), +~f(D5) }, D - D2 > 3, D - D3 > 3, D - D4 > 3, D - D5 > 3, domain(D), domain(D2), domain(D3), domain(D4), domain(D5).
-
-:- a(D,T), b(D,T), c(D,T), d(D,T-1), e(D,T-1), f(D,T-1), time(T), time(T-1).
-%:-&constraint(1,maxtime){ +.a(D); +.b(D); +.c(D); +~d(D); +~e(D); +~f(D) }, domain(D).
+:- a(D,T), b(D,T), not c(D,T), d(D,T-1), e(D,T-1), f(D,T-1), domain(D), time(T), time(T-1).
+%&constraint(0,maxtime){ +.a(D); +.b(D); -.c(D); +~d(D); +~e(D); +~f(D) } :- domain(D).
 
 :- not a(maxdom,maxtime), b(maxdom-1,maxtime).
