@@ -44,6 +44,7 @@ class Propagator:
 
 	@util.Timer("Prop_init")
 	def init(self, init):
+		print("init start")
 
 		init_TA2L_mapping(init)
 
@@ -56,8 +57,8 @@ class Propagator:
 
 		for lit in self.watch_to_tc:
 			init.add_watch(lit)
-
 		util.Stats.add("Theory Constraints", len(self.theory_constraints))
+		print("init end")
 
 	def propagate(self, control, changes):
 		...
