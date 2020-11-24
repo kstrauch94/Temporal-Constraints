@@ -137,7 +137,8 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	try:
 		for uq_name in t_atom_info.keys():
 			time: int = reverse_assigned_time(t_atom_info[uq_name], assigned_time)
-			ng.add(TimeAtomToSolverLit.grab_lit(build_symbol_id(t_atom_info[uq_name], time)))
+			lit = TimeAtomToSolverLit.grab_lit(build_symbol_id(t_atom_info[uq_name], time))
+			ng.add(lit)
 	except KeyError:
 		# this error would happen if an id is not in the mapping
 		# if this happens it means the nogood does not exist for this assigned time

@@ -128,6 +128,9 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
+			if len(lits) == 1:
+				init.add_clause([-l for l in lits])
+				continue
 			watches.update(lits)
 
 		return watches
