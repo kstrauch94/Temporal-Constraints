@@ -23,5 +23,3 @@ f(1,0).
 &constraint(0,maxtime){ +.a(D); +.b(D); -.c(D); +~d(D); +~e(D); +~f(D) } :- domain(D).
 
 :- not a(maxdom,maxtime), b(maxdom-1,maxtime).
-
-:- a(3,1).
