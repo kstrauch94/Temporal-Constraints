@@ -10,7 +10,7 @@ d(1,0).
 e(1,0).
 f(1,0).
 
-1{a(D,T): domain(D) }3 :- time(T).
+1{a(D,T): domain(D) }1 :- time(T).
 1{b(D,T): domain(D) }1 :- time(T).
 1{c(D,T): domain(D) }1 :- time(T).
 1{d(D,T): domain(D) }1 :- time(T).
@@ -22,7 +22,6 @@ f(1,0).
 
 &constraint(0,maxtime){ +.a(D); +.b(D); -.c(D); +~d(D); +~e(D); +~f(D) } :- domain(D).
 
-:- a(D,T) : domain(D); time(T).
-&constraint(0,maxtime){a(D):domain(D)}.
-
 :- not a(maxdom,maxtime), b(maxdom-1,maxtime).
+
+:- a(3,1).
