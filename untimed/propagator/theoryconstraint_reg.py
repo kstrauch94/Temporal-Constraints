@@ -55,6 +55,8 @@ class TheoryConstraintSize2Reg(TheoryConstraint):
 					ats.update(get_at_from_name_id(name_id, self.t_atom_info))
 
 				for assigned_time in ats:
+					if assigned_time < self.min_time or assigned_time > self.max_time:
+						continue
 					ng = form_nogood(self.t_atom_info, assigned_time)
 					if ng is None:
 						continue
@@ -101,6 +103,8 @@ class TheoryConstraintNaiveReg(TheoryConstraint):
 
 			# no indent here so it first gathers all assigned times
 			for assigned_time in ats:
+				if assigned_time < self.min_time or assigned_time > self.max_time:
+					continue
 				ng = form_nogood(self.t_atom_info, assigned_time)
 				if ng is None:
 					continue

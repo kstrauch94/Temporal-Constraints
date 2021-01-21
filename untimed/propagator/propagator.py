@@ -8,6 +8,7 @@ from untimed.propagator.theoryconstraint_reg import TheoryConstraint
 from untimed.propagator.theoryconstraint_base import init_TA2L_mapping
 from untimed.propagator.theoryconstraint_base import get_replacement_watch
 
+from untimed.propagator.theoryconstraint_prop import MetaTAtomProp
 
 class Propagator:
 	"""
@@ -44,8 +45,6 @@ class Propagator:
 
 	@util.Timer("Prop_init")
 	def init(self, init):
-		print("init start")
-
 		init_TA2L_mapping(init)
 
 		for tc in self.theory_constraints:
@@ -58,13 +57,13 @@ class Propagator:
 		for lit in self.watch_to_tc:
 			init.add_watch(lit)
 		util.Stats.add("Theory Constraints", len(self.theory_constraints))
-		print("init end")
+		self.theory_constraints = []
 
 	def propagate(self, control, changes):
 		...
 
 	@util.Count("check")
-	def check2(self, control):
+	def check(self, control):
 		for tc in self.theory_constraints:
 			if tc.check(control) is None:
 				# print("check failed?")
@@ -96,12 +95,74 @@ class TimedAtomPropagator(Propagator):
 		init_TA2L_mapping(init)
 
 		for tc in self.theory_constraints:
-			if tc.size == 1:
+			if isinstance(tc, TheoryConstraint) and tc.size == 1:
 				tc.init(init)
 			else:
 				for lits in tc.build_watches(init):
 					watches.update(lits)
 				self.add_atom_observer(tc, watches)
+
+		for lit in watches:
+			init.add_watch(lit)
+
+		util.Stats.add("Theory Constraints", len(self.theory_constraints))
+		self.theory_constraints = []
+
+	@util.Timer("Propagation")
+	def propagate(self, control, changes):
+
+		for lit in changes:
+			for sign, name, time in TimeAtomToSolverLit.grab_name(lit):
+				for tc in self.watch_to_tc[sign, name]:
+					if tc.propagate(control, (sign, name, time)) is None:
+						return
+
+
+class CountPropagator(TimedAtomPropagator):
+
+	def undo(self, thread_id, assignment, changes):
+		for lit in changes:
+			for sign, name, time in TimeAtomToSolverLit.grab_name(lit):
+				for tc in self.watch_to_tc[sign, name]:
+					if tc.size > 2:
+						if tc.undo((sign, name, time)) is None:
+							return
+
+class MetaPropagator(TimedAtomPropagator):
+	...
+
+
+class MetaTAtomPropagator(TimedAtomPropagator):
+
+	def add_atom_observer(self, tc):
+		"""
+		Add the tc to the list of tcs to be notified when their respective atoms are propagated
+		:param tc: theory constraint for timed watches
+		:param watches: Not used, just here for compatibility
+		"""
+		for t_atom in tc.t_atom_names:
+			info = tc.t_atom_info[t_atom]
+			if (info.sign, info.name) not in self.watch_to_tc:
+				self.watch_to_tc[info.sign, info.name] = MetaTAtomProp((info.sign, info.name), info.time_mod)
+
+			self.watch_to_tc[info.sign, info.name].build_prop_function(tc.t_atom_info, info.time_mod, tc.min_time, tc.max_time)
+
+	@util.Timer("Prop_init")
+	def init(self, init):
+		watches = set()
+		init_TA2L_mapping(init)
+
+		for tc in self.theory_constraints:
+			if tc.size == 1:
+				tc.init(init)
+			else:
+				for lits in tc.build_watches(init):
+					watches.update(lits)
+
+				self.add_atom_observer(tc)
+
+		for t_atom, meta_tc in self.watch_to_tc.items():
+			meta_tc.finish_prop_func()
 
 		for lit in watches:
 			init.add_watch(lit)
@@ -113,10 +174,8 @@ class TimedAtomPropagator(Propagator):
 
 		for lit in changes:
 			for sign, name, time in TimeAtomToSolverLit.grab_name(lit):
-				for tc in self.watch_to_tc[sign, name]:
-					if tc.propagate(control, (sign, name, time)) is None:
-						return
-
+				if self.watch_to_tc[sign, name].propagate(control, (sign, name, time)) is None:
+					return
 
 class RegularAtomPropagatorNaive(Propagator):
 	"""
@@ -187,6 +246,27 @@ class RegularAtomPropagator2watchMap(Propagator):
 		for lit, at in watches:
 			self.watch_to_tc[lit].append((tc, at))
 
+	@util.Timer("Prop_init")
+	def init(self, init):
+		all_watches = set()
+		init_TA2L_mapping(init)
+
+		for tc in self.theory_constraints:
+			if tc.size == 1:
+				tc.init(init)
+			else:
+				watches, all_lits = tc.build_watches(init)
+				self.add_atom_observer(tc, watches)
+
+				all_watches.update(all_lits)
+
+		for lit in all_watches:
+			init.add_watch(lit)
+
+		util.Stats.add("Theory Constraints", len(self.theory_constraints))
+
+		self.theory_constraints = []
+
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
 		for lit in changes:
@@ -208,7 +288,3 @@ class RegularAtomPropagator2watchMap(Propagator):
 					self.watch_to_tc[lit].remove((tc, at))
 					self.watch_to_tc[new_watch].append((tc, at))
 
-					control.add_watch(new_watch)
-
-					if self.watch_to_tc[lit] == []:
-						control.remove_watch(lit)

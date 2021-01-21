@@ -18,9 +18,14 @@ from untimed.propagator.theoryconstraint_prop import TheoryConstraintSize2Prop2W
 from untimed.propagator.theoryconstraint_prop import TheoryConstraint2watchPropMap
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintSize2TimedProp
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintTimedProp
+from untimed.propagator.theoryconstraint_prop import TheoryConstraintMetaProp
+from untimed.propagator.theoryconstraint_prop import TheoryConstraintCountProp
 
 
 from untimed.propagator.propagator import TimedAtomPropagator
+from untimed.propagator.propagator import CountPropagator
+from untimed.propagator.propagator import MetaPropagator
+from untimed.propagator.propagator import MetaTAtomPropagator
 from untimed.propagator.propagator import RegularAtomPropagatorNaive
 from untimed.propagator.propagator import RegularAtomPropagator2watch
 from untimed.propagator.propagator import RegularAtomPropagator2watchMap
@@ -40,6 +45,18 @@ TIMED_TC = {1: TheoryConstraintSize1,
             2: TheoryConstraintSize2TimedProp,
             -1: TheoryConstraintTimedProp}
 
+META_TC = {1: TheoryConstraintSize1,
+            2: TheoryConstraintSize2TimedProp,
+            -1: TheoryConstraintMetaProp}
+
+META_TATOM_TC = {1: TheoryConstraintSize1,
+            2: TheoryConstraint,
+            -1: TheoryConstraint}
+
+COUNT_TC = {1: TheoryConstraintSize1,
+            2: TheoryConstraintSize2TimedProp,
+            -1: TheoryConstraintCountProp}
+
 NAIVE_TC_PROP = {1: TheoryConstraintSize1,
                  2: TheoryConstraintSize2Prop,
                  -1: TheoryConstraintNaiveProp}
@@ -57,12 +74,18 @@ TC_DICT = {"2watch": TWO_WATCH_TC,
            "timed_prop": TIMED_TC,
            "naive_prop": NAIVE_TC_PROP,
            "2watch_prop": TWO_WATCH_TC_PROP,
-           "2watchmap_prop": TWO_WATCH_MAP_TC_PROP}
+           "2watchmap_prop": TWO_WATCH_MAP_TC_PROP,
+           "meta_prop": META_TC,
+           "meta_ta_prop": META_TATOM_TC,
+           "count_prop": COUNT_TC}
 
 PROPAGATORS = {"timed": TimedAtomPropagator,
+               "meta": MetaPropagator,
+               "meta_ta":MetaTAtomPropagator,
                "naive": RegularAtomPropagatorNaive,
                "2watch": RegularAtomPropagator2watch,
-               "2watchmap": RegularAtomPropagator2watchMap}
+               "2watchmap": RegularAtomPropagator2watchMap,
+               "count": CountPropagator}
 
 
 def build_tc(t_atom, tc_dict) -> TheoryConstraint:

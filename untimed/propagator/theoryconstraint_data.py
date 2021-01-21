@@ -50,7 +50,25 @@ class TimeAtomToSolverLit:
 
 	@classmethod
 	def grab_lit(cls, name_id):
-		return cls.name_to_lit[name_id]
+		try:
+			lit = cls.name_to_lit[name_id]
+		except KeyError:
+			# this error would happen if an id is not in the mapping
+			# if this happens it means the atom does not exist for this assigned time
+			# if sign is 1 then it means that a POSITIVE atom does not exist -> a false atom in the nogood -> automatically ok
+			#return -1
+			if name_id[0] == 1:
+				cls.add(name_id, -1)
+				return -1
+
+			#if sign is -1 then is means that a POSITIVE atom does not exist and hence this NEGATIVE atom for that atom is always positive
+			# so we can assign the 1 to lit
+			cls.add(name_id, 1)
+			return 1
+
+
+
+		return lit
 
 	@classmethod
 	def grab_name(cls, lit):
@@ -66,6 +84,15 @@ class TimeAtomToSolverLit:
 		cls.lit_to_name = defaultdict(set)
 		cls.initialized = False
 
+
+class LitToId:
+
+	lit2id: Dict[int, int] = {}
+	id2lit: Dict[int, int] = {}
+	size: int = 0
+
+	def add_base_lit(self, lit):
+		lit2id = 0
 
 class Signatures:
 	sigs: Set[Tuple[int, Tuple[Any, int]]] = set()

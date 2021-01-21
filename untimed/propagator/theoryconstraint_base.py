@@ -140,18 +140,68 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 			lit = TimeAtomToSolverLit.grab_lit(build_symbol_id(t_atom_info[uq_name], time))
 		except KeyError:
 			# this error would happen if an id is not in the mapping
-			# if this happens it means the nogood does not exist for this assigned time
+			# if this happens it means the atom does not exist for this assigned time
+			# if sign is 1 then it means that a POSITIVE atom does not exist -> a false atom in the nogood -> automatically ok
 			if t_atom_info[uq_name].sign == 1:
 				return None
 
-		if lit == 1:
-			continue
+			#if sign is -1 then is means that a POSITIVE atom does not exist and hence this NEGATIVE atom for that atom is always positive
+			# so we can assign the 1 to lit
+			lit = 1
+
+		#if lit == 1:
+		#	continue
 		if lit == -1:
 			return None
 
 		ng.add(lit)
 
 	return sorted(ng)
+
+
+def check_assignment_build(tc: "TheoryConstraint", assigned_time, control) -> int:
+	"""
+	Checks if a nogood is a conflict or unit in the current assignment and builds the nogood
+	return the nogood if no values are false
+
+	:param nogood: nogood that will be checked
+	:param control: clingo PropagateControl class
+	:return int value that denotes the result of the check. See CONSTRAINT_CHECK for details
+	"""
+	true_count: int = 0
+	nogood = []
+
+	for uq_name, info in tc.t_atom_info.items():
+		try:
+			time = assigned_time - info.time_mod
+			lit = TimeAtomToSolverLit.grab_lit(build_symbol_id(info, time))
+		except KeyError:
+			# this error would happen if an id is not in the mapping
+			# if this happens it means the nogood does not exist for this assigned time
+			if info.sign == 1:
+				return CONSTRAINT_CHECK["NONE"], []
+
+		if lit == 1:
+			continue
+
+		if lit == -1:
+			return CONSTRAINT_CHECK["NONE"], []
+
+		if control.assignment.is_true(lit):
+			# if its true
+			true_count += 1
+		elif control.assignment.is_false(lit):
+			# if one is false then it doesnt matter
+			return CONSTRAINT_CHECK["NONE"], []
+
+		nogood.append(lit)
+
+	if true_count == len(nogood):
+		return CONSTRAINT_CHECK["CONFLICT"], nogood
+	elif true_count == len(nogood) - 1:
+		return CONSTRAINT_CHECK["UNIT"], nogood
+	else:
+		return CONSTRAINT_CHECK["NONE"], []
 
 
 def check_assignment(nogood, control) -> int:
@@ -329,10 +379,16 @@ class TheoryConstraint:
 	def build_watches(self, init) -> List[int]:
 		"""
 		Add watches to the solver. This should be implemented by child class
+		Basic case returns all literals in the nogood
 		:param init: clingo PropagateInit class
 		:return: List of literals that are watches by this theory constraint
 		"""
-		pass
+		for assigned_time in range(self.min_time, self.max_time + 1):
+			lits = form_nogood(self.t_atom_info, assigned_time)
+			if lits is None:
+				continue
+
+			yield lits
 
 	@util.Timer("Undo")
 	@util.Count("Undo")
@@ -349,7 +405,7 @@ class TheoryConstraint:
 			if check_assignment_complete(ng, control) == CONSTRAINT_CHECK["CONFLICT"]:
 				if not control.add_nogood(ng) or not control.propagate():
 					for lit in ng:
-						print("lit: {}, val: {}".format(lit, str(control.assignment.value)))
+						print("CHECK ERROR! lit: {}, val: {}".format(lit, control.assignment.value))
 					return None
 		return 0
 
