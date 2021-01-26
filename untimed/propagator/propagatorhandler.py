@@ -128,11 +128,9 @@ class TheoryHandler:
 		because it relies on looking at the grounded theory atoms 
 		to create a propagator for each one
 		"""
-		theory_constraints: List[TheoryConstraint] = []
 		for t_atom in prg.theory_atoms:
 			if t_atom.term.name == "constraint":
 				tc = build_tc(t_atom, TC_DICT[self.prop_type])
-				theory_constraints.append(tc)
 
 				prg.register_propagator(tc)
 

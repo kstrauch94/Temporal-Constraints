@@ -461,8 +461,8 @@ class TheoryConstraintCountProp(TheoryConstraint):
 			if self.counts[assigned_time] < 0:
 				print("ERROR???")
 
-def check_time_atom_truth(sign, name, time, control):
 
+def check_time_atom_truth(sign, name, time, control):
 	try:
 		lit = TimeAtomToSolverLit.grab_lit((sign, name, time))
 	except KeyError:
@@ -530,25 +530,6 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 		self.propagate_func = prop_test
 
 
-"""
-The aim is to build a function of this form:
-
-def propagate(change, control):
-	# chain contains (sign, name, time) the same as timed atom propagator
-	sign, name, time = change
-	if (sign, name) ==  (hardcoded_sign, hardcoded_name):
-		result_sum = check_time_atom_truth(hardcoded sign name and time, control) + check_time_atom_truth(hardcoded sign name and time, control) + ...
-
-		if result_sum == hardcoded_max_sum or result_sum == hardcoded_max_sum -1:
-			if not control.add_nogood(ng) or not control.propagate():
-				return None
-
-	if sign, name ==  2_hardcoded_sign, 2_hardcoded_name:
-		etc
-
-	# do one if for every time atom in the nogood, so if a nogood is size 3, there will be 3 of this ifs
-"""
-
 prop_template_start = """
 def {f_name}(t_atom_info, control, change):
 	# change contains (sign, name, time) the same as timed atom propagator
@@ -586,9 +567,6 @@ if_template_t_atom = """
 			if not control.add_nogood(ng) or not control.propagate():
 				return None
 """
-
-check_if_true = "check_time_atom_truth({sign}, \"{name}\", time+{mod}, control)"
-
 
 check_mapping = "TimeAtomToSolverLit.grab_lit(({sign}, \"{name}\", time+{mod}))"
 

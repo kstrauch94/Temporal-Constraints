@@ -62,6 +62,7 @@ class Propagator:
 	def propagate(self, control, changes):
 		...
 
+	# if we want to check we need the theory constraints list. look in the init to see if we delete it or not
 	@util.Count("check")
 	def check(self, control):
 		for tc in self.theory_constraints:
