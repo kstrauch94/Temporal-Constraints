@@ -136,9 +136,6 @@ goal(T) :- not holds(request(_,_,_),T), time(T).
 % dont do anything if goal was reached
 :- goal(T), do(_,_,T).
 
-
-
-
 % format the action into the input for the visualizer
 
 occurs(R,action(move,(DX,DY)),T) :- do(R,action(move(DX,DY)),T).
