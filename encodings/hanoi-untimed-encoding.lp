@@ -44,11 +44,13 @@ on(N1,N,0) :- on0(N,N1).
 %:- on(N,N1,T-1), where(N,T).
 &constraint(1,B){+~on(N,N1); +.where(N)} :- steps(B), disk(N), disk(N1), N1 > N, N1 > 4.
 
-%&time{ +B } :-  steps(B).
-
 % no disk is moved in two consecutive moves
 %:- move(N,T), move(N,T-1).
 &constraint(1,B){+.move(N); +~move(N)} :- steps(B), disk(N), N>4.
+
+&signature{++move(N)} :- disk(N).
+&signature{++on(N,N1)} :- N1 > N, N1 > 4, disk(N), disk(N1).
+&signature{++where(N)} :- disk(N).
 
 % Specify effects of a move
 on(N1,N,T) :- move(N,T), where(N1,T).
