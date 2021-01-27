@@ -520,23 +520,28 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 
 			ng_str = "ng = [{}]".format(", ".join(grab_lit_str))
 
-			func_str += if_template.format(sign=sign, name=name, t_mod=time_mod, min=self.min_time, max=self.max_time, ng=ng_str)
+			if self.size > 2:
+				func_str += if_template.format(sign=sign, name=name, t_mod=time_mod, min=self.min_time, max=self.max_time, ng=ng_str)
+			else:
+				func_str += if_template_size2.format(sign=sign, name=name, t_mod=time_mod, min=self.min_time, max=self.max_time, ng=ng_str)
 
 		func_str += prop_template_end
 
 		with util.Timer("exec"):
 			exec(func_str, globals())
 
-		self.propagate_func = prop_test
+		return prop_test
 
 
 prop_template_start = """
-def {f_name}(t_atom_info, control, change):
+@util.Count("Propagation")
+def {f_name}(control, change):
 	# change contains (sign, name, time) the same as timed atom propagator
 	sign, name, time = change
 """
 
 prop_template_t_atom_start = """
+@util.Count("Propagation")
 def {f_name}(control, change):
 	# change contains (sign, name, time) the same as timed atom propagator
 	# propagate func for t_atom: {t_atom}
@@ -556,6 +561,15 @@ if_template = """
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 				if not control.add_nogood(ng) or not control.propagate():
 					return None
+"""
+
+if_template_size2 = """
+	if (sign, name) == ({sign}, \"{name}\"):
+		at = time + {t_mod}
+		if at >= {min} and at <= {max}:	
+			{ng}	
+			if not control.add_nogood(ng) or not control.propagate():
+				return None
 """
 
 if_template_t_atom = """
