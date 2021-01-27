@@ -5,6 +5,7 @@ from typing import List
 from untimed import util
 
 from untimed.propagator.theoryconstraint_base import TheoryConstraintSize1
+from untimed.propagator.theoryconstraint_base import parse_signature
 
 from untimed.propagator.theoryconstraint_reg import TheoryConstraint
 from untimed.propagator.theoryconstraint_reg import TheoryConstraintNaiveReg
@@ -46,7 +47,7 @@ TIMED_TC = {1: TheoryConstraintSize1,
             -1: TheoryConstraintTimedProp}
 
 META_TC = {1: TheoryConstraintSize1,
-            2: TheoryConstraintSize2TimedProp,
+            2: TheoryConstraintMetaProp,
             -1: TheoryConstraintMetaProp}
 
 META_TATOM_TC = {1: TheoryConstraintSize1,
@@ -147,9 +148,9 @@ class TheoryHandlerWithPropagator:
 		if prop_type + "_prop" not in TC_DICT:
 			raise ValueError("Propagator Handler does not support {} watch type".format(prop_type))
 
-		self.propagator = PROPAGATORS[prop_type]()
-
 		self.tc_dict = TC_DICT[prop_type + "_prop"]
+
+		self.propagator = PROPAGATORS[prop_type](lambda t_atom : build_tc(t_atom, self.tc_dict))
 
 	@util.Timer("Register")
 	def register(self, prg) -> None:
@@ -159,9 +160,8 @@ class TheoryHandlerWithPropagator:
 		to create a propagator for each one
 		"""
 		for t_atom in prg.theory_atoms:
-			if t_atom.term.name == "constraint":
-				tc = build_tc(t_atom, self.tc_dict)
-				self.propagator.add_tc(tc)
+			if t_atom.term.name == "signature":
+				parse_signature(t_atom)
 
 		prg.register_propagator(self.propagator)
 
