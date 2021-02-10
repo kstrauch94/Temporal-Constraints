@@ -52,14 +52,30 @@ def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[s
 		else:
 			raise TypeError(f"Invalid term prefix {term_type} used in {constraint}")
 
+		t_atom_info[uq_name] = atom_info(sign=sign, time_mod=time_mod, name=name)
+
+	return t_atom_info, min_time, max_time
+
+
+def parse_signature(constraint):
+	"""
+	Extract the relevant information of the given theory atom and populate self.t_atom_info
+
+	:param constraint: clingo TheoryAtom
+	"""
+	for atom in constraint.elements:
+		# this gives me the "type" of the term | e.g. for +~on(..) it would return +~
+		term_type: str = atom.terms[0].name
+
+		if "+" in term_type:
+			sign = 1
+		elif "-" in term_type:
+			sign = -1
+
 		signature: Tuple[str, int] = (
 			atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments) + 1)
 
 		Signatures.sigs.add((sign, signature))
-
-		t_atom_info[uq_name] = atom_info(sign=sign, time_mod=time_mod, name=name)
-
-	return t_atom_info, min_time, max_time
 
 
 def parse_constraint_times(times) -> Tuple[int, int]:
@@ -134,15 +150,15 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 
 	ng: Set[int] = set()
 
-	for uq_name in t_atom_info.keys():
-		time: int = reverse_assigned_time(t_atom_info[uq_name], assigned_time)
+	for uq_name, info in t_atom_info.items():
+		time: int = reverse_assigned_time(info, assigned_time)
 		try:
-			lit = TimeAtomToSolverLit.grab_lit(build_symbol_id(t_atom_info[uq_name], time))
+			lit = TimeAtomToSolverLit.grab_lit(build_symbol_id(info, time))
 		except KeyError:
 			# this error would happen if an id is not in the mapping
 			# if this happens it means the atom does not exist for this assigned time
 			# if sign is 1 then it means that a POSITIVE atom does not exist -> a false atom in the nogood -> automatically ok
-			if t_atom_info[uq_name].sign == 1:
+			if info.sign == 1:
 				return None
 
 			#if sign is -1 then is means that a POSITIVE atom does not exist and hence this NEGATIVE atom for that atom is always positive
