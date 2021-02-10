@@ -127,6 +127,7 @@ class TimedAtomPropagator(Propagator):
 
 class CountPropagator(TimedAtomPropagator):
 
+	@util.Timer("Undo")
 	def undo(self, thread_id, assignment, changes):
 		for lit in changes:
 			for sign, name, time in TimeAtomToSolverLit.grab_name(lit):
@@ -158,7 +159,7 @@ class MetaPropagator(Propagator):
 		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
 			if t_atom.term.name == "constraint":
 				tc = self.tc_maker(t_atom)
-				if isinstance(tc, TheoryConstraint) and tc.size == 1:
+				if tc.size == 1:
 					tc.init(init)
 				else:
 					for lits in tc.build_watches(init):

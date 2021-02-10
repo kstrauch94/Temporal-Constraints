@@ -39,7 +39,7 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 
 		return watches
 
-	@util.Count("Propagation")
+	#@util.Count("Propagation")
 	# @profile
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
@@ -480,7 +480,6 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 	def __init__(self, constraint) -> None:
 		super().__init__(constraint)
 
-		self.build_prop_function()
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	def build_watches(self, init) -> None:
@@ -500,7 +499,7 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 		:param change: literal that was assigned
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
-		return self.propagate_func(self.t_atom_info, control, change)
+		return self.propagate_func(control, change)
 
 	#@profile
 	def build_prop_function(self):
