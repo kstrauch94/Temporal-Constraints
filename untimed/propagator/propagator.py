@@ -115,9 +115,9 @@ class TimedAtomPropagator(Propagator):
 
 		util.Stats.add("Theory Constraints", t_atom_count)
 
+	@util.Count("Propagation")
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
-
 		for lit in changes:
 			for sign, name, time in TimeAtomToSolverLit.grab_name(lit):
 				for tc in self.watch_to_tc[sign, name]:
@@ -171,6 +171,7 @@ class MetaPropagator(Propagator):
 
 		util.Stats.add("Theory Constraints", t_atom_count)
 
+	@util.Count("Propagation")
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
 
@@ -221,6 +222,7 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 
 		util.Stats.add("Theory Constraints", t_atom_count)
 
+	@util.Count("Propagation")
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
 
@@ -236,6 +238,7 @@ class RegularAtomPropagatorNaive(Propagator):
 
 	__slots__ = []
 
+	@util.Count("Propagation")
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
 		for lit in changes:
@@ -255,6 +258,7 @@ class RegularAtomPropagator2watch(Propagator):
 	"""
 	__slots__ = []
 
+	@util.Count("Propagation")
 	@util.Timer("Propagation")
 	# @profile
 	def propagate(self, control, changes):
@@ -318,10 +322,11 @@ class RegularAtomPropagator2watchMap(Propagator):
 		for lit in all_watches:
 			init.add_watch(lit)
 
-		util.Stats.add("Theory Constraints", len(self.theory_constraints))
+		util.Stats.add("Theory Constraints", t_atom_count)
 
 		self.theory_constraints = []
 
+	@util.Count("Propagation")
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
 		for lit in changes:
