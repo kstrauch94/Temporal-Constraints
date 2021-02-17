@@ -34,12 +34,10 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
-
 			watches.extend(lits)
 
 		return watches
 
-	#@util.Count("Propagation")
 	# @profile
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
@@ -61,7 +59,6 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 			ng = form_nogood(self.t_atom_info, assigned_time)
 			if ng is None:
 				continue
-			util.Count.add("useful_prop_2")
 			if not control.add_nogood(ng) or not control.propagate():
 				return None
 
@@ -90,7 +87,6 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 			all_lits.update(lits)
 		return watches, all_lits
 
-	@util.Count("Propagation")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		For any relevant change, immediately form the nogood
@@ -107,7 +103,6 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 		if ng is None:
 			return []
 
-		util.Count.add("useful_prop_2")
 		if not control.add_nogood(ng) or not control.propagate():
 			return None
 
@@ -138,7 +133,6 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 
 		return watches
 
-	@util.Count("Propagation")
 	# @profile
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
@@ -201,7 +195,6 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 
 		return watches
 
-	@util.Count("Propagation")
 	# @profile
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
@@ -290,7 +283,6 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 
 		return watches, all_lits
 
-	@util.Count("Propagation")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		For any relevant change, check the assignment of the whole nogood
@@ -335,7 +327,6 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 				continue
 			yield lits
 
-	@util.Count("Propagation")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		look for assigned times of the change and add the nogoods of those times to
@@ -355,7 +346,6 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 			if ng is None:
 				continue
 
-			util.Count.add("useful_prop_2")
 			if not control.add_nogood(ng) or not control.propagate():
 				return None
 
@@ -380,7 +370,6 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 
 			yield lits
 
-	@util.Count("Propagation")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		:param control: clingo PropagateControl object
@@ -428,7 +417,6 @@ class TheoryConstraintCountProp(TheoryConstraint):
 
 			yield lits
 
-	@util.Count("Propagation")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		:param control: clingo PropagateControl object
@@ -492,7 +480,6 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 				continue
 			yield lits
 
-	@util.Count("Propagation")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		:param control: clingo PropagateControl object
@@ -533,14 +520,12 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 
 
 prop_template_start = """
-@util.Count("Propagation")
 def {f_name}(control, change):
 	# change contains (sign, name, time) the same as timed atom propagator
 	sign, name, time = change
 """
 
 prop_template_t_atom_start = """
-@util.Count("Propagation")
 def {f_name}(control, change):
 	# change contains (sign, name, time) the same as timed atom propagator
 	# propagate func for t_atom: {t_atom}
@@ -552,7 +537,7 @@ prop_template_end = """
 """
 
 if_template = """
-	if (sign, name) == ({sign}, \"{name}\"):
+	if (sign, name) == ({sign}, \'{name}\'):
 		at = time + {t_mod}
 		if at >= {min} and at <= {max}:	
 			{ng}	
@@ -563,7 +548,7 @@ if_template = """
 """
 
 if_template_size2 = """
-	if (sign, name) == ({sign}, \"{name}\"):
+	if (sign, name) == ({sign}, \'{name}\'):
 		at = time + {t_mod}
 		if at >= {min} and at <= {max}:	
 			{ng}	
@@ -581,7 +566,7 @@ if_template_t_atom = """
 				return None
 """
 
-check_mapping = "TimeAtomToSolverLit.grab_lit(({sign}, \"{name}\", time+{mod}))"
+check_mapping = "TimeAtomToSolverLit.grab_lit(({sign}, \'{name}\', time+{mod}))"
 
 class MetaTAtomProp():
 	__slots__ = ["t_atom", "propagate_func", "func_str", "if_blocks"]
@@ -594,7 +579,6 @@ class MetaTAtomProp():
 
 		self.propagate_func = None
 
-	@util.Count("Propagation")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		:param control: clingo PropagateControl object
