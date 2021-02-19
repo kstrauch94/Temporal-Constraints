@@ -18,7 +18,7 @@ handlers: Dict[str, Any] = {}
 handlers["prop"] = TheoryHandlerWithPropagator
 handlers["regular"] = TheoryHandler
 
-watch_types = ["naive", "2watch", "timed", "2watchmap", "meta", "meta_ta", "count"]
+watch_types = ["naive", "2watch", "timed", "timed_f", "2watchmap", "meta", "meta_ta", "count"]
 
 
 class Application:
@@ -79,7 +79,7 @@ class Application:
 
 			with util.Timer("ground time"):
 				prg.ground([("base", [])])
-
+			print("clingo grounding done")
 			self.__handler.register(prg)
 
 		with util.Timer("solve time"):

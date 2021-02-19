@@ -24,6 +24,7 @@ from untimed.propagator.theoryconstraint_prop import TheoryConstraintCountProp
 
 
 from untimed.propagator.propagator import TimedAtomPropagator
+from untimed.propagator.propagator import TimedAtomFunctionPropagator
 from untimed.propagator.propagator import CountPropagator
 from untimed.propagator.propagator import MetaPropagator
 from untimed.propagator.propagator import MetaTAtomPropagator
@@ -42,45 +43,13 @@ NAIVE_TC = {1: TheoryConstraintSize1,
             2: TheoryConstraintSize2Reg,
             -1: TheoryConstraintNaiveReg}
 
-TIMED_TC = {1: TheoryConstraintSize1,
-            2: TheoryConstraintSize2TimedProp,
-            -1: TheoryConstraintTimedProp}
-
-META_TC = {1: TheoryConstraintSize1,
-            2: TheoryConstraintMetaProp,
-            -1: TheoryConstraintMetaProp}
-
-META_TATOM_TC = {1: TheoryConstraintSize1,
-            2: TheoryConstraint,
-            -1: TheoryConstraint}
-
-COUNT_TC = {1: TheoryConstraintSize1,
-            2: TheoryConstraintSize2TimedProp,
-            -1: TheoryConstraintCountProp}
-
-NAIVE_TC_PROP = {1: TheoryConstraintSize1,
-                 2: TheoryConstraintSize2Prop,
-                 -1: TheoryConstraintNaiveProp}
-
-TWO_WATCH_TC_PROP = {1: TheoryConstraintSize1,
-                     2: TheoryConstraintSize2Prop,
-                     -1: TheoryConstraint2watchProp}
-
-TWO_WATCH_MAP_TC_PROP = {1: TheoryConstraintSize1,
-                     2: TheoryConstraintSize2Prop2WatchMap,
-                     -1: TheoryConstraint2watchPropMap}
 
 TC_DICT = {"2watch": TWO_WATCH_TC,
-           "naive": NAIVE_TC,
-           "timed_prop": TIMED_TC,
-           "naive_prop": NAIVE_TC_PROP,
-           "2watch_prop": TWO_WATCH_TC_PROP,
-           "2watchmap_prop": TWO_WATCH_MAP_TC_PROP,
-           "meta_prop": META_TC,
-           "meta_ta_prop": META_TATOM_TC,
-           "count_prop": COUNT_TC}
+           "naive": NAIVE_TC
+           }
 
 PROPAGATORS = {"timed": TimedAtomPropagator,
+               "timed_f": TimedAtomFunctionPropagator,
                "meta": MetaPropagator,
                "meta_ta":MetaTAtomPropagator,
                "naive": RegularAtomPropagatorNaive,
@@ -111,13 +80,15 @@ def add_theory(prg) -> None:
 
 class TheoryHandler:
 
+	supported_types = ["naive", "2watch"]
+
 	def __init__(self, prop_type: str = "2watch") -> None:
 		"""
 		:param prop_type: type of propagator for general nogoods ["2watch", "naive"]
 		"""
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-		if prop_type not in TC_DICT:
+		if prop_type not in TheoryHandler.supported_types:
 			raise ValueError("Handler does not support {} watch type".format(prop_type))
 
 		self.prop_type: str = prop_type
@@ -143,16 +114,16 @@ class TheoryHandler:
 
 class TheoryHandlerWithPropagator:
 
+	supported_types = ["timed", "timed_f", "meta", "meta_ta", "count", "naive", "2watch", "2watchmap"]
+
 	def __init__(self, prop_type: str = "timed") -> None:
 
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-		if prop_type + "_prop" not in TC_DICT:
+		if prop_type not in TheoryHandlerWithPropagator.supported_types:
 			raise ValueError("Propagator Handler does not support {} watch type".format(prop_type))
 
-		self.tc_dict = TC_DICT[prop_type + "_prop"]
-
-		self.propagator = PROPAGATORS[prop_type](lambda t_atom : build_tc(t_atom, self.tc_dict))
+		self.propagator = PROPAGATORS[prop_type]()
 
 	@util.Timer("Register")
 	def register(self, prg) -> None:

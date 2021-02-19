@@ -27,6 +27,21 @@ class AtomInfo:
 atom_info = AtomInfo
 
 
+class ConstraintInfo:
+
+	__slots__ = ["min_time", "max_time", "t_atom_info"]
+
+	def __init__(self, t_atom_info, min_time, max_time):
+		self.min_time = min_time
+		self.max_time = max_time
+		self.t_atom_info = t_atom_info
+
+
+	@property
+	def size(self):
+		return len(self.t_atom_info)
+
+
 class TimeAtomToSolverLit:
 	"""
 	Maps a name id to a solver literal.

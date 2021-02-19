@@ -616,3 +616,28 @@ class MetaTAtomProp():
 
 		self.propagate_func = prop_test
 		self.func_str = ""
+
+
+def propagate_timed(control, change, t_atom_info, min_time, max_time) -> Optional[List[Tuple]]:
+		"""
+		:param control: clingo PropagateControl object
+		:param change: literal that was assigned
+		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
+		"""
+
+		ats = get_at_from_name_id(change, t_atom_info)
+
+		for assigned_time in ats:
+			if assigned_time < min_time or assigned_time > max_time:
+				continue
+			ng = form_nogood(t_atom_info, assigned_time)
+			if ng is None:
+				continue
+
+			update_result = check_assignment(ng, control)
+
+			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+				if not control.add_nogood(ng) or not control.propagate():
+					return None
+
+		return 1
