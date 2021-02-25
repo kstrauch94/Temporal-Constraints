@@ -18,7 +18,7 @@ handlers: Dict[str, Any] = {}
 handlers["prop"] = TheoryHandlerWithPropagator
 handlers["regular"] = TheoryHandler
 
-watch_types = ["naive", "2watch", "timed", "timed_f", "2watchmap", "meta", "meta_ta", "count"]
+watch_types = ["naive", "2watch", "timed", "timed_aw", "2watchmap", "meta", "meta_ta", "count"]
 
 
 class Application:

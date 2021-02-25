@@ -12,19 +12,8 @@ from untimed.propagator.theoryconstraint_reg import TheoryConstraintNaiveReg
 from untimed.propagator.theoryconstraint_reg import TheoryConstraint2watchReg
 from untimed.propagator.theoryconstraint_reg import TheoryConstraintSize2Reg
 
-from untimed.propagator.theoryconstraint_prop import TheoryConstraintSize2Prop
-from untimed.propagator.theoryconstraint_prop import TheoryConstraintNaiveProp
-from untimed.propagator.theoryconstraint_prop import TheoryConstraint2watchProp
-from untimed.propagator.theoryconstraint_prop import TheoryConstraintSize2Prop2WatchMap
-from untimed.propagator.theoryconstraint_prop import TheoryConstraint2watchPropMap
-from untimed.propagator.theoryconstraint_prop import TheoryConstraintSize2TimedProp
-from untimed.propagator.theoryconstraint_prop import TheoryConstraintTimedProp
-from untimed.propagator.theoryconstraint_prop import TheoryConstraintMetaProp
-from untimed.propagator.theoryconstraint_prop import TheoryConstraintCountProp
-
-
 from untimed.propagator.propagator import TimedAtomPropagator
-from untimed.propagator.propagator import TimedAtomFunctionPropagator
+from untimed.propagator.propagator import TimedAtomAllWatchesPropagator
 from untimed.propagator.propagator import CountPropagator
 from untimed.propagator.propagator import MetaPropagator
 from untimed.propagator.propagator import MetaTAtomPropagator
@@ -49,7 +38,7 @@ TC_DICT = {"2watch": TWO_WATCH_TC,
            }
 
 PROPAGATORS = {"timed": TimedAtomPropagator,
-               "timed_f": TimedAtomFunctionPropagator,
+               "timed_aw": TimedAtomAllWatchesPropagator,
                "meta": MetaPropagator,
                "meta_ta":MetaTAtomPropagator,
                "naive": RegularAtomPropagatorNaive,
@@ -114,7 +103,7 @@ class TheoryHandler:
 
 class TheoryHandlerWithPropagator:
 
-	supported_types = ["timed", "timed_f", "meta", "meta_ta", "count", "naive", "2watch", "2watchmap"]
+	supported_types = ["timed", "timed_aw", "meta", "meta_ta", "count", "naive", "2watch", "2watchmap"]
 
 	def __init__(self, prop_type: str = "timed") -> None:
 
