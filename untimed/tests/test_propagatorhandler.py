@@ -105,6 +105,12 @@ class TestApp(unittest.TestCase):
 
 		self.handler_test(handler_class, handler_args)
 
+	def test_timed_aw_prop(self):
+		self.reset_mappings()
+		handler_class = TheoryHandlerWithPropagator
+		handler_args = {"prop_type": "timed_aw"}
+
+		self.handler_test(handler_class, handler_args)
 	def test_meta_prop(self):
 		self.reset_mappings()
 		handler_class = TheoryHandlerWithPropagator
