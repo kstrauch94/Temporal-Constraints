@@ -115,8 +115,10 @@ class TimedAtomPropagator(Propagator):
 		init_TA2L_mapping(init)
 
 		t_atom_count = 0
-		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
+		all_t_atom_count = 0
+		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
 			if t_atom.term.name == "constraint":
+				t_atom_count += 1
 				tc = self.make_tc(t_atom)
 				if isinstance(tc, TheoryConstraint) and tc.size == 1:
 					tc.init(init)
@@ -129,6 +131,7 @@ class TimedAtomPropagator(Propagator):
 			init.add_watch(lit)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
+		util.Stats.add("Signature Constraints", all_t_atom_count - t_atom_count)
 
 	@util.Count("Propagation")
 	@util.Timer("Propagation")
