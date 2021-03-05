@@ -30,7 +30,8 @@ class Application:
 
 		self.__handler_type = "prop"
 
-		self.watch_types = "naive"
+		self.watch_type = "naive"
+		self.lock_ng = -1
 
 		self.__prop_init = clingo.Flag(False)
 
@@ -48,7 +49,15 @@ class Application:
 		if prop not in watch_types:
 			return False
 
-		self.watch_types = prop
+		self.watch_type = prop
+		return True
+
+	def __parse_lock_ng(self, n):
+		n = int(n)
+		if n < -1 or n == 0:
+			return False
+
+		self.lock_ng = n
 		return True
 
 	def register_options(self, options):
@@ -65,8 +74,13 @@ class Application:
 				prop handler support timed, naive, 2watch and 2watchmap
 				<arg>: {2watch|2watchmap|naive|timed}"""), self.__parse_watch_type)
 
+		options.add(group, "lock-ng", _textwrap.dedent("""Lock the nogood if it is found to be unit or conflicting after [-1]
+		        <n> times it was added. -1 means it will never be locked.
+		        <n> = [1..max_int] """),
+		            self.__parse_lock_ng)
+
 	def __build_handler(self):
-		self.__handler = handlers[self.__handler_type](self.watch_types)
+		self.__handler = handlers[self.__handler_type](self.watch_type, self.lock_ng)
 
 	def main(self, prg, files):
 		with util.Timer("until solve"):

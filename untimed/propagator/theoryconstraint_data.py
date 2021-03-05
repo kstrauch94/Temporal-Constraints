@@ -9,15 +9,15 @@ CONSTRAINT_CHECK = {"NONE": 0,
 
 class AtomInfo:
 
-	__slots__ = ["sign", "time_mod", "name"]
+	__slots__ = ["sign", "time_mod", "internal_lit"]
 
-	def __init__(self, sign, time_mod, name):
+	def __init__(self, sign, time_mod, internal_lit):
 		self.sign = sign
 		self.time_mod = time_mod
-		self.name = name
+		self.internal_lit = internal_lit
 
 	def __eq__(self, other):
-		if other.sign == self.sign and other.time_mod == self.time_mod and other.name == self.name:
+		if other.sign == self.sign and other.time_mod == self.time_mod and other.internal_lit == self.internal_lit:
 			return True
 
 		return False
@@ -47,56 +47,53 @@ class TimeAtomToSolverLit:
 	Maps a name id to a solver literal.
 	Has helper methods to retrieve either a literal or a name id
 
-	name_id is a Tuple[sign, name, time]
+	internal_lit is a Tuple[sign, name, time]
 	"""
-	name_to_lit: Dict[Tuple[int, str, int], int] = {}
+	id_to_lit: Dict[int, int] = {}
 
-	lit_to_name: Dict[int, Set[Tuple[int, str, int]]] = defaultdict(set)
+	lit_to_id: Dict[int, Set[int]] = defaultdict(set)
 
 	initialized: bool = False
 
 	@classmethod
 	#@profile
-	def add(cls, name_id, lit):
-		if name_id not in cls.name_to_lit:
-			cls.name_to_lit[name_id] = lit
+	def add(cls, internal_lit, lit):
+		if internal_lit not in cls.id_to_lit:
+			cls.id_to_lit[internal_lit] = lit
 
-			cls.lit_to_name[lit].add(name_id)
+			cls.lit_to_id[lit].add(internal_lit)
 
 	@classmethod
-	def grab_lit(cls, name_id):
+	def grab_lit(cls, internal_lit):
 		try:
-			lit = cls.name_to_lit[name_id]
+			lit = cls.id_to_lit[internal_lit]
 		except KeyError:
 			# this error would happen if an id is not in the mapping
 			# if this happens it means the atom does not exist for this assigned time
 			# if sign is 1 then it means that a POSITIVE atom does not exist -> a false atom in the nogood -> automatically ok
 			#return -1
-			if name_id[0] == 1:
-				cls.add(name_id, -1)
-				return -1
 
-			#if sign is -1 then is means that a POSITIVE atom does not exist and hence this NEGATIVE atom for that atom is always positive
-			# so we can assign the 1 to lit
-			cls.add(name_id, 1)
-			return 1
-
+			#on the new paradigm with internal lits, i will always look with opsitive internal lits, so we can assume
+			# it is negative if it is not in the mapping
+			# so we add it as -1 and return it
+			cls.add(internal_lit, -1)
+			return -1
 
 
 		return lit
 
 	@classmethod
-	def grab_name(cls, lit):
-		return cls.lit_to_name[lit]
+	def grab_id(cls, lit):
+		return cls.lit_to_id[lit]
 
 	@classmethod
 	def has_name(cls, name_id):
-		return name_id in cls.name_to_lit
+		return name_id in cls.id_to_lit
 
 	@classmethod
 	def reset(cls):
-		cls.name_to_lit = {}
-		cls.lit_to_name = defaultdict(set)
+		cls.id_to_lit = {}
+		cls.lit_to_ids = defaultdict(set)
 		cls.initialized = False
 
 
@@ -111,9 +108,20 @@ class LitToId:
 
 class Signatures:
 	sigs: Set[Tuple[int, Tuple[Any, int]]] = set()
+	sigs_0 = set()
+	fullsigs = {}
+	fullsigs_term = {}
+	fullsig_size = 0
 	finished = False
 
 	@classmethod
 	def reset(cls):
 		cls.sigs = set()
 		cls.finished = False
+
+	@classmethod
+	def add_fullsig(cls, fullsig, fullsig_term):
+		cls.fullsigs[fullsig] = cls.fullsig_size
+		cls.fullsigs_term[fullsig_term] = cls.fullsig_size
+
+		cls.fullsig_size += 1

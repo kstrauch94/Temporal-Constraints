@@ -11,7 +11,7 @@ from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
 
 from untimed.propagator.theoryconstraint_base import TheoryConstraint
 from untimed.propagator.theoryconstraint_base import form_nogood
-from untimed.propagator.theoryconstraint_base import get_at_from_name_id
+from untimed.propagator.theoryconstraint_base import get_at_from_internal_lit
 from untimed.propagator.theoryconstraint_base import check_assignment
 from untimed.propagator.theoryconstraint_base import choose_lit
 from untimed.propagator.theoryconstraint_base import get_replacement_watch
@@ -51,8 +51,8 @@ class TheoryConstraintSize2Reg(TheoryConstraint):
 
 			for lit in changes:
 				ats = set()
-				for name_id in TimeAtomToSolverLit.grab_name(lit):
-					ats.update(get_at_from_name_id(name_id, self.t_atom_info))
+				for name_id in TimeAtomToSolverLit.grab_id(lit):
+					ats.update(get_at_from_internal_lit(name_id, self.t_atom_info))
 
 				for assigned_time in ats:
 					if assigned_time < self.min_time or assigned_time > self.max_time:
@@ -98,8 +98,8 @@ class TheoryConstraintNaiveReg(TheoryConstraint):
 		with util.Timer("Propagation"):
 			for lit in changes:
 				ats = set()
-				for name_id in TimeAtomToSolverLit.grab_name(lit):
-					ats.update(get_at_from_name_id(name_id, self.t_atom_info))
+				for name_id in TimeAtomToSolverLit.grab_id(lit):
+					ats.update(get_at_from_internal_lit(name_id, self.t_atom_info))
 
 			# no indent here so it first gathers all assigned times
 			for assigned_time in ats:

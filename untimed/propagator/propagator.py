@@ -5,7 +5,7 @@ import untimed.util as util
 
 from untimed.propagator.theoryconstraint_reg import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_reg import TheoryConstraint
-from untimed.propagator.theoryconstraint_base import init_TA2L_mapping
+from untimed.propagator.theoryconstraint_base import init_TA2L_mapping, init_TA2L_mapping_integers
 from untimed.propagator.theoryconstraint_base import get_replacement_watch
 from untimed.propagator.theoryconstraint_base import TheoryConstraintSize1
 
@@ -34,13 +34,15 @@ class Propagator:
 	theory_constraints          -- List of all theory constraints
 	"""
 
-	__slots__ = ["watch_to_tc", "theory_constraints"]
+	__slots__ = ["watch_to_tc", "theory_constraints", "lock_ng"]
 
-	def __init__(self):
+	def __init__(self, lock_ng=-1):
 
 		self.watch_to_tc: Dict[Any, Set["TheoryConstraint"]] = defaultdict(list)
 
 		self.theory_constraints: List["TheoryConstraint"] = []
+
+		self.lock_ng = lock_ng
 
 	def add_tc(self, tc):
 		self.theory_constraints.append(tc)
@@ -106,12 +108,13 @@ class TimedAtomPropagator(Propagator):
 		if tc.size == 1:
 			return
 
-		for uq_name, info in tc.t_atom_info.items():
-			self.watch_to_tc[info.sign, info.name].append(tc)
+		for info in tc.t_atom_info:
+			self.watch_to_tc[info.internal_lit].append(tc)
 
 	@util.Timer("Prop_init")
 	def init(self, init):
 		watches = set()
+		init_TA2L_mapping_integers(init)
 		init_TA2L_mapping(init)
 
 		t_atom_count = 0
@@ -137,9 +140,9 @@ class TimedAtomPropagator(Propagator):
 	@util.Timer("Propagation")
 	def propagate(self, control, changes):
 		for lit in changes:
-			for sign, name, time in TimeAtomToSolverLit.grab_name(lit):
-				for tc in self.watch_to_tc[sign, name]:
-					if tc.propagate(control, (sign, name, time)) is None:
+			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
+				for tc in self.watch_to_tc[internal_lit]:
+					if tc.propagate(control, internal_lit) is None:
 						return
 
 	def make_tc(self, t_atom):
@@ -148,10 +151,10 @@ class TimedAtomPropagator(Propagator):
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
 			util.Count.add("size_2")
-			return TheoryConstraintSize2TimedProp(t_atom)
+			return TheoryConstraintSize2TimedProp(t_atom, self.lock_ng)
 		else:
 			util.Count.add("size_-1}")
-			return TheoryConstraintTimedProp(t_atom)
+			return TheoryConstraintTimedProp(t_atom, self.lock_ng)
 
 
 class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
@@ -189,7 +192,7 @@ class CountPropagator(TimedAtomPropagator):
 	@util.Timer("Undo")
 	def undo(self, thread_id, assignment, changes):
 		for lit in changes:
-			for sign, name, time in TimeAtomToSolverLit.grab_name(lit):
+			for sign, name, time in TimeAtomToSolverLit.grab_id(lit):
 				for tc in self.watch_to_tc[sign, name]:
 					if tc.size > 2:
 						if tc.undo((sign, name, time)) is None:
@@ -201,10 +204,10 @@ class CountPropagator(TimedAtomPropagator):
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
 			util.Count.add("size_2")
-			return TheoryConstraintSize2TimedProp(t_atom)
+			return TheoryConstraintSize2TimedProp(t_atom, self.lock_ng)
 		else:
 			util.Count.add("size_{}".format(size))
-			return TheoryConstraintCountProp(t_atom)
+			return TheoryConstraintCountProp(t_atom, self.lock_ng)
 
 
 class MetaPropagator(Propagator):
@@ -246,7 +249,7 @@ class MetaPropagator(Propagator):
 	def propagate(self, control, changes):
 
 		for lit in changes:
-			for sign, name, time in TimeAtomToSolverLit.grab_name(lit):
+			for sign, name, time in TimeAtomToSolverLit.grab_id(lit):
 				for prop_func in self.watch_to_tc[sign, name]:
 					if prop_func(control, (sign, name, time)) is None:
 						return
@@ -257,10 +260,10 @@ class MetaPropagator(Propagator):
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
 			util.Count.add("size_2")
-			return TheoryConstraintMetaProp(t_atom)
+			return TheoryConstraintMetaProp(t_atom, self.lock_ng)
 		else:
 			util.Count.add("size_{}".format(size))
-			return TheoryConstraintMetaProp(t_atom)
+			return TheoryConstraintMetaProp(t_atom, self.lock_ng)
 
 
 class MetaTAtomPropagator(TimedAtomPropagator):
@@ -308,7 +311,7 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 	def propagate(self, control, changes):
 
 		for lit in changes:
-			for sign, name, time in TimeAtomToSolverLit.grab_name(lit):
+			for sign, name, time in TimeAtomToSolverLit.grab_id(lit):
 				if self.watch_to_tc[sign, name].propagate(control, (sign, name, time)) is None:
 					return
 
@@ -318,10 +321,10 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
 			util.Count.add("size_2")
-			return TheoryConstraint(t_atom)
+			return TheoryConstraint(t_atom, self.lock_ng)
 		else:
 			util.Count.add("size_{}".format(size))
-			return TheoryConstraint(t_atom)
+			return TheoryConstraint(t_atom, self.lock_ng)
 
 
 class RegularAtomPropagatorNaive(Propagator):
@@ -345,10 +348,10 @@ class RegularAtomPropagatorNaive(Propagator):
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
 			util.Count.add("size_2")
-			return TheoryConstraintSize2Prop(t_atom)
+			return TheoryConstraintSize2Prop(t_atom, self.lock_ng)
 		else:
 			util.Count.add("size_{}".format(size))
-			return TheoryConstraintNaiveProp(t_atom)
+			return TheoryConstraintNaiveProp(t_atom, self.lock_ng)
 
 
 class RegularAtomPropagator2watch(Propagator):
@@ -387,10 +390,10 @@ class RegularAtomPropagator2watch(Propagator):
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
 			util.Count.add("size_2")
-			return TheoryConstraintSize2Prop(t_atom)
+			return TheoryConstraintSize2Prop(t_atom, self.lock_ng)
 		else:
 			util.Count.add("size_{}".format(size))
-			return TheoryConstraint2watchProp(t_atom)
+			return TheoryConstraint2watchProp(t_atom, self.lock_ng)
 
 
 class RegularAtomPropagator2watchMap(Propagator):
@@ -469,7 +472,7 @@ class RegularAtomPropagator2watchMap(Propagator):
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
 			util.Count.add("size_2")
-			return TheoryConstraintSize2Prop2WatchMap(t_atom)
+			return TheoryConstraintSize2Prop2WatchMap(t_atom, self.lock_ng)
 		else:
 			util.Count.add("size_{}".format(size))
-			return TheoryConstraint2watchPropMap(t_atom)
+			return TheoryConstraint2watchPropMap(t_atom, self.lock_ng)

@@ -11,7 +11,7 @@ from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
 
 from untimed.propagator.theoryconstraint_base import TheoryConstraint
 from untimed.propagator.theoryconstraint_base import form_nogood
-from untimed.propagator.theoryconstraint_base import get_at_from_name_id
+from untimed.propagator.theoryconstraint_base import get_at_from_internal_lit
 from untimed.propagator.theoryconstraint_base import check_assignment
 from untimed.propagator.theoryconstraint_base import get_replacement_watch
 
@@ -19,8 +19,8 @@ from untimed.propagator.theoryconstraint_base import get_replacement_watch
 class TheoryConstraintSize2Prop(TheoryConstraint):
 	__slots__ = []
 
-	def __init__(self, constraint) -> None:
-		super().__init__(constraint)
+	def __init__(self, constraint, lock_nogoods=-1) -> None:
+		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	# @profile
@@ -50,8 +50,8 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 		"""
 
 		ats = set()
-		for name_id in TimeAtomToSolverLit.grab_name(change):
-			ats.update(get_at_from_name_id(name_id, self.t_atom_info))
+		for name_id in TimeAtomToSolverLit.grab_id(change):
+			ats.update(get_at_from_internal_lit(name_id, self.t_atom_info))
 
 		for assigned_time in ats:
 			if assigned_time < self.min_time or assigned_time > self.max_time:
@@ -59,7 +59,7 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 			ng = form_nogood(self.t_atom_info, assigned_time)
 			if ng is None:
 				continue
-			if not control.add_nogood(ng) or not control.propagate():
+			if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
 				return None
 
 		return []
@@ -68,8 +68,8 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 	__slots__ = []
 
-	def __init__(self, constraint) -> None:
-		super().__init__(constraint)
+	def __init__(self, constraint, lock_nogoods=-1) -> None:
+		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	def build_watches(self, init) -> Set[int]:
@@ -103,7 +103,7 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 		if ng is None:
 			return []
 
-		if not control.add_nogood(ng) or not control.propagate():
+		if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
 			return None
 
 		return []
@@ -112,8 +112,8 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 class TheoryConstraintNaiveProp(TheoryConstraint):
 	__slots__ = []
 
-	def __init__(self, constraint) -> None:
-		super().__init__(constraint)
+	def __init__(self, constraint, lock_nogoods=-1) -> None:
+		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	# @profile
@@ -145,8 +145,8 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 		"""
 
 		ats = set()
-		for name_id in TimeAtomToSolverLit.grab_name(change):
-			ats.update(get_at_from_name_id(name_id, self.t_atom_info))
+		for name_id in TimeAtomToSolverLit.grab_id(change):
+			ats.update(get_at_from_internal_lit(name_id, self.t_atom_info))
 
 		for assigned_time in ats:
 			if assigned_time < self.min_time or assigned_time > self.max_time:
@@ -159,7 +159,7 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 				util.Count.add("useful_prop")
-				if not control.add_nogood(ng) or not control.propagate():
+				if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
 					return None
 		return 1
 
@@ -174,8 +174,8 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 
 	__slots__ = ["watches_to_at"]
 
-	def __init__(self, constraint) -> None:
-		super().__init__(constraint)
+	def __init__(self, constraint, lock_nogoods=-1) -> None:
+		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 		self.watches_to_at: Dict[int, Set[int]] = defaultdict(set)
 
@@ -224,7 +224,7 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 				util.Count.add("useful_prop")
-				if not control.add_nogood(ng) or not control.propagate():
+				if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
 					return None
 
 			for lit, ats in self.watches_to_at.items():
@@ -262,8 +262,8 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 class TheoryConstraint2watchPropMap(TheoryConstraint):
 	__slots__ = []
 
-	def __init__(self, constraint) -> None:
-		super().__init__(constraint)
+	def __init__(self, constraint, lock_nogoods=-1) -> None:
+		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	def build_watches(self, init) -> List[int]:
@@ -304,7 +304,7 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 
 		if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 			util.Count.add("useful_prop")
-			if not control.add_nogood(ng) or not control.propagate():
+			if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
 				return None
 
 		return ng
@@ -313,8 +313,8 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 class TheoryConstraintSize2TimedProp(TheoryConstraint):
 	__slots__ = []
 
-	def __init__(self, constraint) -> None:
-		super().__init__(constraint)
+	def __init__(self, constraint, lock_nogoods=-1) -> None:
+		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	def build_watches(self, init) -> None:
@@ -337,16 +337,31 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 
-		ats = get_at_from_name_id(change, self.t_atom_info)
+		ats = get_at_from_internal_lit(change, self.t_atom_info)
 
 		for assigned_time in ats:
-			if assigned_time < self.min_time or assigned_time > self.max_time:
+
+			if self.lock_nogoods is None:
+				if assigned_time < self.min_time or assigned_time > self.max_time:
+					continue
+			elif self.lock_nogoods[assigned_time] is None:
 				continue
+
 			ng = form_nogood(self.t_atom_info, assigned_time)
 			if ng is None:
 				continue
 
-			if not control.add_nogood(ng) or not control.propagate():
+			lock = False
+			if self.lock_nogoods is not None:
+				self.lock_nogoods[assigned_time] -= 1
+				if self.lock_nogoods[assigned_time] == 0:
+					#del self.lock_nogoods[assigned_time]
+					util.Count.add("locked_ng")
+					lock = True
+
+					self.lock_nogoods[assigned_time] = None
+
+			if not control.add_nogood(ng, lock=lock) or not control.propagate():
 				return None
 
 		return 1
@@ -355,8 +370,8 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 class TheoryConstraintTimedProp(TheoryConstraint):
 	__slots__ = []
 
-	def __init__(self, constraint) -> None:
-		super().__init__(constraint)
+	def __init__(self, constraint, lock_nogoods=-1) -> None:
+		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	def build_watches(self, init) -> None:
@@ -377,7 +392,7 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 
-		ats = get_at_from_name_id(change, self.t_atom_info)
+		ats = get_at_from_internal_lit(change, self.t_atom_info)
 
 		for assigned_time in ats:
 			if assigned_time < self.min_time or assigned_time > self.max_time:
@@ -390,7 +405,7 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 				util.Count.add("useful_prop")
-				if not control.add_nogood(ng) or not control.propagate():
+				if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
 					return None
 
 		return 1
@@ -399,8 +414,8 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 class TheoryConstraintCountProp(TheoryConstraint):
 	__slots__ = ["counts"]
 
-	def __init__(self, constraint) -> None:
-		super().__init__(constraint)
+	def __init__(self, constraint, lock_nogoods=-1) -> None:
+		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.counts: Dict[int, int] = {}
 		for i in range(self.min_time, self.max_time +1):
 			self.counts[i] = 0
@@ -424,7 +439,7 @@ class TheoryConstraintCountProp(TheoryConstraint):
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 
-		ats = get_at_from_name_id(change, self.t_atom_info)
+		ats = get_at_from_internal_lit(change, self.t_atom_info)
 
 		for assigned_time in ats:
 			if assigned_time < self.min_time or assigned_time > self.max_time:
@@ -435,13 +450,13 @@ class TheoryConstraintCountProp(TheoryConstraint):
 				ng = form_nogood(self.t_atom_info, assigned_time)
 				if ng is None:
 					continue
-				if not control.add_nogood(ng) or not control.propagate():
+				if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
 					return None
 
 		return 1
 
 	def undo(self, change):
-		ats = get_at_from_name_id(change, self.t_atom_info)
+		ats = get_at_from_internal_lit(change, self.t_atom_info)
 		for assigned_time in ats:
 			if assigned_time > self.max_time:
 				continue
@@ -450,23 +465,11 @@ class TheoryConstraintCountProp(TheoryConstraint):
 				print("ERROR???")
 
 
-def check_time_atom_truth(sign, name, time, control):
-	try:
-		lit = TimeAtomToSolverLit.grab_lit((sign, name, time))
-	except KeyError:
-		if sign == 1:
-			return False
-		elif sign == -1:
-			return True
-
-	return control.assignment.is_true(lit)
-
-
 class TheoryConstraintMetaProp(TheoryConstraint):
 	__slots__ = ["propagate_func"]
 
-	def __init__(self, constraint) -> None:
-		super().__init__(constraint)
+	def __init__(self, constraint, lock_nogoods=-1) -> None:
+		super().__init__(constraint, lock_nogoods=lock_nogoods)
 
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
@@ -543,7 +546,7 @@ if_template = """
 			{ng}	
 			update_result = check_assignment(ng, control)
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-				if not control.add_nogood(ng) or not control.propagate():
+				if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
 					return None
 """
 
@@ -552,7 +555,7 @@ if_template_size2 = """
 		at = time + {t_mod}
 		if at >= {min} and at <= {max}:	
 			{ng}	
-			if not control.add_nogood(ng) or not control.propagate():
+			if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
 				return None
 """
 
@@ -562,7 +565,7 @@ if_template_t_atom = """
 		{ng}
 		update_result = check_assignment(ng, control)
 		if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-			if not control.add_nogood(ng) or not control.propagate():
+			if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
 				return None
 """
 
@@ -625,7 +628,7 @@ def propagate_timed(control, change, t_atom_info, min_time, max_time) -> Optiona
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 
-		ats = get_at_from_name_id(change, t_atom_info)
+		ats = get_at_from_internal_lit(change, t_atom_info)
 
 		for assigned_time in ats:
 			if assigned_time < min_time or assigned_time > max_time:

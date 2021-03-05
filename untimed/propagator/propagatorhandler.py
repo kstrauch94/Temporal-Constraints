@@ -71,7 +71,7 @@ class TheoryHandler:
 
 	supported_types = ["naive", "2watch"]
 
-	def __init__(self, prop_type: str = "2watch") -> None:
+	def __init__(self, prop_type: str = "2watch", lock=False) -> None:
 		"""
 		:param prop_type: type of propagator for general nogoods ["2watch", "naive"]
 		"""
@@ -105,14 +105,14 @@ class TheoryHandlerWithPropagator:
 
 	supported_types = ["timed", "timed_aw", "meta", "meta_ta", "count", "naive", "2watch", "2watchmap"]
 
-	def __init__(self, prop_type: str = "timed") -> None:
+	def __init__(self, prop_type: str = "timed", lock_ng=-1) -> None:
 
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		if prop_type not in TheoryHandlerWithPropagator.supported_types:
 			raise ValueError("Propagator Handler does not support {} watch type".format(prop_type))
 
-		self.propagator = PROPAGATORS[prop_type]()
+		self.propagator = PROPAGATORS[prop_type](lock_ng)
 
 	@util.Timer("Register")
 	def register(self, prg) -> None:

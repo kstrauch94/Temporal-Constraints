@@ -9,6 +9,7 @@ from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_data import Signatures
 from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
 
+import clingo
 
 @util.Timer("parse_atom")
 # @profile
@@ -18,7 +19,7 @@ def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[s
 
 	:param constraint: clingo TheoryAtom
 	"""
-	t_atom_info: Dict[str, atom_info] = {}
+	t_atom_info: List[atom_info] = []
 
 	min_time, max_time = parse_constraint_times(constraint.term.arguments)
 
@@ -26,6 +27,7 @@ def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[s
 		# this gives me the "type" of the term | e.g. for +~on(..) it would return +~
 		term_type: str = atom.terms[0].name
 
+		"""	
 		# after selecting the atom we convert it to a string and delete the parenthesis
 		name: str = str(atom.terms[0].arguments[0])[:-1]
 
@@ -36,6 +38,13 @@ def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[s
 			name = f"{name},"
 
 		uq_name: str = term_type + name
+		"""
+
+		internal_name = atom.terms[0].arguments[0].name
+		internal_args = tuple(atom.terms[0].arguments[0].arguments)
+		#print("parse atoms internal lit: ", uq_name, )
+
+		internal_lit = Signatures.fullsigs_term[internal_name, internal_args]
 
 		if term_type == "+.":
 			sign = 1
@@ -52,7 +61,7 @@ def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[s
 		else:
 			raise TypeError(f"Invalid term prefix {term_type} used in {constraint}")
 
-		t_atom_info[uq_name] = atom_info(sign=sign, time_mod=time_mod, name=name)
+		t_atom_info.append(atom_info(sign=sign, time_mod=time_mod, internal_lit=internal_lit * sign))
 
 	return t_atom_info, min_time, max_time
 
@@ -64,6 +73,7 @@ def parse_signature(constraint):
 	:param constraint: clingo TheoryAtom
 	"""
 	for atom in constraint.elements:
+
 		# this gives me the "type" of the term | e.g. for +~on(..) it would return +~
 		term_type: str = atom.terms[0].name
 
@@ -76,6 +86,12 @@ def parse_signature(constraint):
 			atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments) + 1)
 
 		Signatures.sigs.add((sign, signature))
+
+		sig_tuple_term = (atom.terms[0].arguments[0].name, tuple(atom.terms[0].arguments[0].arguments))
+		s_atom = clingo.parse_term(str(atom.terms[0].arguments[0]))
+		sig_tuple = (s_atom.name, tuple(s_atom.arguments))
+
+		Signatures.add_fullsig(sig_tuple, sig_tuple_term)
 
 
 def parse_constraint_times(times) -> Tuple[int, int]:
@@ -96,11 +112,11 @@ def parse_constraint_times(times) -> Tuple[int, int]:
 
 def build_symbol_id(info, time):
 	"""
-	Builds the name_id for TimeAtomToSolverLit
+	Builds the internal_lit for TimeAtomToSolverLit
 
 	:param info: Information dictionary for a particular atom
 	:param time: The time point
-	:return: A name_id Triple
+	:return: A internal_lit Triple
 	"""
 	return info.sign, info.name, time
 
@@ -138,6 +154,10 @@ def reverse_assigned_time(info: atom_info, assigned_time: int) -> int:
 	return assigned_time - info.time_mod
 
 
+def base_lit_to_internal_lit(info: atom_info, time):
+
+	return info.internal_lit + (time * Signatures.fullsig_size * info.sign)
+
 # @profile
 def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	"""
@@ -150,10 +170,10 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 
 	ng: Set[int] = set()
 
-	for uq_name, info in t_atom_info.items():
+	for info in t_atom_info:
 		time: int = reverse_assigned_time(info, assigned_time)
 		try:
-			lit = TimeAtomToSolverLit.grab_lit(build_symbol_id(info, time))
+			lit = TimeAtomToSolverLit.grab_lit(base_lit_to_internal_lit(info, time))
 		except KeyError:
 			# this error would happen if an id is not in the mapping
 			# if this happens it means the atom does not exist for this assigned time
@@ -270,12 +290,13 @@ def check_assignment_complete(nogood, control) -> int:
 	return CONSTRAINT_CHECK["CONFLICT"]
 
 
-def get_at_from_name_id(name_id: Tuple[int, str, int], t_atom_info):
-	sign, name, time = name_id
+def get_at_from_internal_lit(internal_lit: int, t_atom_info):
 
 	ats = set()
-	for uq_name, info in t_atom_info.items():
-		if info.sign == sign and info.name == name:
+	for info in t_atom_info:
+		if internal_lit == info.internal_lit:
+			# the // is to get the quotient of the operation! this should get the time point!
+			time = internal_lit // Signatures.fullsig_size
 			ats.add(get_assigned_time(info, time))
 
 	return ats
@@ -283,6 +304,7 @@ def get_at_from_name_id(name_id: Tuple[int, str, int], t_atom_info):
 
 def init_TA2L_mapping(init):
 	for sign, sig in Signatures.sigs:
+		#print(sig, sign)
 		for s_atom in init.symbolic_atoms.by_signature(*sig):
 			time = parse_time(s_atom)
 			# if argument size is 1 then only time is present
@@ -292,11 +314,40 @@ def init_TA2L_mapping(init):
 				name: str = str(s_atom.symbol).split(",")[:-1]
 				name = ",".join(name)
 				name = f"{name},"
-
 			lit = init.solver_literal(s_atom.literal)
 			TimeAtomToSolverLit.add((sign, name, time), lit * sign)
 			#TimeAtomToSolverLit.add((1, name, time), lit)
 
+	Signatures.finished = True
+
+
+def init_TA2L_mapping_integers(init):
+	print(Signatures.fullsigs)
+
+	for sign, sig in Signatures.sigs:
+		for s_atom in init.symbolic_atoms.by_signature(*sig):
+			time = parse_time(s_atom)
+
+			name = s_atom.symbol.name
+			args = tuple(s_atom.symbol.arguments[:-1])
+
+			if (name, args) not in Signatures.fullsigs:
+				print("skipped: ", name, args)
+				continue
+
+			lit = init.solver_literal(s_atom.literal) * sign
+			internal_lit = Signatures.fullsigs[name, args] + (Signatures.fullsig_size * time)
+			internal_lit *= sign
+			# TimeAtomToSolverLit.add((internal_lit, name, args, time), lit)
+			TimeAtomToSolverLit.add(internal_lit, lit)
+
+			print("symbol: ", str(s_atom.symbol), lit)
+			print("lit of the base: ", Signatures.fullsigs[name, args])
+			print("internal lit: ", internal_lit)
+			print("doing the % thing: ", internal_lit % Signatures.fullsig_size)
+
+	print(TimeAtomToSolverLit.lit_to_id)
+	Signatures.finished = True
 
 def choose_lit(lits: List[int], current_watches: int, control) -> Optional[int]:
 	"""
@@ -353,25 +404,33 @@ class TheoryConstraint:
 
 	"""
 
-	__slots__ = ["t_atom_info", "max_time", "min_time", "logger"]
+	__slots__ = ["t_atom_info", "max_time", "min_time", "logger", "lock_nogoods"]
 
-	def __init__(self, constraint) -> None:
+	def __init__(self, constraint, lock_nogoods=-1) -> None:
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-		self.t_atom_info: Dict[str, atom_info] = {}
+		self.t_atom_info: List[atom_info]
 
 		self.max_time: int = None
 		self.min_time: int = None
 
 		self.t_atom_info, self.min_time, self.max_time = parse_atoms(constraint)
 
+		if lock_nogoods == -1:
+			self.lock_nogoods = None
+		elif lock_nogoods > 0:
+			self.lock_nogoods = [lock_nogoods] * (self.max_time + 2)
+			for i in range(-1, self.min_time):
+				self.lock_nogoods[i] = None
+			self.lock_nogoods[-1] = None # this one just captures the extra one just in case a literal gets an assigned time outside of the max bound
+
 	@property
 	def t_atom_names(self):
-		return self.t_atom_info.keys()
+		return self.t_atom_info
 
 	@property
 	def size(self) -> int:
-		return len(self.t_atom_info.keys())
+		return len(self.t_atom_info)
 
 	@util.Count("Init")
 	@util.Timer("Init")
@@ -389,8 +448,6 @@ class TheoryConstraint:
 		"""
 		if not Signatures.finished:
 			init_TA2L_mapping(init)
-
-			Signatures.finished = True
 
 	def build_watches(self, init) -> List[int]:
 		"""
@@ -434,7 +491,7 @@ class TheoryConstraintSize1(TheoryConstraint):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	def init(self, init):
-		if not TimeAtomToSolverLit.initialized:
+		if not Signatures.finished:
 			init_TA2L_mapping(init)
 
 		self.init_mappings(init)
@@ -443,17 +500,18 @@ class TheoryConstraintSize1(TheoryConstraint):
 		"""
 		Instead of adding to TimeAtomToSolverLit it immediately adds a clause for the nogood
 		"""
-		for uq_name, info in self.t_atom_info.items():
+		for info in self.t_atom_info:
 			for assigned_time in range(self.min_time, self.max_time + 1):
 				try:
-					solver_lit = TimeAtomToSolverLit.grab_lit((info.sign, info.name, assigned_time - info.time_mod))
+					internal_lit = base_lit_to_internal_lit(info, assigned_time - info.time_mod)
+					solver_lit = TimeAtomToSolverLit.grab_lit(internal_lit)
 				except KeyError:
 					continue
 
 				# add nogood
 				init.add_clause([-solver_lit])
 
-			self.t_atom_info[uq_name] = False
+		self.t_atom_info = None
 
 	def check(self, *args, **kwargs):
 		return 0
