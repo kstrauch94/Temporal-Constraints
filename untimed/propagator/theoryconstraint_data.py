@@ -2,6 +2,8 @@ from collections import defaultdict
 
 from typing import Dict, Tuple, Set, Any, Optional, List
 
+import untimed.util as util
+
 CONSTRAINT_CHECK = {"NONE": 0,
 					"UNIT": 1,
 					"CONFLICT": -1}
@@ -9,15 +11,15 @@ CONSTRAINT_CHECK = {"NONE": 0,
 
 class AtomInfo:
 
-	__slots__ = ["sign", "time_mod", "internal_lit"]
+	__slots__ = ["sign", "time_mod", "untimed_lit"]
 
-	def __init__(self, sign, time_mod, internal_lit):
+	def __init__(self, sign, time_mod, untimed_lit):
 		self.sign = sign
 		self.time_mod = time_mod
-		self.internal_lit = internal_lit
+		self.untimed_lit = untimed_lit
 
 	def __eq__(self, other):
-		if other.sign == self.sign and other.time_mod == self.time_mod and other.internal_lit == self.internal_lit:
+		if other.sign == self.sign and other.time_mod == self.time_mod and other.untimed_lit == self.untimed_lit:
 			return True
 
 		return False
@@ -45,15 +47,16 @@ class ConstraintInfo:
 class TimeAtomToSolverLit:
 	"""
 	Maps a name id to a solver literal.
-	Has helper methods to retrieve either a literal or a name id
+	Has helper methods to retrieve either a literal or an internal_lit
 
-	internal_lit is a Tuple[sign, name, time]
 	"""
 	id_to_lit: Dict[int, int] = {}
 
 	lit_to_id: Dict[int, Set[int]] = defaultdict(set)
 
 	initialized: bool = False
+
+	size: int = None
 
 	@classmethod
 	#@profile
@@ -73,12 +76,14 @@ class TimeAtomToSolverLit:
 			# if sign is 1 then it means that a POSITIVE atom does not exist -> a false atom in the nogood -> automatically ok
 			#return -1
 
-			#on the new paradigm with internal lits, i will always look with opsitive internal lits, so we can assume
-			# it is negative if it is not in the mapping
-			# so we add it as -1 and return it
-			cls.add(internal_lit, -1)
-			return -1
-
+			if internal_lit >= 0:
+				# it is negative if it is not in the mapping
+				# so we add it as -1 and return it
+				cls.add(internal_lit, -1)
+				return -1
+			else:
+				cls.add(internal_lit, 1)
+				return 1
 
 		return lit
 
@@ -92,23 +97,13 @@ class TimeAtomToSolverLit:
 
 	@classmethod
 	def reset(cls):
-		cls.id_to_lit = {}
-		cls.lit_to_ids = defaultdict(set)
+		cls.id_to_lit.clear()
+		cls.lit_to_id.clear()
 		cls.initialized = False
-
-
-class LitToId:
-
-	lit2id: Dict[int, int] = {}
-	id2lit: Dict[int, int] = {}
-	size: int = 0
-
-	def add_base_lit(self, lit):
-		lit2id = 0
+		cls.size = 0
 
 class Signatures:
 	sigs: Set[Tuple[int, Tuple[Any, int]]] = set()
-	sigs_0 = set()
 	fullsigs = {}
 	fullsigs_term = {}
 	fullsig_size = 0
@@ -117,11 +112,24 @@ class Signatures:
 	@classmethod
 	def reset(cls):
 		cls.sigs = set()
+		cls.fullsigs.clear()
+		cls.fullsig_size = 0
+		cls.fullsigs_term.clear()
 		cls.finished = False
 
 	@classmethod
 	def add_fullsig(cls, fullsig, fullsig_term):
+		cls.fullsig_size += 1
 		cls.fullsigs[fullsig] = cls.fullsig_size
 		cls.fullsigs_term[fullsig_term] = cls.fullsig_size
 
-		cls.fullsig_size += 1
+	@classmethod
+	def convert_to_untimed_lit(cls, internal_lit):
+		intermediate = internal_lit % cls.fullsig_size
+		if intermediate == 0:
+			intermediate = cls.fullsig_size
+		return intermediate * util.sign(internal_lit)
+
+	@classmethod
+	def convert_to_time(cls, interal_lit):
+		return (abs(interal_lit) - 1) // cls.fullsig_size

@@ -5,7 +5,7 @@ from typing import List, Dict, Tuple, Set, Any, Optional
 
 import untimed.util as util
 
-from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
+from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit, Signatures
 
 from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
 
@@ -50,16 +50,20 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 		"""
 
 		ats = set()
-		for name_id in TimeAtomToSolverLit.grab_id(change):
-			ats.update(get_at_from_internal_lit(name_id, self.t_atom_info))
+		for internal_lit in TimeAtomToSolverLit.grab_id(change):
+			ats.update(get_at_from_internal_lit(internal_lit, self.t_atom_info))
 
 		for assigned_time in ats:
-			if assigned_time < self.min_time or assigned_time > self.max_time:
+			if not self.is_valid_time(assigned_time):
 				continue
+
 			ng = form_nogood(self.t_atom_info, assigned_time)
 			if ng is None:
 				continue
-			if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
+
+			lock = self.check_if_lock(assigned_time)
+
+			if not control.add_nogood(ng, lock=lock) or not control.propagate():
 				return None
 
 		return []
@@ -103,7 +107,9 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 		if ng is None:
 			return []
 
-		if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
+		lock = self.check_if_lock(assigned_time)
+
+		if not control.add_nogood(ng, lock=lock) or not control.propagate():
 			return None
 
 		return []
@@ -118,17 +124,13 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 
 	# @profile
 	def build_watches(self, init) -> Set[int]:
-		"""
-		Since there are only 2 atoms in the constraint we add all literals as watches
-		"""
+
 		watches = set()
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
-			if len(lits) == 1:
-				init.add_clause([-l for l in lits])
-				continue
+
 			watches.update(lits)
 
 		return watches
@@ -145,11 +147,11 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 		"""
 
 		ats = set()
-		for name_id in TimeAtomToSolverLit.grab_id(change):
-			ats.update(get_at_from_internal_lit(name_id, self.t_atom_info))
+		for internal_lit in TimeAtomToSolverLit.grab_id(change):
+			ats.update(get_at_from_internal_lit(internal_lit, self.t_atom_info))
 
 		for assigned_time in ats:
-			if assigned_time < self.min_time or assigned_time > self.max_time:
+			if not self.is_valid_time(assigned_time):
 				continue
 			ng = form_nogood(self.t_atom_info, assigned_time)
 			if ng is None:
@@ -158,8 +160,10 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 			update_result = check_assignment(ng, control)
 
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-				util.Count.add("useful_prop")
-				if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
+
+				lock = self.check_if_lock(assigned_time)
+
+				if not control.add_nogood(ng, lock=lock) or not control.propagate():
 					return None
 		return 1
 
@@ -213,7 +217,7 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 		replacement_info: List[List[int]] = []
 
 		for assigned_time in self.watches_to_at[change]:
-			if assigned_time < self.min_time or assigned_time > self.max_time:
+			if not self.is_valid_time(assigned_time):
 				continue
 
 			ng = form_nogood(self.t_atom_info, assigned_time)
@@ -223,8 +227,8 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 			update_result = check_assignment(ng, control)
 
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-				util.Count.add("useful_prop")
-				if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
+				lock = self.check_if_lock(assigned_time)
+				if not control.add_nogood(ng, lock=lock) or not control.propagate():
 					return None
 
 			for lit, ats in self.watches_to_at.items():
@@ -303,8 +307,8 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 		update_result = check_assignment(ng, control)
 
 		if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-			util.Count.add("useful_prop")
-			if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
+			lock = self.check_if_lock(assigned_time)
+			if not control.add_nogood(ng, lock=lock) or not control.propagate():
 				return None
 
 		return ng
@@ -341,25 +345,14 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 
 		for assigned_time in ats:
 
-			if self.lock_nogoods is None:
-				if assigned_time < self.min_time or assigned_time > self.max_time:
-					continue
-			elif self.lock_nogoods[assigned_time] is None:
+			if not self.is_valid_time(assigned_time):
 				continue
 
 			ng = form_nogood(self.t_atom_info, assigned_time)
 			if ng is None:
 				continue
 
-			lock = False
-			if self.lock_nogoods is not None:
-				self.lock_nogoods[assigned_time] -= 1
-				if self.lock_nogoods[assigned_time] == 0:
-					#del self.lock_nogoods[assigned_time]
-					util.Count.add("locked_ng")
-					lock = True
-
-					self.lock_nogoods[assigned_time] = None
+			lock = self.check_if_lock(assigned_time)
 
 			if not control.add_nogood(ng, lock=lock) or not control.propagate():
 				return None
@@ -395,7 +388,7 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 		ats = get_at_from_internal_lit(change, self.t_atom_info)
 
 		for assigned_time in ats:
-			if assigned_time < self.min_time or assigned_time > self.max_time:
+			if not self.is_valid_time(assigned_time):
 				continue
 			ng = form_nogood(self.t_atom_info, assigned_time)
 			if ng is None:
@@ -404,8 +397,8 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 			update_result = check_assignment(ng, control)
 
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-				util.Count.add("useful_prop")
-				if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
+				lock = self.check_if_lock(assigned_time)
+				if not control.add_nogood(ng, lock=lock) or not control.propagate():
 					return None
 
 		return 1
@@ -417,7 +410,7 @@ class TheoryConstraintCountProp(TheoryConstraint):
 	def __init__(self, constraint, lock_nogoods=-1) -> None:
 		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.counts: Dict[int, int] = {}
-		for i in range(self.min_time, self.max_time +1):
+		for i in range(self.min_time, self.max_time + 1):
 			self.counts[i] = 0
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
@@ -442,7 +435,7 @@ class TheoryConstraintCountProp(TheoryConstraint):
 		ats = get_at_from_internal_lit(change, self.t_atom_info)
 
 		for assigned_time in ats:
-			if assigned_time < self.min_time or assigned_time > self.max_time:
+			if not self.is_valid_time(assigned_time):
 				continue
 
 			self.counts[assigned_time] += 1
@@ -450,7 +443,8 @@ class TheoryConstraintCountProp(TheoryConstraint):
 				ng = form_nogood(self.t_atom_info, assigned_time)
 				if ng is None:
 					continue
-				if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
+				lock = self.check_if_lock(assigned_time)
+				if not control.add_nogood(ng, lock=lock) or not control.propagate():
 					return None
 
 		return 1
@@ -458,7 +452,7 @@ class TheoryConstraintCountProp(TheoryConstraint):
 	def undo(self, change):
 		ats = get_at_from_internal_lit(change, self.t_atom_info)
 		for assigned_time in ats:
-			if assigned_time > self.max_time:
+			if not self.is_valid_time(assigned_time):
 				continue
 			self.counts[assigned_time] -= 1
 			if self.counts[assigned_time] < 0:
@@ -495,24 +489,24 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 	def build_prop_function(self):
 		func_str = prop_template_start.format(f_name="prop_test")
 
-		for t_atom_name, info in self.t_atom_info.items():
+		for info in self.t_atom_info:
 
-			sign, name, time_mod = info.sign, info.name, info.time_mod
+			sign, untimed_lit, time_mod = info.sign, info.untimed_lit, info.time_mod
 
 			grab_lit_str = []
-			for ta_name in self.t_atom_names:
-				other_info = self.t_atom_info[ta_name]
+			for other_info in self.t_atom_names:
 				time_modifier = time_mod - other_info.time_mod
-				grab_lit = check_mapping.format(sign=other_info.sign,
-				                                name=other_info.name, mod=time_modifier)
+				grab_lit = check_mapping.format(untimed_lit=other_info.untimed_lit)
 				grab_lit_str.append(grab_lit)
 
 			ng_str = "ng = [{}]".format(", ".join(grab_lit_str))
 
 			if self.size > 2:
-				func_str += if_template.format(sign=sign, name=name, t_mod=time_mod, min=self.min_time, max=self.max_time, ng=ng_str)
+				func_str += if_template.format(untimed_lit=untimed_lit, t_mod=time_mod, min=self.min_time,
+				                               max=self.max_time, ng=ng_str)
 			else:
-				func_str += if_template_size2.format(sign=sign, name=name, t_mod=time_mod, min=self.min_time, max=self.max_time, ng=ng_str)
+				func_str += if_template_size2.format(untimed_lit=untimed_lit, t_mod=time_mod, min=self.min_time,
+				                                     max=self.max_time, ng=ng_str)
 
 		func_str += prop_template_end
 
@@ -524,15 +518,15 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 
 prop_template_start = """
 def {f_name}(control, change):
-	# change contains (sign, name, time) the same as timed atom propagator
-	sign, name, time = change
+	# change is the internal literal
+	time = Signatures.convert_to_time(change)
+
 """
 
 prop_template_t_atom_start = """
 def {f_name}(control, change):
-	# change contains (sign, name, time) the same as timed atom propagator
 	# propagate func for t_atom: {t_atom}
-	sign, name, time = change
+	time = Signatures.convert_to_time(change)
 """
 
 prop_template_end = """
@@ -540,18 +534,18 @@ prop_template_end = """
 """
 
 if_template = """
-	if (sign, name) == ({sign}, \'{name}\'):
+	if Signature.convert_to_untimed_lit(change) == {untimed_lit}:
 		at = time + {t_mod}
 		if at >= {min} and at <= {max}:	
 			{ng}	
 			update_result = check_assignment(ng, control)
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-				if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
+				if not control.add_nogood(ng, lock=self.lock_nogood) or not control.propagate():
 					return None
 """
 
 if_template_size2 = """
-	if (sign, name) == ({sign}, \'{name}\'):
+	if Signature.convert_to_untimed_lit(change) == {untimed_lit}:
 		at = time + {t_mod}
 		if at >= {min} and at <= {max}:	
 			{ng}	
@@ -569,7 +563,7 @@ if_template_t_atom = """
 				return None
 """
 
-check_mapping = "TimeAtomToSolverLit.grab_lit(({sign}, \'{name}\', time+{mod}))"
+check_mapping = "TimeAtomToSolverLit.grab_lit({untimed_lit})"
 
 class MetaTAtomProp():
 	__slots__ = ["t_atom", "propagate_func", "func_str", "if_blocks"]
@@ -595,11 +589,8 @@ class MetaTAtomProp():
 
 		grab_lit_str = []
 
-		for t_atom_name, info in t_atom_info.items():
-
-			time_modifier = time_mod - info.time_mod
-			grab_lit = check_mapping.format(sign=info.sign,
-			                                 name=info.name, mod=time_modifier)
+		for info in t_atom_info:
+			grab_lit = check_mapping.format(untimed_lit=info.untimed_lit)
 			grab_lit_str.append(grab_lit)
 
 		ng_str = "ng = [{}]".format(", ".join(grab_lit_str))
@@ -618,29 +609,4 @@ class MetaTAtomProp():
 			exec(self.func_str, globals())
 
 		self.propagate_func = prop_test
-		self.func_str = ""
-
-
-def propagate_timed(control, change, t_atom_info, min_time, max_time) -> Optional[List[Tuple]]:
-		"""
-		:param control: clingo PropagateControl object
-		:param change: literal that was assigned
-		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
-		"""
-
-		ats = get_at_from_internal_lit(change, t_atom_info)
-
-		for assigned_time in ats:
-			if assigned_time < min_time or assigned_time > max_time:
-				continue
-			ng = form_nogood(t_atom_info, assigned_time)
-			if ng is None:
-				continue
-
-			update_result = check_assignment(ng, control)
-
-			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-				if not control.add_nogood(ng) or not control.propagate():
-					return None
-
-		return 1
+		self.func_str = None

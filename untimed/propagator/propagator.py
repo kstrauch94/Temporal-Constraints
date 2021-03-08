@@ -6,6 +6,7 @@ import untimed.util as util
 from untimed.propagator.theoryconstraint_reg import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_reg import TheoryConstraint
 from untimed.propagator.theoryconstraint_base import init_TA2L_mapping, init_TA2L_mapping_integers
+from untimed.propagator.theoryconstraint_base import Signatures
 from untimed.propagator.theoryconstraint_base import get_replacement_watch
 from untimed.propagator.theoryconstraint_base import TheoryConstraintSize1
 
@@ -20,9 +21,6 @@ from untimed.propagator.theoryconstraint_prop import TheoryConstraintSize2TimedP
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintTimedProp
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintMetaProp
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintCountProp
-
-from untimed.propagator.theoryconstraint_prop import propagate_timed
-
 
 class Propagator:
 	"""
@@ -61,7 +59,7 @@ class Propagator:
 
 	@util.Timer("Prop_init")
 	def init(self, init):
-		init_TA2L_mapping(init)
+		init_TA2L_mapping_integers(init)
 
 		t_atom_count = 0
 		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
@@ -75,6 +73,9 @@ class Propagator:
 
 		for lit in self.watch_to_tc:
 			init.add_watch(lit)
+
+		self.purge_unused_lits(self.watch_to_tc.keys())
+
 		util.Stats.add("Theory Constraints", t_atom_count)
 
 	def propagate(self, control, changes):
@@ -90,6 +91,23 @@ class Propagator:
 
 	def make_tc(self, t_atom):
 		pass
+
+	@util.Timer("Purge Lits")
+	def purge_unused_lits(self, watches):
+		badlits = []
+		for lit in TimeAtomToSolverLit.lit_to_id.keys():
+			if lit not in watches:
+				badlits.append(lit)
+
+		util.Count.add("literals purged",len(badlits))
+		print(badlits)
+		util.Count.add("total literals in mapping", len(TimeAtomToSolverLit.lit_to_id.keys()))
+		print(TimeAtomToSolverLit.lit_to_id.keys())
+		for lit in badlits:
+			internals = TimeAtomToSolverLit.grab_id(lit)
+			del TimeAtomToSolverLit.lit_to_id[lit]
+			for idx in internals:
+				del TimeAtomToSolverLit.id_to_lit[idx]
 
 
 class TimedAtomPropagator(Propagator):
@@ -109,13 +127,12 @@ class TimedAtomPropagator(Propagator):
 			return
 
 		for info in tc.t_atom_info:
-			self.watch_to_tc[info.internal_lit].append(tc)
+			self.watch_to_tc[info.untimed_lit].append(tc)
 
 	@util.Timer("Prop_init")
 	def init(self, init):
 		watches = set()
 		init_TA2L_mapping_integers(init)
-		init_TA2L_mapping(init)
 
 		t_atom_count = 0
 		all_t_atom_count = 0
@@ -133,6 +150,8 @@ class TimedAtomPropagator(Propagator):
 		for lit in watches:
 			init.add_watch(lit)
 
+		self.purge_unused_lits(watches)
+
 		util.Stats.add("Theory Constraints", t_atom_count)
 		util.Stats.add("Signature Constraints", all_t_atom_count - t_atom_count)
 
@@ -141,7 +160,7 @@ class TimedAtomPropagator(Propagator):
 	def propagate(self, control, changes):
 		for lit in changes:
 			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
-				for tc in self.watch_to_tc[internal_lit]:
+				for tc in self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)]:
 					if tc.propagate(control, internal_lit) is None:
 						return
 
@@ -153,7 +172,7 @@ class TimedAtomPropagator(Propagator):
 			util.Count.add("size_2")
 			return TheoryConstraintSize2TimedProp(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_-1}")
+			util.Count.add("size_-1")
 			return TheoryConstraintTimedProp(t_atom, self.lock_ng)
 
 
@@ -166,7 +185,7 @@ class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 
 	@util.Timer("Prop_init")
 	def init(self, init):
-		init_TA2L_mapping(init)
+		init_TA2L_mapping_integers(init)
 
 		t_atom_count = 0
 		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
@@ -182,7 +201,7 @@ class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 		util.Stats.add("Theory Constraints", t_atom_count)
 
 	def build_watches(self, init):
-		for lit in TimeAtomToSolverLit.lit_to_name.keys():
+		for lit in TimeAtomToSolverLit.lit_to_id.keys():
 			if lit != -1:
 				init.add_watch(lit)
 
@@ -192,10 +211,10 @@ class CountPropagator(TimedAtomPropagator):
 	@util.Timer("Undo")
 	def undo(self, thread_id, assignment, changes):
 		for lit in changes:
-			for sign, name, time in TimeAtomToSolverLit.grab_id(lit):
-				for tc in self.watch_to_tc[sign, name]:
+			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
+				for tc in self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)]:
 					if tc.size > 2:
-						if tc.undo((sign, name, time)) is None:
+						if tc.undo(internal_lit) is None:
 							return
 
 	def make_tc(self, t_atom):
@@ -206,7 +225,7 @@ class CountPropagator(TimedAtomPropagator):
 			util.Count.add("size_2")
 			return TheoryConstraintSize2TimedProp(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_{}".format(size))
+			util.Count.add("size_-1")
 			return TheoryConstraintCountProp(t_atom, self.lock_ng)
 
 
@@ -220,13 +239,13 @@ class MetaPropagator(Propagator):
 		if tc.size == 1:
 			return
 
-		for uq_name, info in tc.t_atom_info.items():
-			self.watch_to_tc[info.sign, info.name].append(prop_func)
+		for info in tc.t_atom_info:
+			self.watch_to_tc[info.untimed_lit].append(prop_func)
 
 	@util.Timer("Prop_init")
 	def init(self, init):
 		watches = set()
-		init_TA2L_mapping(init)
+		init_TA2L_mapping_integers(init)
 
 		t_atom_count = 0
 		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
@@ -242,6 +261,8 @@ class MetaPropagator(Propagator):
 		for lit in watches:
 			init.add_watch(lit)
 
+		self.purge_unused_lits(watches)
+
 		util.Stats.add("Theory Constraints", t_atom_count)
 
 	@util.Count("Propagation")
@@ -249,9 +270,9 @@ class MetaPropagator(Propagator):
 	def propagate(self, control, changes):
 
 		for lit in changes:
-			for sign, name, time in TimeAtomToSolverLit.grab_id(lit):
-				for prop_func in self.watch_to_tc[sign, name]:
-					if prop_func(control, (sign, name, time)) is None:
+			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
+				for prop_func in self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)]:
+					if prop_func(control, internal_lit) is None:
 						return
 
 	def make_tc(self, t_atom):
@@ -262,7 +283,7 @@ class MetaPropagator(Propagator):
 			util.Count.add("size_2")
 			return TheoryConstraintMetaProp(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_{}".format(size))
+			util.Count.add("size_-1")
 			return TheoryConstraintMetaProp(t_atom, self.lock_ng)
 
 
@@ -274,17 +295,16 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 		:param tc: theory constraint for timed watches
 		:param watches: Not used, just here for compatibility
 		"""
-		for t_atom in tc.t_atom_names:
-			info = tc.t_atom_info[t_atom]
-			if (info.sign, info.name) not in self.watch_to_tc:
-				self.watch_to_tc[info.sign, info.name] = MetaTAtomProp((info.sign, info.name), info.time_mod)
+		for info in tc.t_atom_names:
+			if info.untimed_lit not in self.watch_to_tc:
+				self.watch_to_tc[info.untimed_lit] = MetaTAtomProp(info.untimed_lit, info.time_mod)
 
-			self.watch_to_tc[info.sign, info.name].build_prop_function(tc.t_atom_info, info.time_mod, tc.min_time, tc.max_time)
+			self.watch_to_tc[info.untimed_lit].build_prop_function(tc.t_atom_info, info.time_mod, tc.min_time, tc.max_time)
 
 	@util.Timer("Prop_init")
 	def init(self, init):
 		watches = set()
-		init_TA2L_mapping(init)
+		init_TA2L_mapping_integers(init)
 
 		t_atom_count = 0
 		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
@@ -304,6 +324,8 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 		for lit in watches:
 			init.add_watch(lit)
 
+		self.purge_unused_lits(watches)
+
 		util.Stats.add("Theory Constraints", t_atom_count)
 
 	@util.Count("Propagation")
@@ -311,8 +333,8 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 	def propagate(self, control, changes):
 
 		for lit in changes:
-			for sign, name, time in TimeAtomToSolverLit.grab_id(lit):
-				if self.watch_to_tc[sign, name].propagate(control, (sign, name, time)) is None:
+			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
+				if self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)].propagate(control, internal_lit) is None:
 					return
 
 	def make_tc(self, t_atom):
@@ -323,7 +345,7 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 			util.Count.add("size_2")
 			return TheoryConstraint(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_{}".format(size))
+			util.Count.add("size_-1")
 			return TheoryConstraint(t_atom, self.lock_ng)
 
 
@@ -350,7 +372,7 @@ class RegularAtomPropagatorNaive(Propagator):
 			util.Count.add("size_2")
 			return TheoryConstraintSize2Prop(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_{}".format(size))
+			util.Count.add("size_-1")
 			return TheoryConstraintNaiveProp(t_atom, self.lock_ng)
 
 
@@ -392,7 +414,7 @@ class RegularAtomPropagator2watch(Propagator):
 			util.Count.add("size_2")
 			return TheoryConstraintSize2Prop(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_{}".format(size))
+			util.Count.add("size_-1")
 			return TheoryConstraint2watchProp(t_atom, self.lock_ng)
 
 
@@ -423,7 +445,7 @@ class RegularAtomPropagator2watchMap(Propagator):
 	@util.Timer("Prop_init")
 	def init(self, init):
 		all_watches = set()
-		init_TA2L_mapping(init)
+		init_TA2L_mapping_integers(init)
 
 		t_atom_count = 0
 		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
@@ -439,6 +461,8 @@ class RegularAtomPropagator2watchMap(Propagator):
 
 		for lit in all_watches:
 			init.add_watch(lit)
+
+		self.purge_unused_lits(all_watches)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
 
@@ -474,5 +498,5 @@ class RegularAtomPropagator2watchMap(Propagator):
 			util.Count.add("size_2")
 			return TheoryConstraintSize2Prop2WatchMap(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_{}".format(size))
+			util.Count.add("size_-1")
 			return TheoryConstraint2watchPropMap(t_atom, self.lock_ng)

@@ -54,7 +54,7 @@ class Application:
 
 	def __parse_lock_ng(self, n):
 		n = int(n)
-		if n < -1 or n == 0:
+		if n < -1:
 			return False
 
 		self.lock_ng = n

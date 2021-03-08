@@ -7,6 +7,8 @@ from typing import Any, Optional, Callable
 
 import sys
 
+from math import copysign
+
 
 class TimerError(Exception):
 	pass
@@ -124,3 +126,7 @@ def get_size(obj, seen=None):
 	elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
 		size += sum([get_size(i, seen) for i in obj])
 	return size
+
+
+def sign(y):
+	return copysign(1, y)
