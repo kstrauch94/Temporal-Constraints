@@ -5,7 +5,7 @@ from typing import List, Dict, Tuple, Set, Any, Optional
 
 import untimed.util as util
 
-from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit, Signatures
+from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
 
 from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
 

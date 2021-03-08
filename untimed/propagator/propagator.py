@@ -100,9 +100,7 @@ class Propagator:
 				badlits.append(lit)
 
 		util.Count.add("literals purged",len(badlits))
-		print(badlits)
 		util.Count.add("total literals in mapping", len(TimeAtomToSolverLit.lit_to_id.keys()))
-		print(TimeAtomToSolverLit.lit_to_id.keys())
 		for lit in badlits:
 			internals = TimeAtomToSolverLit.grab_id(lit)
 			del TimeAtomToSolverLit.lit_to_id[lit]
