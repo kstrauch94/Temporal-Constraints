@@ -78,7 +78,10 @@ abnormal(carry(R,S),T) :- holds(carry(R,S),T-1), do(R,action(putdown),T-1), time
 
 % no 2+ robots/shelfs in the same spot
 :- node(X,Y), time(T), 2{holds(at(R,node(X,Y)),T) : robot(R)}.
+%&constraint(1,horizon){+.holds(at(robot(R1),node(X,Y))); +.holds(at(robot(R2),node(X,Y)))} :- robot(robot(R1)), robot(robot(R2)), R1 > R2, node(X,Y).
+
 :- node(X,Y), time(T), 2{holds(at(S,node(X,Y)),T) : shelf(S)}.
+%&constraint(1,horizon){+.holds(at(shelf(S1),node(X,Y))); +.holds(at(shelf(S2),node(X,Y)))} :- shelf(shelf(S1)), shelf(shelf(S2)), S1 > S2, node(X,Y).
 
 % robot/shelf can only be in 1 node
 :- robot(R), time(T), 2{holds(at(R,node(X,Y)),T) : node(X,Y)}.
@@ -117,6 +120,12 @@ abnormal(carry(R,S),T) :- holds(carry(R,S),T-1), do(R,action(putdown),T-1), time
 
 %:- do(R,action(putdown),T), do(R,action(pickup),T-1), time(T), T>0.
 &constraint(1,horizon){ +.do(R,action(putdown)); +~do(R,action(pickup)) } :- robot(R).
+
+
+&signature{++holds(at(R,node(X,Y)))} :- robot(R), node(X,Y).
+&signature{++holds(at(S,node(X,Y)))} :- shelf(S), node(X,Y).
+&signature{++do(R,A)} :- robot(R), action(A).
+
 
 on(product(P),shelf(S)) :- init(object(product,P),value(on,(S,A))).
 
