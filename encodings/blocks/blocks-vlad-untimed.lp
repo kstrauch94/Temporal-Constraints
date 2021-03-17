@@ -38,3 +38,5 @@ on(B,L,T+1) :- on(B,L,T), not -on(B,L,T+1), location(L), block(B), time(T), T<la
 
 &signature{++on(B,L)} :- block(B), location(L).
 &signature{++move(B,L)} :- block(B), location(L).
+
+:- goal(on(B,B2)), not on(B,B2,horizon).
