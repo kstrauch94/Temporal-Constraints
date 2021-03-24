@@ -11,11 +11,13 @@ from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
 
 import clingo
 
+
 @util.Timer("parse_atom")
 # @profile
-def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[str, int]]]:
+def parse_atoms(constraint) -> Tuple[List[atom_info], int, int]:
 	"""
-	Extract the relevant information of the given theory atom and populate self.t_atom_info
+	Extract the relevant information of the given theory atom and populate t_atom_info with atominfo instances
+	Also returns the min and max time of a given constraint
 
 	:param constraint: clingo TheoryAtom
 	"""
@@ -26,19 +28,6 @@ def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[s
 	for atom in constraint.elements:
 		# this gives me the "type" of the term | e.g. for +~on(..) it would return +~
 		term_type: str = atom.terms[0].name
-
-		"""	
-		# after selecting the atom we convert it to a string and delete the parenthesis
-		name: str = str(atom.terms[0].arguments[0])[:-1]
-
-		# after selecting the atom we further select its arguments
-		# if the length is 0 we don't add a ","
-		# if it is longer then we add "," for ease of use later on
-		if len(atom.terms[0].arguments[0].arguments) != 0:
-			name = f"{name},"
-
-		uq_name: str = term_type + name
-		"""
 
 		untimed_name = atom.terms[0].arguments[0].name
 		untimed_args = tuple(atom.terms[0].arguments[0].arguments)
@@ -65,9 +54,10 @@ def parse_atoms(constraint) -> Tuple[Dict[str, atom_info], int, int, Set[Tuple[s
 	return t_atom_info, min_time, max_time
 
 
-def parse_signature(constraint):
+def parse_signature(constraint) -> None:
 	"""
-	Extract the relevant information of the given theory atom and populate self.t_atom_info
+	Extract the signature information of the theory terms of the theory atom
+	Populate the Signature data structure with that information
 
 	:param constraint: clingo TheoryAtom
 	"""
@@ -109,17 +99,6 @@ def parse_constraint_times(times) -> Tuple[int, int]:
 	return min_time, max_time
 
 
-def build_symbol_id(info, time):
-	"""
-	Builds the untimed_lit for TimeAtomToSolverLit
-
-	:param info: Information dictionary for a particular atom
-	:param time: The time point
-	:return: A untimed_lit Triple
-	"""
-	return info.sign, info.name, time
-
-
 def parse_time(s_atom) -> int:
 	"""
 	Parses the time point of the given atom
@@ -135,7 +114,7 @@ def get_assigned_time(info: atom_info, time: int) -> int:
 	"""
 	Calculates the assigned time based on the real time point
 
-	:param info: Information dictionary for a particular atom
+	:param info: atominfo named tuple
 	:param time: The time point
 	:return: assigned time
 	"""
@@ -146,14 +125,21 @@ def reverse_assigned_time(info: atom_info, assigned_time: int) -> int:
 	"""
 	Calculates the real time point based on the assigned time
 
-	:param info: Information dictionary for a particular atom
+	:param info: atominfo named tuple
 	:param assigned_time: The assigned time
 	:return: time
 	"""
 	return assigned_time - info.time_mod
 
 
-def untimed_lit_to_internal_lit(info: atom_info, time):
+def untimed_lit_to_internal_lit(info: atom_info, time) -> int:
+	"""
+	transform the "untimed" version of the literal to an internal literal
+	internal literals contains information about the time point and sign
+	:param info: atominfo named tuple
+	:param time: time point(int)h
+	:return: the untimed literal
+	"""
 	# multiply the sign to make sure that what we add is of the same sign as the untimed lit
 	return info.untimed_lit + (time * Signatures.fullsig_size * info.sign)
 
@@ -162,7 +148,7 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	"""
 	Forms a nogood based on the assigned time and atoms of a theory constraint
 
-	:param t_atom_info: Complete information dictionary of the theory constraint
+	:param t_atom_info: List of atominfo namedtuples of a particular constraint
 	:param assigned_time: the assigned time
 	:return: the nogood for the given assigned time and constraint
 	"""
@@ -194,57 +180,12 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 	return sorted(ng)
 
 
-def check_assignment_build(tc: "TheoryConstraint", assigned_time, control) -> int:
-	"""
-	Checks if a nogood is a conflict or unit in the current assignment and builds the nogood
-	return the nogood if no values are false
-
-	:param nogood: nogood that will be checked
-	:param control: clingo PropagateControl class
-	:return int value that denotes the result of the check. See CONSTRAINT_CHECK for details
-	"""
-	true_count: int = 0
-	nogood = []
-
-	for uq_name, info in tc.t_atom_info.items():
-		try:
-			time = assigned_time - info.time_mod
-			lit = TimeAtomToSolverLit.grab_lit(build_symbol_id(info, time))
-		except KeyError:
-			# this error would happen if an id is not in the mapping
-			# if this happens it means the nogood does not exist for this assigned time
-			if info.sign == 1:
-				return CONSTRAINT_CHECK["NONE"], []
-
-		if lit == 1:
-			continue
-
-		if lit == -1:
-			return CONSTRAINT_CHECK["NONE"], []
-
-		if control.assignment.is_true(lit):
-			# if its true
-			true_count += 1
-		elif control.assignment.is_false(lit):
-			# if one is false then it doesnt matter
-			return CONSTRAINT_CHECK["NONE"], []
-
-		nogood.append(lit)
-
-	if true_count == len(nogood):
-		return CONSTRAINT_CHECK["CONFLICT"], nogood
-	elif true_count == len(nogood) - 1:
-		return CONSTRAINT_CHECK["UNIT"], nogood
-	else:
-		return CONSTRAINT_CHECK["NONE"], []
-
-
 def check_assignment(nogood, control) -> int:
 	"""
 	Checks if a nogood is a conflict or unit in the current assignment
 
-	:param nogood: nogood that will be checked
-	:param control: clingo PropagateControl class
+	:param nogood: nogood that will be checked as a list of ints
+	:param control: clingo PropagateControl object
 	:return int value that denotes the result of the check. See CONSTRAINT_CHECK for details
 	"""
 	if nogood is None:
@@ -289,7 +230,13 @@ def check_assignment_complete(nogood, control) -> int:
 	return CONSTRAINT_CHECK["CONFLICT"]
 
 
-def get_at_from_internal_lit(internal_lit: int, t_atom_info):
+def get_at_from_internal_lit(internal_lit: int, t_atom_info) -> List[int]:
+	"""
+	Calculate the assigned times for a particular theory constraint given an internal literal
+	:param internal_lit: The internal literal (int)
+	:param t_atom_info: List of atominfo named tuples of the constraint
+	:return: a set of assigned times
+	"""
 	ats = set()
 	for info in t_atom_info:
 		if Signatures.convert_to_untimed_lit(internal_lit) == info.untimed_lit:
@@ -299,61 +246,36 @@ def get_at_from_internal_lit(internal_lit: int, t_atom_info):
 	return ats
 
 
-def init_TA2L_mapping(init):
-	for sign, sig in Signatures.sigs:
-		for s_atom in init.symbolic_atoms.by_signature(*sig):
-			time = parse_time(s_atom)
-			# if argument size is 1 then only time is present
-			if len(s_atom.symbol.arguments) == 1:
-				name: str = f"{s_atom.symbol.name}("
-			else:
-				name: str = str(s_atom.symbol).split(",")[:-1]
-				name = ",".join(name)
-				name = f"{name},"
-			lit = init.solver_literal(s_atom.literal)
-			#TimeAtomToSolverLit.add((sign, name, time), lit * sign)
-			#TimeAtomToSolverLit.add((1, name, time), lit)
-
-	Signatures.finished = True
-
-
-def init_TA2L_mapping_integers(init):
+def init_TA2L_mapping_integers(init) -> None:
+	"""
+	Initialize the TA2L mapping using the signatures in the Signatures class
+	:param init: clingo PropagateInit object
+	"""
 
 	for sign, sig in Signatures.sigs:
+		# go through all signatures and signs
 		for s_atom in init.symbolic_atoms.by_signature(*sig):
+			# look at all the atoms that have that same signature
 			time = parse_time(s_atom)
 
 			name = s_atom.symbol.name
 			args = tuple(s_atom.symbol.arguments[:-1])
 
 			if (name, args) not in Signatures.fullsigs:
+				# This happens when a symbol exists bu the arguments are NOT within the given domain
+				# for example, when the constraint uses a subset of the domain
+				#
 				# if it is skipped it should be because it is not in the domain!
 				# signatures should be giving the domain of the function!!!
 				continue
 
+			# grab the solver literal and apply the sign (solver literal is always positive since we look only for positive atoms)
 			lit = init.solver_literal(s_atom.literal) * sign
+			# convert it to an internal literal, dont forget to apply the sign!!
 			internal_lit = Signatures.fullsigs[name, args] + (Signatures.fullsig_size * time)
 			internal_lit *= sign
+			# update the mapping
 			TimeAtomToSolverLit.add(internal_lit, lit)
-
-			"""
-			print("  ")
-			print("symbol: ", str(s_atom.symbol), lit)
-			print("lit of the base(untimed lit): ", Signatures.fullsigs[name, args] * sign)
-			print("size of the base: ", Signatures.fullsig_size)
-			print("time: ", time)
-			print("internal lit: ", internal_lit)
-			print("using grab_lit: ", TimeAtomToSolverLit.grab_lit(internal_lit))
-			print("using grab_id: ", TimeAtomToSolverLit.grab_id(lit))
-			print("doing the % thing (untimed lit): ", Signatures.convert_to_untimed_lit(internal_lit))
-			print("doing the // thing (time): ", Signatures.convert_to_time(internal_lit))
-
-			# test
-			print("lit = grab_lit: ", lit == TimeAtomToSolverLit.grab_lit(internal_lit))
-			print("internal lit = grab_id: ", internal_lit in TimeAtomToSolverLit.grab_id(lit))
-			print("time = internal lit // size: ", time == Signatures.convert_to_time(internal_lit))
-			print("untimed_lit == internal_lit % size: ", Signatures.fullsigs[name, args] * sign == Signatures.convert_to_untimed_lit(internal_lit))
-			2"""
 
 	TimeAtomToSolverLit.size = Signatures.fullsig_size
 
@@ -361,6 +283,7 @@ def init_TA2L_mapping_integers(init):
 	Signatures.fullsigs.clear()
 
 	Signatures.finished = True
+
 
 def choose_lit(lits: List[int], current_watches: int, control) -> Optional[int]:
 	"""
@@ -396,7 +319,7 @@ def get_replacement_watch(nogood: List[int], current_watches: List[int], control
 	:returns None
 	"""
 
-	new_watch: Optional[int] = choose_lit(nogood, current_watches, control)
+	new_watch = choose_lit(nogood, current_watches, control)
 	if new_watch is not None:
 		return new_watch
 
@@ -408,13 +331,16 @@ class TheoryConstraint:
 	Base class for all theory constraints.
 
 	Members:
-	t_atom_info             -- Dictionary that holds relevant information
-								for all atoms in the constraint
+	t_atom_info             -- List that holds atominfo named tuples
+								for every theory term in the constraint
 
 	max_time                -- Max time of the theory constraint
 
 	min_time                -- Min time of the theory constraint
 
+	lock_nogoods            -- List containing amount of times the nogood of a specific
+								assigned time has to be added to lock the nogood
+								or None
 	"""
 
 	__slots__ = ["t_atom_info", "max_time", "min_time", "logger", "lock_nogoods"]
@@ -486,13 +412,24 @@ class TheoryConstraint:
 	@util.Timer("Undo")
 	@util.Count("Undo")
 	def undo(self, thread_id, assign, changes) -> None:
+		"""
+		Should be implemented in a child class if it is needed
+		"""
 		pass
 
 	def propagate(self, control, changes) -> Optional[List[Tuple[int, int]]]:
+		""""
+		Should be implemented by the child class
+		"""
 		pass
 
 	@util.Timer("check")
-	def check(self, control):
+	def check(self, control) -> Optional[int]:
+		"""
+		Goes through every assigned time and checks the assignment of the nogood
+		:param control: clingo PropagateControl object
+		:return: None if a conflict was found, 0 otherwise
+		"""
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			ng = form_nogood(self.t_atom_info, assigned_time)
 			if check_assignment_complete(ng, control) == CONSTRAINT_CHECK["CONFLICT"]:
@@ -502,7 +439,12 @@ class TheoryConstraint:
 					return None
 		return 0
 
-	def check_if_lock(self, assigned_time):
+	def check_if_lock(self, assigned_time) -> bool:
+		"""
+		check if the nogood on a particular assigned time is to be locked
+		:param assigned_time: the assigned time
+		:return: True if it should be locked, False otherwise
+		"""
 
 		if self.lock_nogoods == True:
 			return True
@@ -523,6 +465,11 @@ class TheoryConstraint:
 				return False
 
 	def is_valid_time(self, assigned_time):
+		"""
+		checks if an assigned time is valid for the theory constraint
+		:param assigned_time: the assigned time
+		:return: True if it is valid, False otherwise
+		"""
 		# returns True if time is valid
 		# False otherwise
 		if type(self.lock_nogoods) == bool:
@@ -533,7 +480,11 @@ class TheoryConstraint:
 
 		return True
 
+
 class TheoryConstraintSize1(TheoryConstraint):
+	"""
+	Implement function for a theory constraint of size 1
+	"""
 	__slots__ = []
 
 	def __init__(self, constraint) -> None:
@@ -564,4 +515,7 @@ class TheoryConstraintSize1(TheoryConstraint):
 		self.t_atom_info = None
 
 	def check(self, *args, **kwargs):
+		"""
+		nothing needs to be checked
+		"""
 		return 0
