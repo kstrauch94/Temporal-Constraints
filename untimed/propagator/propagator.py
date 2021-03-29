@@ -1,11 +1,11 @@
-from typing import Dict, Tuple, List, Any, Set
+from typing import Dict, List, Any, Set
 from collections import defaultdict
 
 import untimed.util as util
 
 from untimed.propagator.theoryconstraint_reg import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_reg import TheoryConstraint
-from untimed.propagator.theoryconstraint_base import init_TA2L_mapping, init_TA2L_mapping_integers
+from untimed.propagator.theoryconstraint_base import init_TA2L_mapping_integers
 from untimed.propagator.theoryconstraint_base import Signatures
 from untimed.propagator.theoryconstraint_base import get_replacement_watch
 from untimed.propagator.theoryconstraint_base import TheoryConstraintSize1
@@ -24,12 +24,14 @@ from untimed.propagator.theoryconstraint_prop import TheoryConstraintCountProp
 
 class Propagator:
 	"""
-	Propagator that handles the propagation of "time atoms"(aka theory atoms of theory constraints).
+	Propagator for theory constraints
 
 	Members:
-	watch_to_tc                -- Mapping from a literal to a theory constraint.
+	watch_to_tc                 -- Mapping from a literal to a theory constraint.
 
 	theory_constraints          -- List of all theory constraints
+
+	lock_ng                     -- Tells the theory constraints when to lock nogoods
 	"""
 
 	__slots__ = ["watch_to_tc", "theory_constraints", "lock_ng"]
@@ -93,7 +95,12 @@ class Propagator:
 		pass
 
 	@util.Timer("Purge Lits")
-	def purge_unused_lits(self, watches):
+	def purge_unused_lits(self, watches) -> None:
+		"""
+		Look at which literals in the mapping are not useful for any theory constraint and delete them from the mapping
+		:param watches: List of useful watched
+		"""
+
 		badlits = []
 		for lit in TimeAtomToSolverLit.lit_to_id.keys():
 			if lit not in watches:
@@ -110,7 +117,7 @@ class Propagator:
 
 class TimedAtomPropagator(Propagator):
 	"""
-	Propagator that handles the propagation of "time atoms"(aka theory atoms of theory constraints).
+	Propagator that handles the propagation of "time atoms" (aka theory atoms of theory constraints).
 
 	"""
 	__slots__ = []
@@ -148,7 +155,7 @@ class TimedAtomPropagator(Propagator):
 		for lit in watches:
 			init.add_watch(lit)
 
-		self.purge_unused_lits(watches)
+		#self.purge_unused_lits(watches)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
 		util.Stats.add("Signature Constraints", all_t_atom_count - t_atom_count)
@@ -199,6 +206,10 @@ class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 		util.Stats.add("Theory Constraints", t_atom_count)
 
 	def build_watches(self, init):
+		"""
+		Watch every literal in the mapping
+		:param init: clingo PropagateInit object
+		"""
 		for lit in TimeAtomToSolverLit.lit_to_id.keys():
 			if lit != -1:
 				init.add_watch(lit)

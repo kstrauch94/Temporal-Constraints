@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 
-from typing import List, Dict, Tuple, Set, Any, Optional
+from typing import List, Dict, Tuple, Set, Optional
 
 import untimed.util as util
 
@@ -14,7 +14,9 @@ from untimed.propagator.theoryconstraint_base import form_nogood
 from untimed.propagator.theoryconstraint_base import get_at_from_internal_lit
 from untimed.propagator.theoryconstraint_base import check_assignment
 from untimed.propagator.theoryconstraint_base import get_replacement_watch
+from untimed.propagator.theoryconstraint_base import Signatures
 
+import types
 
 class TheoryConstraintSize2Prop(TheoryConstraint):
 	__slots__ = []
@@ -28,7 +30,7 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 		"""
 		Since there are only 2 atoms in the constraint we add all literals as watches
 		"""
-		# has to be a list so that a watch can be added multiple times in case it is watched by multiple timepoints
+		# has to be a list so that a watch can be added multiple times in case it is watched by multiple time points
 		watches = []
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
@@ -79,6 +81,8 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 	def build_watches(self, init) -> Set[int]:
 		"""
 		Since there are only 2 atoms in the constraint we add all literals as watches
+		We also return all literals in the nogood in order to tell the propagator which literals could
+		potentially be watched as well.
 		"""
 		watches = []
 		all_lits = set()
@@ -124,7 +128,9 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 
 	# @profile
 	def build_watches(self, init) -> Set[int]:
-
+		"""
+		watch everything!
+		"""
 		watches = set()
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
@@ -143,7 +149,7 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 
 		:param control: clingo PropagateControl object
 		:param change: watch that was assigned
-		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
+		:return None if propagation has to stop, 1 otherwise
 		"""
 
 		ats = set()
@@ -249,7 +255,6 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 	def replace_watches(self, info: List[List[int]], control) -> None:
 		"""
 		Update the watches_to_at dictionary based on the info returned by get_replacement_watch
-		Also, add the new watch to the solver and remove the old watch if necessary
 
 		:param info: List of info about the replacement. Each element is a return type of get_replacement_watch
 		:param control: clingo PropagateControl object
@@ -353,7 +358,9 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 				continue
 
 			lock = self.check_if_lock(assigned_time)
-
+			print("conf")
+			print(ng)
+			print(self.t_atom_info)
 			if not control.add_nogood(ng, lock=lock) or not control.propagate():
 				return None
 
@@ -397,6 +404,11 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 			update_result = check_assignment(ng, control)
 
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+				#print("conf", update_result)
+				#for info in self.t_atom_info:
+				#	ilit = Signatures.convert_to_internal_lit(info.untimed_lit, assigned_time - info.time_mod, info.sign)
+				#	lit = TimeAtomToSolverLit.id_to_lit[ilit]
+				#	print(Signatures.ulit_to_sig[abs(info.untimed_lit)], lit, control.assignment.value(lit), info.sign)
 				lock = self.check_if_lock(assigned_time)
 				if not control.add_nogood(ng, lock=lock) or not control.propagate():
 					return None
@@ -456,7 +468,7 @@ class TheoryConstraintCountProp(TheoryConstraint):
 				continue
 			self.counts[assigned_time] -= 1
 			if self.counts[assigned_time] < 0:
-				print("ERROR???")
+				print("ERROR??? count for a particular assigned time should never be below 0 !!!")
 
 
 class TheoryConstraintMetaProp(TheoryConstraint):
@@ -477,17 +489,9 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 				continue
 			yield lits
 
-	def propagate(self, control, change) -> Optional[List[Tuple]]:
-		"""
-		:param control: clingo PropagateControl object
-		:param change: literal that was assigned
-		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
-		"""
-		return self.propagate_func(control, change)
-
 	#@profile
 	def build_prop_function(self):
-		func_str = prop_template_start.format(f_name="prop_test")
+		func_str = prop_template_start.format(f_name="prop_test", size=Signatures.fullsig_size)
 
 		for info in self.t_atom_info:
 
@@ -496,7 +500,7 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 			grab_lit_str = []
 			for other_info in self.t_atom_names:
 				time_modifier = time_mod - other_info.time_mod
-				grab_lit = check_mapping.format(untimed_lit=other_info.untimed_lit)
+				grab_lit = check_mapping.format(untimed_lit=other_info.untimed_lit, sign=other_info.sign)
 				grab_lit_str.append(grab_lit)
 
 			ng_str = "ng = [{}]".format(", ".join(grab_lit_str))
@@ -513,18 +517,20 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 		with util.Timer("exec"):
 			exec(func_str, globals())
 
-		return prop_test
+		self.propagate_func = types.MethodType(prop_test, self)
+
+		return self.propagate_func
 
 
 prop_template_start = """
-def {f_name}(control, change):
+def {f_name}(self, control, change):
 	# change is the internal literal
 	time = Signatures.convert_to_time(change)
 
 """
 
 prop_template_t_atom_start = """
-def {f_name}(control, change):
+def {f_name}(self, control, change):
 	# propagate func for t_atom: {t_atom}
 	time = Signatures.convert_to_time(change)
 """
@@ -534,22 +540,24 @@ prop_template_end = """
 """
 
 if_template = """
-	if Signature.convert_to_untimed_lit(change) == {untimed_lit}:
+	if Signatures.convert_to_untimed_lit(change) == {untimed_lit}:
 		at = time + {t_mod}
 		if at >= {min} and at <= {max}:	
 			{ng}	
 			update_result = check_assignment(ng, control)
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-				if not control.add_nogood(ng, lock=self.lock_nogood) or not control.propagate():
+				lock = self.check_if_lock(at)
+				if not control.add_nogood(ng, lock=lock) or not control.propagate():
 					return None
 """
 
 if_template_size2 = """
-	if Signature.convert_to_untimed_lit(change) == {untimed_lit}:
+	if Signatures.convert_to_untimed_lit(change) == {untimed_lit}:
 		at = time + {t_mod}
 		if at >= {min} and at <= {max}:	
-			{ng}	
-			if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
+			{ng}
+			lock = self.check_if_lock(at)
+			if not control.add_nogood(ng, lock=lock) or not control.propagate():
 				return None
 """
 
@@ -559,11 +567,13 @@ if_template_t_atom = """
 		{ng}
 		update_result = check_assignment(ng, control)
 		if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-			if not control.add_nogood(ng, lock=self.lock_nogods) or not control.propagate():
+			lock = self.check_if_lock(at)
+			if not control.add_nogood(ng, lock=lock) or not control.propagate():
 				return None
 """
 
-check_mapping = "TimeAtomToSolverLit.grab_lit({untimed_lit})"
+check_mapping = "TimeAtomToSolverLit.grab_lit(Signatures.convert_to_internal_lit({untimed_lit}, time, {sign}))"
+
 
 class MetaTAtomProp():
 	__slots__ = ["t_atom", "propagate_func", "func_str", "if_blocks"]
@@ -590,7 +600,7 @@ class MetaTAtomProp():
 		grab_lit_str = []
 
 		for info in t_atom_info:
-			grab_lit = check_mapping.format(untimed_lit=info.untimed_lit)
+			grab_lit = check_mapping.format(untimed_lit=info.untimed_lit, sign=info.sign)
 			grab_lit_str.append(grab_lit)
 
 		ng_str = "ng = [{}]".format(", ".join(grab_lit_str))
@@ -608,5 +618,8 @@ class MetaTAtomProp():
 		with util.Timer("exec"):
 			exec(self.func_str, globals())
 
-		self.propagate_func = prop_test
+		self.propagate_func = types.MethodType(prop_test, self)
 		self.func_str = None
+
+	def check_if_lock(self, at):
+		return False

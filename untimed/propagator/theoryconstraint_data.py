@@ -109,6 +109,9 @@ class Signatures:
 	fullsig_size = 0
 	finished = False
 
+	#delete later
+	ulit_to_sig = {}
+
 	@classmethod
 	def reset(cls):
 		cls.sigs = set()
@@ -123,12 +126,18 @@ class Signatures:
 		cls.fullsigs[fullsig] = cls.fullsig_size
 		cls.fullsigs_term[fullsig_term] = cls.fullsig_size
 
+		cls.ulit_to_sig[cls.fullsig_size] = str(fullsig)
+
 	@classmethod
 	def convert_to_untimed_lit(cls, internal_lit):
 		intermediate = internal_lit % cls.fullsig_size
 		if intermediate == 0:
 			intermediate = cls.fullsig_size
 		return intermediate * util.sign(internal_lit)
+
+	@classmethod
+	def convert_to_internal_lit(cls, untimed_lit, time, sign):
+		return untimed_lit + (cls.fullsig_size * time * sign)
 
 	@classmethod
 	def convert_to_time(cls, interal_lit):

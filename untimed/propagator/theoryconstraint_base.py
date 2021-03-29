@@ -1,6 +1,6 @@
 import logging
 
-from typing import List, Dict, Tuple, Set, Any, Optional
+from typing import List, Tuple, Set, Optional
 
 import untimed.util as util
 
@@ -142,6 +142,7 @@ def untimed_lit_to_internal_lit(info: atom_info, time) -> int:
 	"""
 	# multiply the sign to make sure that what we add is of the same sign as the untimed lit
 	return info.untimed_lit + (time * Signatures.fullsig_size * info.sign)
+
 
 # @profile
 def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
