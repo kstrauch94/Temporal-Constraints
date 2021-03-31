@@ -85,6 +85,7 @@ class TestApp(unittest.TestCase):
 		Signatures.reset()
 
 	def test_naive_regular(self):
+		print("\nrunning naive reg")
 		self.reset_mappings()
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "naive"}
@@ -92,6 +93,7 @@ class TestApp(unittest.TestCase):
 		self.handler_test(handler_class, handler_args)
 
 	def test_2watch_regular(self):
+		print("\nrunning 2watch reg")
 		self.reset_mappings()
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "2watch"}
@@ -99,6 +101,7 @@ class TestApp(unittest.TestCase):
 		self.handler_test(handler_class, handler_args)
 
 	def test_timed_prop(self):
+		print("\nrunning timed prop")
 		self.reset_mappings()
 		handler_class = TheoryHandlerWithPropagator
 		handler_args = {"prop_type": "timed"}
@@ -106,12 +109,15 @@ class TestApp(unittest.TestCase):
 		self.handler_test(handler_class, handler_args)
 
 	def test_timed_aw_prop(self):
+		print("\nrunning timed_aw prop")
 		self.reset_mappings()
 		handler_class = TheoryHandlerWithPropagator
 		handler_args = {"prop_type": "timed_aw"}
 
 		self.handler_test(handler_class, handler_args)
+
 	def test_meta_prop(self):
+		print("\nrunning meta prop")
 		self.reset_mappings()
 		handler_class = TheoryHandlerWithPropagator
 		handler_args = {"prop_type": "meta"}
@@ -119,6 +125,7 @@ class TestApp(unittest.TestCase):
 		self.handler_test(handler_class, handler_args)
 
 	def test_meta_ta_prop(self):
+		print("\nrunning meta_ta prop")
 		self.reset_mappings()
 		handler_class = TheoryHandlerWithPropagator
 		handler_args = {"prop_type": "meta_ta"}
@@ -126,6 +133,7 @@ class TestApp(unittest.TestCase):
 		self.handler_test(handler_class, handler_args)
 
 	def test_count_prop(self):
+		print("\nrunning count prop")
 		self.reset_mappings()
 		handler_class = TheoryHandlerWithPropagator
 		handler_args = {"prop_type": "count"}
@@ -133,6 +141,7 @@ class TestApp(unittest.TestCase):
 		self.handler_test(handler_class, handler_args)
 
 	def test_naive_prop(self):
+		print("\nrunning naive prop")
 		self.reset_mappings()
 		handler_class = TheoryHandlerWithPropagator
 		handler_args = {"prop_type": "naive"}
@@ -140,6 +149,7 @@ class TestApp(unittest.TestCase):
 		self.handler_test(handler_class, handler_args)
 
 	def test_2watch_prop(self):
+		print("\nrunning 2watch prop")
 		self.reset_mappings()
 		handler_class = TheoryHandlerWithPropagator
 		handler_args = {"prop_type": "2watch"}
@@ -147,6 +157,7 @@ class TestApp(unittest.TestCase):
 		self.handler_test(handler_class, handler_args)
 
 	def test_2watchmap_prop(self):
+		print("\nrunning 2watchmap prop")
 		self.reset_mappings()
 		handler_class = TheoryHandlerWithPropagator
 		handler_args = {"prop_type": "2watchmap"}
@@ -167,20 +178,20 @@ class TestApp(unittest.TestCase):
 		c_reg = ":- a(T), b(T), time(T)."
 		self.assertEqual(solve([program_no_dom, c], handler_class, handler_args),
 		                 solve_regular([program_no_dom, c_reg]))
-
+		print("?")
 		self.reset_mappings()
 		c = "&constraint(1,maxtime){+.a(); +~b()}. &signature{++a() ; ++b()}."
 		c_reg = ":- a(T), b(T-1), time(T)."
 		self.assertEqual(solve([program_no_dom, c], handler_class, handler_args),
 		                 solve_regular([program_no_dom, c_reg]))
-
+		print("ss")
 		self.reset_mappings()
 		c = "&constraint(1,maxtime){+.a(); -~b()}. &signature{++a() ; --b()}."
 		c_reg = ":- a(T), not b(T-1), time(T)."
 		self.assertEqual(solve([program_no_dom, c], handler_class, handler_args),
 		                 solve_regular([program_no_dom, c_reg]))
 
-
+		print("s1")
 		# tests with constraints of size 1
 		self.reset_mappings()
 		c = """&constraint(1,maxtime){+.a(1)}. &signature{++a(1)}."""
@@ -207,7 +218,7 @@ class TestApp(unittest.TestCase):
 		                 solve_regular([program, c_reg]))
 
 		# tests with constraints of size 2
-
+		print("s2")
 		self.reset_mappings()
 		c = """&constraint(1,maxtime){+.a(1); +.b(1)}. &signature{++a(1) ; ++b(1)}."""
 		c_reg = ":- a(1,T), b(1,T), time(T)."
@@ -250,6 +261,7 @@ class TestApp(unittest.TestCase):
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
+		# this test doesnt work with timed_aw
 		self.reset_mappings()
 		c = """&constraint(1,maxtime){-~a(1); -~b(1)}.  &signature{--a(1) ; --b(1)}."""
 		c_reg = ":- not a(1,T-1), not b(1,T-1), time(T)."
