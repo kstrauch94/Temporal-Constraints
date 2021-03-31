@@ -4,6 +4,7 @@ time(0..horizon).
 
 location(L) :- loc(L).
 
+on(B,L,0) :- init(on(B,L)).
 
 % GENERATE
 {move(B,L,T) : block(B), location(L)} grippers :- time(T), T<horizon.
@@ -20,6 +21,7 @@ on(B,L,T+1) :- on(B,L,T), not -on(B,L,T+1), location(L), block(B), time(T), T<la
 
 % TEST
 % two blocks cannot be on top of the same block
+
 :- 2 {on(B1,B,T) : block(B1)}, block(B), time(T).
 
 % a block can’t be moved unless it is clear
@@ -29,3 +31,5 @@ on(B,L,T+1) :- on(B,L,T), not -on(B,L,T+1), location(L), block(B), time(T), T<la
 :- move(B,B1,T), move(B1,L,T), block(B), block(B1), location(L), time(T), T<lasttime.
 
 :- goal(on(B,B2)), not on(B,B2,horizon).
+
+#show move/3.

@@ -2,9 +2,9 @@
 
 time(0..horizon).
 
-location(B) :- block(B).
-location(table).
+location(L) :- loc(L).
 
+on(B,L,0) :- init(on(B,L)).
 
 % GENERATE
 {move(B,L,T) : block(B), location(L)} grippers :- time(T), T<horizon.
@@ -26,7 +26,7 @@ on(B,L,T+1) :- on(B,L,T), not -on(B,L,T+1), location(L), block(B), time(T), T<la
 % a block can’t be moved unless it is clear
 %:- move(B,L,T), on(B1,B,T), block(B), block(B1), location(L), time(T), T<lasttime.
 
-&constraint(0,horizon-1){+.move(B,L), +.on(B1,B)} :- block(B), block(B1), location(L).
+&constraint(0,horizon-1){+.move(B,L); +.on(B1,B)} :- block(B), block(B1), location(L).
 
 % a block can’t be moved onto a block that is being moved also
 %:- move(B,B1,T), move(B1,L,T), block(B), block(B1), location(L), time(T), T<lasttime.
