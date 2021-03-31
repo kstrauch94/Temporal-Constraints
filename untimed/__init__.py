@@ -24,7 +24,7 @@ watch_types = ["naive", "2watch", "timed", "timed_aw", "2watchmap", "meta", "met
 class Application:
 
 	def __init__(self):
-		self.version = "0.1"
+		self.version = "0.5"
 
 		self.__handler = None
 
