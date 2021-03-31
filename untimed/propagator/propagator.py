@@ -73,10 +73,10 @@ class Propagator:
 					watches = tc.build_watches(init)
 					self.add_atom_observer(tc, watches)
 
+					self.add_tc(tc)
+
 		for lit in self.watch_to_tc:
 			init.add_watch(lit)
-
-		self.purge_unused_lits(self.watch_to_tc.keys())
 
 		util.Stats.add("Theory Constraints", t_atom_count)
 
@@ -85,35 +85,15 @@ class Propagator:
 
 	# if we want to check we need the theory constraints list. look in the init to see if we delete it or not
 	@util.Count("check")
+	@util.Timer("check")
 	def check(self, control):
 		for tc in self.theory_constraints:
 			if tc.check(control) is None:
-				# print("check failed?")
+				# check failed because there was a conflict
 				return
 
 	def make_tc(self, t_atom):
 		pass
-
-	@util.Timer("Purge Lits")
-	def purge_unused_lits(self, watches) -> None:
-		"""
-		Look at which literals in the mapping are not useful for any theory constraint and delete them from the mapping
-		:param watches: List of useful watched
-		"""
-
-		badlits = []
-		for lit in TimeAtomToSolverLit.lit_to_id.keys():
-			if lit not in watches:
-				badlits.append(lit)
-
-		util.Count.add("literals purged",len(badlits))
-		util.Count.add("total literals in mapping", len(TimeAtomToSolverLit.lit_to_id.keys()))
-		for lit in badlits:
-			internals = TimeAtomToSolverLit.grab_id(lit)
-			del TimeAtomToSolverLit.lit_to_id[lit]
-			for idx in internals:
-				del TimeAtomToSolverLit.id_to_lit[idx]
-
 
 class TimedAtomPropagator(Propagator):
 	"""
@@ -152,10 +132,10 @@ class TimedAtomPropagator(Propagator):
 						watches.update(lits)
 					self.add_atom_observer(tc, watches)
 
+					self.add_tc(tc)
+
 		for lit in watches:
 			init.add_watch(lit)
-
-		#self.purge_unused_lits(watches)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
 		util.Stats.add("Signature Constraints", all_t_atom_count - t_atom_count)
@@ -200,6 +180,7 @@ class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 					tc.init(init)
 				else:
 					self.add_atom_observer(tc, None)
+					self.add_tc(tc)
 
 		self.build_watches(init)
 
@@ -267,10 +248,10 @@ class MetaPropagator(Propagator):
 						watches.update(lits)
 					self.add_atom_observer(tc, tc.build_prop_function())
 
+					self.add_tc(tc)
+
 		for lit in watches:
 			init.add_watch(lit)
-
-		self.purge_unused_lits(watches)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
 
@@ -326,14 +307,13 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 						watches.update(lits)
 
 					self.add_atom_observer(tc)
+					self.add_tc(tc)
 
 		for t_atom, meta_tc in self.watch_to_tc.items():
 			meta_tc.finish_prop_func()
 
 		for lit in watches:
 			init.add_watch(lit)
-
-		self.purge_unused_lits(watches)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
 
@@ -468,10 +448,10 @@ class RegularAtomPropagator2watchMap(Propagator):
 
 					all_watches.update(all_lits)
 
+					self.add_tc(tc)
+
 		for lit in all_watches:
 			init.add_watch(lit)
-
-		self.purge_unused_lits(all_watches)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
 

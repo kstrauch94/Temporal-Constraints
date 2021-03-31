@@ -349,7 +349,6 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 		ats = get_at_from_internal_lit(change, self.t_atom_info)
 
 		for assigned_time in ats:
-
 			if not self.is_valid_time(assigned_time):
 				continue
 
@@ -358,9 +357,7 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 				continue
 
 			lock = self.check_if_lock(assigned_time)
-			print("conf")
-			print(ng)
-			print(self.t_atom_info)
+
 			if not control.add_nogood(ng, lock=lock) or not control.propagate():
 				return None
 
@@ -404,11 +401,7 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 			update_result = check_assignment(ng, control)
 
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-				#print("conf", update_result)
-				#for info in self.t_atom_info:
-				#	ilit = Signatures.convert_to_internal_lit(info.untimed_lit, assigned_time - info.time_mod, info.sign)
-				#	lit = TimeAtomToSolverLit.id_to_lit[ilit]
-				#	print(Signatures.ulit_to_sig[abs(info.untimed_lit)], lit, control.assignment.value(lit), info.sign)
+				util.Count.add(str(update_result), 1)
 				lock = self.check_if_lock(assigned_time)
 				if not control.add_nogood(ng, lock=lock) or not control.propagate():
 					return None
@@ -612,8 +605,6 @@ class MetaTAtomProp():
 
 		self.func_str = "{}\n{}\n{}".format(prop_template_t_atom_start.format(f_name="prop_test", t_atom=self.t_atom),
 		                     "\n".join(self.if_blocks), prop_template_end)
-
-		#print(self.func_str)
 
 		with util.Timer("exec"):
 			exec(self.func_str, globals())

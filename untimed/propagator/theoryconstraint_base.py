@@ -424,7 +424,6 @@ class TheoryConstraint:
 		"""
 		pass
 
-	@util.Timer("check")
 	def check(self, control) -> Optional[int]:
 		"""
 		Goes through every assigned time and checks the assignment of the nogood
@@ -435,8 +434,7 @@ class TheoryConstraint:
 			ng = form_nogood(self.t_atom_info, assigned_time)
 			if check_assignment_complete(ng, control) == CONSTRAINT_CHECK["CONFLICT"]:
 				if not control.add_nogood(ng) or not control.propagate():
-					for lit in ng:
-						print("CHECK ERROR! lit: {}, val: {}".format(lit, control.assignment.value))
+					# model has some conflicts
 					return None
 		return 0
 
@@ -476,8 +474,17 @@ class TheoryConstraint:
 		if type(self.lock_nogoods) == bool:
 			if assigned_time < self.min_time or assigned_time > self.max_time:
 				return False
-		elif self.lock_nogoods[assigned_time] is None:
-			return False
+		else:
+			try:
+				if self.lock_nogoods[assigned_time] is None:
+					return False
+			except IndexError:
+				# this could happen when using the timed_aw watch type and using lock-ng >= 1
+				# basically, since we watch everything it is possible to get
+				# literals from outside the scope of the constraint
+				# and we might get an issue where we have a lock_nogoods list of a size that is lower than the time
+				# point that the literal appears in
+				return False
 
 		return True
 

@@ -79,10 +79,8 @@ class TimeAtomToSolverLit:
 			if internal_lit >= 0:
 				# it is negative if it is not in the mapping
 				# so we add it as -1 and return it
-				cls.add(internal_lit, -1)
 				return -1
 			else:
-				cls.add(internal_lit, 1)
 				return 1
 
 		return lit
