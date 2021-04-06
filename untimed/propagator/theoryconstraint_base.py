@@ -379,23 +379,6 @@ class TheoryConstraint:
 	def size(self) -> int:
 		return len(self.t_atom_info)
 
-	@util.Count("Init")
-	@util.Timer("Init")
-	def init(self, init) -> List[int]:
-		self.init_mappings(init)
-		return self.build_watches(init)
-
-	def init_mappings(self, init) -> None:
-		"""
-		This is only used when there are many propagators
-		Initializes the TimeAtomToSolverLit mapping ONCE
-		then on every subsequent init call from all other theoryconstraints it does nothing
-
-		:param init: clingo PropagateInit class
-		"""
-		if not Signatures.finished:
-			init_TA2L_mapping_integers(init)
-
 	def build_watches(self, init) -> List[int]:
 		"""
 		Add watches to the solver. This should be implemented by child class
@@ -500,12 +483,6 @@ class TheoryConstraintSize1(TheoryConstraint):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	def init(self, init):
-		if not Signatures.finished:
-			init_TA2L_mapping_integers(init)
-
-		self.init_mappings(init)
-
-	def init_mappings(self, init) -> None:
 		"""
 		Instead of adding to TimeAtomToSolverLit it immediately adds a clause for the nogood
 		"""

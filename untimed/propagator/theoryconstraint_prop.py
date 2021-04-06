@@ -18,6 +18,7 @@ from untimed.propagator.theoryconstraint_base import Signatures
 
 import types
 
+
 class TheoryConstraintSize2Prop(TheoryConstraint):
 	__slots__ = []
 
