@@ -140,3 +140,9 @@ class Signatures:
 	@classmethod
 	def convert_to_time(cls, interal_lit):
 		return (abs(interal_lit) - 1) // cls.fullsig_size
+
+
+class GlobalConfig:
+
+	lock_up_to = 0
+	lock_from = 0

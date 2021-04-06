@@ -335,6 +335,9 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
+			if self.lock_on_build(lits, assigned_time, init):
+				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
+				continue
 			yield lits
 
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
@@ -379,6 +382,9 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
+				continue
+			if self.lock_on_build(lits, assigned_time, init):
+				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
 				continue
 
 			yield lits

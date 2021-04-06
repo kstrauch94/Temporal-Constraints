@@ -8,6 +8,7 @@ from untimed.propagator.theoryconstraint_data import atom_info
 from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_data import Signatures
 from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
+from untimed.propagator.theoryconstraint_data import GlobalConfig
 
 import clingo
 
@@ -470,6 +471,13 @@ class TheoryConstraint:
 				return False
 
 		return True
+
+	def lock_on_build(self, ng, at, init):
+		if at <= GlobalConfig.lock_up_to or at >= self.max_time - GlobalConfig.lock_from:
+			init.add_clause([-l for l in ng])
+			return True
+
+		return False
 
 
 class TheoryConstraintSize1(TheoryConstraint):

@@ -4,6 +4,8 @@ from untimed.propagator.propagatorhandler import TheoryHandler
 
 from untimed.propagator.propagatorhandler import add_theory
 
+from untimed.propagator.theoryconstraint_data import GlobalConfig
+
 import untimed.util as util
 
 import textwrap as _textwrap
@@ -44,6 +46,24 @@ class Application:
 		self.lock_ng = n
 		return True
 
+	def __parse_ground_up_to(self, time):
+		time = int(time)
+
+		if time < 0:
+			return False
+
+		GlobalConfig.lock_up_to = time
+		return True
+
+	def __parse_ground_from(self, time):
+		time = int(time)
+
+		if time < 0:
+			return False
+
+		GlobalConfig.lock_from = time
+		return True
+
 	def register_options(self, options):
 		"""
 		See clingo.clingo_main().
@@ -57,9 +77,14 @@ class Application:
 				<arg>: {2watch|2watchmap|naive|timed}"""), self.__parse_watch_type)
 
 		options.add(group, "lock-ng", _textwrap.dedent("""Lock the nogood if it is found to be unit or conflicting after [-1]
-		        <n> times it was added. -1 means it will never be locked.
-		        <n> = [1..max_int] """),
+		        <n> times it was added. -1 means it will never be locked. This option does not work with time_aw watch type"""),
 		            self.__parse_lock_ng)
+
+		options.add(group, "ground-up-to", _textwrap.dedent("""Add the nogoods up to the specified time point from the start[0]"""),
+		            self.__parse_ground_up_to)
+
+		options.add(group, "ground-from", _textwrap.dedent("""Add the nogoods max - <n> time point to the max timepoint [0]"""),
+		            self.__parse_ground_from)
 
 	def main(self, prg, files):
 		with util.Timer("until solve"):
