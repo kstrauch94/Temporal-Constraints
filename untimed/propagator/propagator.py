@@ -423,7 +423,7 @@ class RegularAtomPropagator2watchMap(Propagator):
 	"""
 	__slots__ = []
 
-	def add_atom_observer(self, tc, watches):
+	def add_atom_observer(self, tc, watches, at):
 		"""
 		Add the tc to the list of tcs to be notified when their respective watches are propagated
 		For the given lit, we save the tc along with the respective assigned time
@@ -433,7 +433,7 @@ class RegularAtomPropagator2watchMap(Propagator):
 		if tc.size == 1:
 			return
 
-		for lit, at in watches:
+		for lit in watches:
 			self.watch_to_tc[lit].append((tc, at))
 
 	@util.Timer("Prop_init")
@@ -448,10 +448,9 @@ class RegularAtomPropagator2watchMap(Propagator):
 				if tc.size == 1:
 					tc.init(init)
 				else:
-					watches, all_lits = tc.build_watches(init)
-					self.add_atom_observer(tc, watches)
-
-					all_watches.update(all_lits)
+					for watches, at, all_lits in tc.build_watches(init):
+						self.add_atom_observer(tc, watches, at)
+						all_watches.update(all_lits)
 
 					self.add_tc(tc)
 

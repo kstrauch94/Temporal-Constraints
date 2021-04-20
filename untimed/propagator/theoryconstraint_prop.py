@@ -70,21 +70,16 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 		We also return all literals in the nogood in order to tell the propagator which literals could
 		potentially be watched as well.
 		"""
-		watches = []
-		all_lits = set()
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
 			if self.lock_on_build(lits, assigned_time, init):
-				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
+				# if it is locked then we continue since we don't need to yield the lits(no need to watch them)
 				continue
 
-			for lit in lits:
-				watches.append((lit, assigned_time))
-			all_lits.update(lits)
+			yield lits, assigned_time, lits
 
-		return watches, all_lits
 
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
@@ -257,12 +252,7 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
 				continue
 
-			for lit in lits[:2]:
-				watches.append((lit, assigned_time))
-
-			all_lits.update(lits)
-
-		return watches, all_lits
+			yield lits[:2], assigned_time, lits
 
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
