@@ -27,21 +27,6 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	# @profile
-	def build_watches(self, init) -> Set[int]:
-		"""
-		Since there are only 2 atoms in the constraint we add all literals as watches
-		"""
-		# has to be a list so that a watch can be added multiple times in case it is watched by multiple time points
-		watches = []
-		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
-			if lits is None:
-				continue
-			watches.extend(lits)
-
-		return watches
-
-	# @profile
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		For any relevant change, immediately form the nogood
@@ -91,9 +76,14 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
+			if self.lock_on_build(lits, assigned_time, init):
+				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
+				continue
+
 			for lit in lits:
 				watches.append((lit, assigned_time))
 			all_lits.update(lits)
+
 		return watches, all_lits
 
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
@@ -126,21 +116,6 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 	def __init__(self, constraint, lock_nogoods=-1) -> None:
 		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
-
-	# @profile
-	def build_watches(self, init) -> Set[int]:
-		"""
-		watch everything!
-		"""
-		watches = set()
-		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
-			if lits is None:
-				continue
-
-			watches.update(lits)
-
-		return watches
 
 	# @profile
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
@@ -195,16 +170,8 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 		"""
 		Only add watches for the first 2 literals of a nogood
 		"""
-		watches = []
-		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
-			if lits is None:
-				continue
-			for lit in lits[:2]:
-				self.watches_to_at[lit].add(assigned_time)
-			watches.extend(lits)
-
-		return watches
+		for lits in super().build_watches(init):
+			yield lits[:2]
 
 	# @profile
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
@@ -286,6 +253,10 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
+			if self.lock_on_build(lits, assigned_time, init):
+				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
+				continue
+
 			for lit in lits[:2]:
 				watches.append((lit, assigned_time))
 
@@ -327,19 +298,6 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-	def build_watches(self, init) -> None:
-		"""
-		add all solver literals for the constraint as watches
-		"""
-		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
-			if lits is None:
-				continue
-			if self.lock_on_build(lits, assigned_time, init):
-				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
-				continue
-			yield lits
-
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		look for assigned times of the change and add the nogoods of those times to
@@ -374,20 +332,6 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 	def __init__(self, constraint, lock_nogoods=-1) -> None:
 		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
-
-	def build_watches(self, init) -> None:
-		"""
-		add all solver literals for the constraint as watches
-		"""
-		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
-			if lits is None:
-				continue
-			if self.lock_on_build(lits, assigned_time, init):
-				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
-				continue
-
-			yield lits
 
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
@@ -426,17 +370,6 @@ class TheoryConstraintCountProp(TheoryConstraint):
 			self.counts[i] = 0
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-	def build_watches(self, init) -> None:
-		"""
-		add all solver literals for the constraint as watches
-		"""
-		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
-			if lits is None:
-				continue
-
-			yield lits
-
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		:param control: clingo PropagateControl object
@@ -468,7 +401,8 @@ class TheoryConstraintCountProp(TheoryConstraint):
 				continue
 			self.counts[assigned_time] -= 1
 			if self.counts[assigned_time] < 0:
-				print("ERROR??? count for a particular assigned time should never be below 0 !!!")
+				print("ERROR: count for a particular assigned time should never be below 0 !!!")
+				print("ERROR on assigned time: {}".format(assigned_time))
 
 
 class TheoryConstraintMetaProp(TheoryConstraint):
@@ -478,16 +412,6 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 		super().__init__(constraint, lock_nogoods=lock_nogoods)
 
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
-
-	def build_watches(self, init) -> None:
-		"""
-		add all solver literals for the constraint as watches
-		"""
-		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
-			if lits is None:
-				continue
-			yield lits
 
 	#@profile
 	def build_prop_function(self):

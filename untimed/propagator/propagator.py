@@ -61,6 +61,7 @@ class Propagator:
 
 	@util.Timer("Prop_init")
 	def init(self, init):
+		watches = set()
 		init_TA2L_mapping_integers(init)
 
 		t_atom_count = 0
@@ -70,12 +71,13 @@ class Propagator:
 				if tc.size == 1:
 					tc.init(init)
 				else:
-					watches = tc.build_watches(init)
+					for lits in tc.build_watches(init):
+						watches.update(lits)
 					self.add_atom_observer(tc, watches)
 
 					self.add_tc(tc)
 
-		for lit in self.watch_to_tc:
+		for lit in watches:
 			init.add_watch(lit)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
@@ -390,7 +392,10 @@ class RegularAtomPropagator2watch(Propagator):
 					self.watch_to_tc[delete].remove(tc)
 					self.watch_to_tc[add].append(tc)
 
-					control.add_watch(add)
+					if len(self.watch_to_tc[add]) == 1:
+						# if the size is 1 then it contains only the new tc
+						# so it wasn't watched before
+						control.add_watch(add)
 
 					if self.watch_to_tc[delete] == []:
 						control.remove_watch(delete)

@@ -391,7 +391,9 @@ class TheoryConstraint:
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
 				continue
-
+			if self.lock_on_build(lits, assigned_time, init):
+				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
+				continue
 			yield lits
 
 	@util.Timer("Undo")
