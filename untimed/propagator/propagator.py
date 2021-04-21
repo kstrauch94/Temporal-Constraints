@@ -22,6 +22,7 @@ from untimed.propagator.theoryconstraint_prop import TheoryConstraintTimedProp
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintMetaProp
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintCountProp
 
+
 class Propagator:
 	"""
 	Propagator for theory constraints
@@ -458,8 +459,6 @@ class RegularAtomPropagator2watchMap(Propagator):
 			init.add_watch(lit)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
-
-		self.theory_constraints = []
 
 	@util.Count("Propagation")
 	@util.Timer("Propagation")
