@@ -107,9 +107,6 @@ class Signatures:
 	fullsig_size = 0
 	finished = False
 
-	#delete later
-	ulit_to_sig = {}
-
 	@classmethod
 	def reset(cls):
 		cls.sigs = set()
@@ -120,11 +117,11 @@ class Signatures:
 
 	@classmethod
 	def add_fullsig(cls, fullsig, fullsig_term):
+		if fullsig in cls.fullsigs:
+			return
 		cls.fullsig_size += 1
 		cls.fullsigs[fullsig] = cls.fullsig_size
 		cls.fullsigs_term[fullsig_term] = cls.fullsig_size
-
-		cls.ulit_to_sig[cls.fullsig_size] = str(fullsig)
 
 	@classmethod
 	def convert_to_untimed_lit(cls, internal_lit):
