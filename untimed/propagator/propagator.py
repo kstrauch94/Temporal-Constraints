@@ -2,7 +2,7 @@ from typing import Dict, List, Any, Set
 from collections import defaultdict
 
 import untimed.util as util
-
+from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
 from untimed.propagator.theoryconstraint_reg import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_reg import TheoryConstraint
 from untimed.propagator.theoryconstraint_base import init_TA2L_mapping_integers
@@ -465,22 +465,26 @@ class RegularAtomPropagator2watchMap(Propagator):
 	def propagate(self, control, changes):
 		for lit in changes:
 			for tc, at in set(self.watch_to_tc[lit]):
-				ng = tc.propagate(control, (lit, at))
-				if ng is None:
+				res = tc.propagate(control, (lit, at))
+				if res is None:
 					return
+
+				ng, check = res
 				if not ng:  # if ng is empty
 					continue
 
-				for ng_lit in ng:
-					if ng_lit != lit:
-						if (tc, at) in self.watch_to_tc[ng_lit]:
-							second_watch = ng_lit
-							break
+				if check == CONSTRAINT_CHECK["NONE"]:
+					# only update watches if ng was not unit or conflict
+					for ng_lit in ng:
+						if ng_lit != lit:
+							if (tc, at) in self.watch_to_tc[ng_lit]:
+								second_watch = ng_lit
+								break
 
-				new_watch = get_replacement_watch(ng, [lit, second_watch], control)
-				if new_watch is not None:
-					self.watch_to_tc[lit].remove((tc, at))
-					self.watch_to_tc[new_watch].append((tc, at))
+					new_watch = get_replacement_watch(ng, [lit, second_watch], control)
+					if new_watch is not None:
+						self.watch_to_tc[lit].remove((tc, at))
+						self.watch_to_tc[new_watch].append((tc, at))
 
 	def make_tc(self, t_atom):
 		size = len(t_atom.elements)
