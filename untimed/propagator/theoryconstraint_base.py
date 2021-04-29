@@ -253,21 +253,24 @@ def init_TA2L_mapping_integers(init) -> None:
 	Initialize the TA2L mapping using the signatures in the Signatures class
 	:param init: clingo PropagateInit object
 	"""
+	# go through all signatures and signs
 
 	for sign, sig in Signatures.sigs:
-		# go through all signatures and signs
+
+		# look at all the atoms that have that same signature
+		# to avoid looking at the same list of atom multiple times with the same sig
+		# then we could instead of saving tuples (sign, sig) make a dict {sig: [signs...]}
 		for s_atom in init.symbolic_atoms.by_signature(*sig):
-			# look at all the atoms that have that same signature
 			time = parse_time(s_atom)
 
 			name = s_atom.symbol.name
 			args = tuple(s_atom.symbol.arguments[:-1])
 
 			if (name, args) not in Signatures.fullsigs:
-				# This happens when a symbol exists bu the arguments are NOT within the given domain
+				# This happens when a symbol exists but the arguments are NOT within the given domain
 				# for example, when the constraint uses a subset of the domain
 				#
-				# if it is skipped it should be because it is not in the domain!
+				# if it is skipped it is because it is not in the domain!
 				# signatures should be giving the domain of the function!!!
 				continue
 
@@ -410,6 +413,25 @@ class TheoryConstraint:
 		"""
 		pass
 
+	def propagate_main(self, assigned_time, control):
+
+		if not self.is_valid_time(assigned_time):
+			return 1
+
+		ng = form_nogood(self.t_atom_info, assigned_time)
+		if ng is None:
+			return 1
+
+		if check_assignment(ng, control) == CONSTRAINT_CHECK["NONE"]:
+			return 1
+
+		lock = self.check_if_lock(assigned_time)
+
+		if not control.add_nogood(ng, lock=lock) or not control.propagate():
+			return None
+
+		return 1
+
 	def check(self, control) -> Optional[int]:
 		"""
 		Goes through every assigned time and checks the assignment of the nogood
@@ -417,6 +439,8 @@ class TheoryConstraint:
 		:return: None if a conflict was found, 0 otherwise
 		"""
 		for assigned_time in range(self.min_time, self.max_time + 1):
+			if not self.is_valid_time(assigned_time):
+				continue
 			ng = form_nogood(self.t_atom_info, assigned_time)
 			if check_assignment_complete(ng, control) == CONSTRAINT_CHECK["CONFLICT"]:
 				if not control.add_nogood(ng) or not control.propagate():
@@ -432,6 +456,7 @@ class TheoryConstraint:
 		"""
 
 		if self.lock_nogoods == True:
+			util.Count.add("locked_ng")
 			return True
 
 		elif self.lock_nogoods == False:
@@ -477,6 +502,10 @@ class TheoryConstraint:
 	def lock_on_build(self, ng, at, init):
 		if at <= GlobalConfig.lock_up_to or at >= self.max_time - GlobalConfig.lock_from:
 			init.add_clause([-l for l in ng])
+
+			if type(self.lock_nogoods) == list:
+				self.lock_nogoods[at] = None
+
 			return True
 
 		return False
