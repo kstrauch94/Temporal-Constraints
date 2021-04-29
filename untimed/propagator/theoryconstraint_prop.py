@@ -42,16 +42,7 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 			ats.update(get_at_from_internal_lit(internal_lit, self.t_atom_info))
 
 		for assigned_time in ats:
-			if not self.is_valid_time(assigned_time):
-				continue
-
-			ng = form_nogood(self.t_atom_info, assigned_time)
-			if ng is None:
-				continue
-
-			lock = self.check_if_lock(assigned_time)
-
-			if not control.add_nogood(ng, lock=lock) or not control.propagate():
+			if self.propagate_main(assigned_time, control) is None:
 				return None
 
 		return []
@@ -80,7 +71,6 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 
 			yield lits, assigned_time, lits
 
-
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		For any relevant change, immediately form the nogood
@@ -93,16 +83,23 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 
 		lit, assigned_time = change
 
+		if not self.is_valid_time(assigned_time):
+			return [], CONSTRAINT_CHECK["UNIT"]
+
 		ng = form_nogood(self.t_atom_info, assigned_time)
 		if ng is None:
-			return []
+			return [], CONSTRAINT_CHECK["UNIT"]
+
+		if check_assignment(ng, control) == CONSTRAINT_CHECK["NONE"]:
+			return [], CONSTRAINT_CHECK["UNIT"]
 
 		lock = self.check_if_lock(assigned_time)
 
 		if not control.add_nogood(ng, lock=lock) or not control.propagate():
 			return None
 
-		return []
+		# always return UNIT so that it doesnt attempt to change the watches for size 2
+		return [], CONSTRAINT_CHECK["UNIT"]
 
 
 class TheoryConstraintNaiveProp(TheoryConstraint):
@@ -128,20 +125,9 @@ class TheoryConstraintNaiveProp(TheoryConstraint):
 			ats.update(get_at_from_internal_lit(internal_lit, self.t_atom_info))
 
 		for assigned_time in ats:
-			if not self.is_valid_time(assigned_time):
-				continue
-			ng = form_nogood(self.t_atom_info, assigned_time)
-			if ng is None:
-				continue
+			if self.propagate_main(assigned_time, control) is None:
+				return None
 
-			update_result = check_assignment(ng, control)
-
-			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-
-				lock = self.check_if_lock(assigned_time)
-
-				if not control.add_nogood(ng, lock=lock) or not control.propagate():
-					return None
 		return 1
 
 
@@ -199,17 +185,18 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 				lock = self.check_if_lock(assigned_time)
 				if not control.add_nogood(ng, lock=lock) or not control.propagate():
 					return None
+			else:
+				# only look for replacement if nogood is not conflicting or unit
+				for lit, ats in self.watches_to_at.items():
+					if lit != change:
+						if assigned_time in ats:
+							second_watch = lit
+							break
 
-			for lit, ats in self.watches_to_at.items():
-				if lit != change:
-					if assigned_time in ats:
-						second_watch = lit
-						break
-
-			new_watch = get_replacement_watch(ng, [change, second_watch], control)
-			if new_watch is not None:
-				delete_add.append((change, new_watch))
-				replacement_info.append([change, new_watch, assigned_time])
+				new_watch = get_replacement_watch(ng, [change, second_watch], control)
+				if new_watch is not None:
+					delete_add.append((change, new_watch))
+					replacement_info.append([change, new_watch, assigned_time])
 
 		self.replace_watches(replacement_info, control)
 
@@ -267,9 +254,13 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 		"""
 
 		lit, assigned_time = change
+
+		if not self.is_valid_time(assigned_time):
+			return [], CONSTRAINT_CHECK["UNIT"]
+
 		ng = form_nogood(self.t_atom_info, assigned_time)
 		if ng is None:
-			return []
+			return [], CONSTRAINT_CHECK["UNIT"]
 
 		update_result = check_assignment(ng, control)
 
@@ -278,7 +269,7 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 			if not control.add_nogood(ng, lock=lock) or not control.propagate():
 				return None
 
-		return ng
+		return ng, update_result
 
 
 class TheoryConstraintSize2TimedProp(TheoryConstraint):
@@ -301,16 +292,7 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 		ats = get_at_from_internal_lit(change, self.t_atom_info)
 
 		for assigned_time in ats:
-			if not self.is_valid_time(assigned_time):
-				continue
-
-			ng = form_nogood(self.t_atom_info, assigned_time)
-			if ng is None:
-				continue
-
-			lock = self.check_if_lock(assigned_time)
-
-			if not control.add_nogood(ng, lock=lock) or not control.propagate():
+			if self.propagate_main(assigned_time, control) is None:
 				return None
 
 		return 1
@@ -333,19 +315,8 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 		ats = get_at_from_internal_lit(change, self.t_atom_info)
 
 		for assigned_time in ats:
-			if not self.is_valid_time(assigned_time):
-				continue
-			ng = form_nogood(self.t_atom_info, assigned_time)
-			if ng is None:
-				continue
-
-			update_result = check_assignment(ng, control)
-
-			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-				util.Count.add(str(update_result), 1)
-				lock = self.check_if_lock(assigned_time)
-				if not control.add_nogood(ng, lock=lock) or not control.propagate():
-					return None
+			if self.propagate_main(assigned_time, control) is None:
+				return None
 
 		return 1
 
@@ -378,9 +349,13 @@ class TheoryConstraintCountProp(TheoryConstraint):
 				ng = form_nogood(self.t_atom_info, assigned_time)
 				if ng is None:
 					continue
-				lock = self.check_if_lock(assigned_time)
-				if not control.add_nogood(ng, lock=lock) or not control.propagate():
-					return None
+
+				update_result = check_assignment(ng, control)
+
+				if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+					lock = self.check_if_lock(assigned_time)
+					if not control.add_nogood(ng, lock=lock) or not control.propagate():
+						return None
 
 		return 1
 
