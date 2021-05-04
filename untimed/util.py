@@ -93,15 +93,18 @@ class Stats:
 		cls.stats[name] = val
 
 
-def print_stats():
+def print_stats(step, accu):
 	for name, time_taken in Timer.timers.items():
 		print(f"Time {name:15}      :   {time_taken:.3f}")
+		accu[f"Time {name:18}"] = time_taken
 
 	for name, count in Count.counts.items():
 		print(f"Calls to {name:15}  :   {count}")
+		accu[f"{name:23}"] = count
 
 	for name, val in Stats.stats.items():
 		print(f"{name:15}   :   {val}")
+		accu[f"{name:23}"] = val
 
 def get_size(obj, seen=None):
 	"""

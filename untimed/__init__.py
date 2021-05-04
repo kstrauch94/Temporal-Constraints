@@ -29,7 +29,7 @@ class Application:
 		self.__prop_init = clingo.Flag(False)
 
 	def __on_stats(self, step, accu):
-		util.print_stats()
+		util.print_stats(step, accu)
 
 	def __parse_watch_type(self, prop):
 		if prop not in watch_types:
@@ -101,10 +101,8 @@ class Application:
 
 			self.__handler.register(prg)
 
-		with util.Timer("solve time"):
-			prg.solve(on_statistics=self.__on_stats)
+		prg.solve(on_statistics=self.__on_stats)
 		print("done!")
-		util.print_stats()
 
 def setup_logger():
 	root_logger = logging.getLogger()
