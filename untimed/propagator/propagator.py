@@ -90,10 +90,14 @@ class Propagator:
 	@util.Count("check")
 	@util.Timer("check")
 	def check(self, control):
+		print("Checking model...")
 		for tc in self.theory_constraints:
 			if tc.check(control) is None:
 				# check failed because there was a conflict
+				print("Check failed! Adding conflict.")
 				return
+
+		print("Check finished!")
 
 	def make_tc(self, t_atom):
 		pass
