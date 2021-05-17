@@ -96,7 +96,9 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 		lock = self.check_if_lock(assigned_time)
 
 		if not control.add_nogood(ng, lock=lock) or not control.propagate():
+			util.Count.add("Conflicts added")
 			return None
+		util.Count.add("Units added")
 
 		# always return UNIT so that it doesnt attempt to change the watches for size 2
 		return [], CONSTRAINT_CHECK["UNIT"]
@@ -184,7 +186,10 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 				lock = self.check_if_lock(assigned_time)
 				if not control.add_nogood(ng, lock=lock) or not control.propagate():
+					util.Count.add("Conflicts added")
 					return None
+
+				util.Count.add("Units added")
 			else:
 				# only look for replacement if nogood is not conflicting or unit
 				for lit, ats in self.watches_to_at.items():
@@ -267,7 +272,9 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 		if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 			lock = self.check_if_lock(assigned_time)
 			if not control.add_nogood(ng, lock=lock) or not control.propagate():
+				util.Count.add("Conflicts added")
 				return None
+			util.Count.add("Units added")
 
 		return ng, update_result
 
@@ -355,8 +362,9 @@ class TheoryConstraintCountProp(TheoryConstraint):
 				if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 					lock = self.check_if_lock(assigned_time)
 					if not control.add_nogood(ng, lock=lock) or not control.propagate():
+						util.Count.add("Conflicts added")
 						return None
-
+					util.Count.add("Units added")
 		return 1
 
 	def undo(self, change):
@@ -437,7 +445,10 @@ if_template = """
 			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 				lock = self.check_if_lock(at)
 				if not control.add_nogood(ng, lock=lock) or not control.propagate():
+					util.Count.add("Conflicts added")
 					return None
+				util.Count.add("Units added")
+				
 """
 
 if_template_size2 = """
@@ -447,7 +458,9 @@ if_template_size2 = """
 			{ng}
 			lock = self.check_if_lock(at)
 			if not control.add_nogood(ng, lock=lock) or not control.propagate():
+				util.Count.add("Conflicts added")
 				return None
+			util.Count.add("Units added")
 """
 
 if_template_t_atom = """
@@ -458,7 +471,9 @@ if_template_t_atom = """
 		if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
 			lock = self.check_if_lock(at)
 			if not control.add_nogood(ng, lock=lock) or not control.propagate():
+				util.Count.add("Conflicts added")
 				return None
+			util.Count.add("Units added")
 """
 
 check_mapping = "TimeAtomToSolverLit.grab_lit(Signatures.convert_to_internal_lit({untimed_lit}, time, {sign}))"

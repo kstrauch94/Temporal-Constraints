@@ -428,7 +428,10 @@ class TheoryConstraint:
 		lock = self.check_if_lock(assigned_time)
 
 		if not control.add_nogood(ng, lock=lock) or not control.propagate():
+			util.Count.add("Conflicts added")
 			return None
+
+		util.Count.add("Units added")
 
 		return 1
 
