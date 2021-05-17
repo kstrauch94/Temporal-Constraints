@@ -141,5 +141,5 @@ class Signatures:
 
 class GlobalConfig:
 
-	lock_up_to = 0
-	lock_from = 0
+	lock_up_to = -1
+	lock_from = -1

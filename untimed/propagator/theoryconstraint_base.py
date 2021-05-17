@@ -399,6 +399,23 @@ class TheoryConstraint:
 				continue
 			yield lits
 
+	def ground(self, init):
+		"""
+		This function is used in the all watches propagator to "ground" the constraints given the options
+		lock_up_to and lock_from
+		:param init: clingo PropagateInit object
+		:return: None
+		"""
+
+		for assigned_time in range(self.min_time, self.max_time + 1):
+			if assigned_time <= GlobalConfig.lock_up_to or assigned_time >= self.max_time - GlobalConfig.lock_from:
+				util.Count.add("pre-grounded")
+				lits = form_nogood(self.t_atom_info, assigned_time)
+				if lits is None:
+					continue
+
+				self.lock_on_build(lits, assigned_time, init)
+
 	@util.Timer("Undo")
 	@util.Count("Undo")
 	def undo(self, thread_id, assign, changes) -> None:
@@ -505,7 +522,8 @@ class TheoryConstraint:
 	def lock_on_build(self, ng, at, init):
 		if at <= GlobalConfig.lock_up_to or at >= self.max_time - GlobalConfig.lock_from:
 			init.add_clause([-l for l in ng])
-
+			util.Count.add("pre-grounded")
+			
 			if type(self.lock_nogoods) == list:
 				self.lock_nogoods[at] = None
 
