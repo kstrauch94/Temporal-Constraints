@@ -10,7 +10,7 @@ on(B,B2,0) :- init(on(B,B2)).
 1{do(A,T) : action(A)}1 :- time(T), T>0.
 %1 {on(B,L,T) : loc(L)} 1 :- block(B), time(T), T>0.
 
-clear(B,T) :- not on(B2,B,T), block(B), block(B2), B2 != B, time(T).
+clear(B,T) :- not on(B2,B,T) : block(B2), B2 != B; block(B), time(T).
 clear(table,T) :- time(T).
 
 %precondition
