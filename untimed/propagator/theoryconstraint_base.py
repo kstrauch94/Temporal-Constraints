@@ -463,7 +463,8 @@ class TheoryConstraint:
 				continue
 			ng = form_nogood(self.t_atom_info, assigned_time)
 			if check_assignment_complete(ng, control) == CONSTRAINT_CHECK["CONFLICT"]:
-				if not control.add_nogood(ng) or not control.propagate():
+				lock = self.check_if_lock(assigned_time)
+				if not control.add_nogood(ng, lock=lock) or not control.propagate():
 					# model has some conflicts
 					return None
 		return 0
@@ -523,7 +524,7 @@ class TheoryConstraint:
 		if at <= GlobalConfig.lock_up_to or at >= self.max_time - GlobalConfig.lock_from:
 			init.add_clause([-l for l in ng])
 			util.Count.add("pre-grounded")
-			
+
 			if type(self.lock_nogoods) == list:
 				self.lock_nogoods[at] = None
 
