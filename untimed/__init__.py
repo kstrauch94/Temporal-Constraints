@@ -13,7 +13,7 @@ import textwrap as _textwrap
 import logging
 import sys
 
-watch_types = ["naive", "2watch", "timed", "timed_aw", "2watchmap", "meta", "meta_ta", "count"]
+watch_types = ["naive", "2watch", "timed", "check", "timed_aw", "2watchmap", "meta", "meta_ta", "count", "conseq"]
 
 
 class Application:
@@ -71,10 +71,7 @@ class Application:
 
 		group = "Untimed Options"
 
-		options.add(group, "watch-type", _textwrap.dedent("""Watch type to use along with the handler. [naive]
-				regular handler supports 2watch and naive
-				prop handler support timed, naive, 2watch and 2watchmap
-				<arg>: {2watch|2watchmap|naive|timed}"""), self.__parse_watch_type)
+		options.add(group, "watch-type", _textwrap.dedent("""Watch type to use [timed]"""), self.__parse_watch_type)
 
 		options.add(group, "lock-ng", _textwrap.dedent("""Lock the nogood if it is found to be unit or conflicting after [-1]
 		        <n> times it was added. -1 means it will never be locked. This option does not work with time_aw watch type"""),

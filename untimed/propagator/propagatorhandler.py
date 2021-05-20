@@ -15,6 +15,8 @@ from untimed.propagator.propagator import MetaTAtomPropagator
 from untimed.propagator.propagator import RegularAtomPropagatorNaive
 from untimed.propagator.propagator import RegularAtomPropagator2watch
 from untimed.propagator.propagator import RegularAtomPropagator2watchMap
+from untimed.propagator.propagator import TimedAtomPropagatorCheck
+from untimed.propagator.propagator import ConseqsPropagator
 
 
 theory_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../theory/untimed_theory.lp"))
@@ -26,7 +28,9 @@ PROPAGATORS = {"timed": TimedAtomPropagator,
                "naive": RegularAtomPropagatorNaive,
                "2watch": RegularAtomPropagator2watch,
                "2watchmap": RegularAtomPropagator2watchMap,
-               "count": CountPropagator}
+               "count": CountPropagator,
+               "check": TimedAtomPropagatorCheck,
+               "conseq": ConseqsPropagator}
 
 
 def build_tc(t_atom, tc_dict) -> TheoryConstraint:
@@ -51,7 +55,7 @@ def add_theory(prg) -> None:
 
 class TheoryHandler:
 
-	supported_types = ["timed", "timed_aw", "meta", "meta_ta", "count", "naive", "2watch", "2watchmap"]
+	supported_types = ["timed", "check", "timed_aw", "meta", "meta_ta", "count", "naive", "2watch", "2watchmap", "conseq"]
 
 	def __init__(self, prop_type: str = "timed", lock_ng=-1) -> None:
 

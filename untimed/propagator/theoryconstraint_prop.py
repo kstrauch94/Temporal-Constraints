@@ -328,6 +328,99 @@ class TheoryConstraintTimedProp(TheoryConstraint):
 		return 1
 
 
+class TAtomConseqs():
+	__slots__ = ["untimed_lit", "conseqs", "lock_nogoods"]
+
+	def __init__(self, untimed_atom=None, lock_nogoods=-1) -> None:
+		#self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
+
+		self.untimed_lit = untimed_atom
+		self.conseqs = []
+
+		if lock_nogoods == -1:
+			# never lock
+			self.lock_nogoods = False
+
+		elif lock_nogoods >= 0:
+			# always lock
+			self.lock_nogoods = True
+
+
+	def build_conseqs(self, info, min, max):
+		"""
+		Extend the conseqs list given the theory constraint
+		:param tc: theory constraint that involves the untimed atom for this
+		:return:
+		"""
+		ua_time = None
+		other_time = None
+		other_lit = None
+		for i in info:
+			if i.untimed_lit != self.untimed_lit:
+				other_time = i.time_mod
+				other_lit = i.untimed_lit
+
+			else:
+				ua_time = i.time_mod
+
+		if other_time is None:
+			# in this case both atoms are the same
+			# which means that one has time 0 and
+			# the other has time 1, so we set them up that way
+			ua_time = 1
+			other_time = 0
+			other_lit = self.untimed_lit
+
+		conseq = [other_lit, ua_time - other_time, min, max]
+		# if we have constraints with the same atom just in different time steps
+		# then we check so that we don't add the same consequence
+		if conseq not in self.conseqs:
+			self.conseqs.append(conseq)
+		print(self.conseqs)
+	def is_valid_time(self, assigned_time, min_time, max_time):
+		"""
+		checks if an assigned time is valid for the theory constraint
+		:param assigned_time: the assigned time
+		:return: True if it is valid, False otherwise
+		"""
+		# returns True if time is valid
+		# False otherwise
+		if assigned_time < min_time or assigned_time > max_time:
+			return False
+
+		return True
+
+	def propagate(self, control, change) -> Optional[List[Tuple]]:
+		"""
+		look for assigned times of the change and add the nogoods of those times to
+		the solver
+
+		:param control: clingo PropagateControl object
+		:param change: tuple containing the info of the change. Tuple[sign, name, time]
+		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
+		"""
+
+		internal_lit, lit = change
+		time = Signatures.convert_to_time(internal_lit)
+		for conseq, time_mod, min_time, max_time in self.conseqs:
+			assigned_time = max(time, time + time_mod)
+			if not self.is_valid_time(assigned_time, min_time, max_time):
+				continue
+
+			other_lit = TimeAtomToSolverLit.grab_lit(Signatures.convert_to_internal_lit(conseq, time + time_mod, util.sign(conseq)))
+			ng = [lit, other_lit]
+
+			if check_assignment(ng, control) == CONSTRAINT_CHECK["NONE"]:
+				continue
+
+			if not control.add_nogood(ng, lock=self.lock_nogoods) or not control.propagate():
+				util.Count.add("Conflicts added")
+				return None
+
+			util.Count.add("Units added")
+
+		return 1
+
 class TheoryConstraintCountProp(TheoryConstraint):
 	__slots__ = ["counts"]
 

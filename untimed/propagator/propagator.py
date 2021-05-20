@@ -11,6 +11,7 @@ from untimed.propagator.theoryconstraint_base import get_replacement_watch
 from untimed.propagator.theoryconstraint_base import TheoryConstraintSize1
 
 from untimed.propagator.theoryconstraint_prop import MetaTAtomProp
+from untimed.propagator.theoryconstraint_prop import TAtomConseqs
 
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintSize2Prop
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintNaiveProp
@@ -83,6 +84,8 @@ class Propagator:
 
 		util.Stats.add("Theory Constraints", t_atom_count)
 
+	@util.Count("Propagation")
+	@util.Timer("Propagation")
 	def propagate(self, control, changes):
 		...
 
@@ -90,14 +93,10 @@ class Propagator:
 	@util.Count("check")
 	@util.Timer("check")
 	def check(self, control):
-		print("Checking model...")
 		for tc in self.theory_constraints:
 			if tc.check(control) is None:
 				# check failed because there was a conflict
-				print("Check failed! Adding conflict.")
 				return
-
-		print("Check finished!")
 
 	def make_tc(self, t_atom):
 		pass
@@ -168,6 +167,58 @@ class TimedAtomPropagator(Propagator):
 			return TheoryConstraintTimedProp(t_atom, self.lock_ng)
 
 
+class TimedAtomPropagatorCheck(Propagator):
+	"""
+	Propagator that handles the propagation of "time atoms" (aka theory atoms of theory constraints).
+
+	"""
+	__slots__ = []
+
+	def add_atom_observer(self, tc, watches):
+		"""
+		Add the tc to the list of tcs to be notified when their respective atoms are propagated
+		:param tc: theory constraint for timed watches
+		:param watches: Not used, just here for compatibility
+		"""
+		if tc.size == 1:
+			return
+
+		for info in tc.t_atom_info:
+			self.watch_to_tc[info.untimed_lit].append(tc)
+
+	@util.Timer("Prop_init")
+	def init(self, init):
+		watches = set()
+		init_TA2L_mapping_integers(init)
+
+		t_atom_count = 0
+		all_t_atom_count = 0
+		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
+			if t_atom.term.name == "constraint":
+				t_atom_count += 1
+				tc = self.make_tc(t_atom)
+				if isinstance(tc, TheoryConstraint) and tc.size == 1:
+					tc.init(init)
+				else:
+					#self.add_atom_observer(tc, watches)
+					tc.ground(init)
+					self.add_tc(tc)
+
+		util.Stats.add("Theory Constraints", t_atom_count)
+		util.Stats.add("Signature Constraints", all_t_atom_count - t_atom_count)
+
+	def make_tc(self, t_atom):
+		size = len(t_atom.elements)
+		if size == 1:
+			return TheoryConstraintSize1(t_atom)
+		elif size == 2:
+			util.Count.add("size_2")
+			return TheoryConstraintSize2TimedProp(t_atom, self.lock_ng)
+		else:
+			util.Count.add("size_-1")
+			return TheoryConstraintTimedProp(t_atom, self.lock_ng)
+
+
 class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 	"""
 	Propagator that handles the propagation of "time atoms"(aka theory atoms of theory constraints).
@@ -186,6 +237,7 @@ class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 				if isinstance(tc, TheoryConstraint) and tc.size == 1:
 					tc.init(init)
 				else:
+					tc.ground(init)
 					self.add_atom_observer(tc, None)
 					self.add_tc(tc)
 
@@ -341,6 +393,65 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 			util.Count.add("size_2")
 			return TheoryConstraint(t_atom, self.lock_ng)
 		else:
+			util.Count.add("size_-1")
+			return TheoryConstraint(t_atom, self.lock_ng)
+
+
+class ConseqsPropagator(TimedAtomPropagator):
+
+	def add_atom_observer(self, tc):
+		"""
+		Add the tc to the list of tcs to be notified when their respective atoms are propagated
+		:param tc: theory constraint for timed watches
+		:param watches: Not used, just here for compatibility
+		"""
+		for info in tc.t_atom_names:
+			if info.untimed_lit not in self.watch_to_tc:
+				self.watch_to_tc[info.untimed_lit] = TAtomConseqs(info.untimed_lit, self.lock_ng)
+
+			self.watch_to_tc[info.untimed_lit].build_conseqs(tc.t_atom_info, tc.min_time, tc.max_time)
+
+	@util.Timer("Prop_init")
+	def init(self, init):
+		watches = set()
+		init_TA2L_mapping_integers(init)
+
+		t_atom_count = 0
+		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
+			if t_atom.term.name == "constraint":
+				tc = self.make_tc(t_atom)
+				if tc.size == 1:
+					tc.init(init)
+				else:
+					for lits in tc.build_watches(init):
+						watches.update(lits)
+
+					self.add_atom_observer(tc)
+					self.add_tc(tc)
+
+		for lit in watches:
+			init.add_watch(lit)
+
+		util.Stats.add("Theory Constraints", t_atom_count)
+
+	@util.Count("Propagation")
+	@util.Timer("Propagation")
+	def propagate(self, control, changes):
+
+		for lit in changes:
+			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
+				if self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)].propagate(control, (internal_lit, lit)) is None:
+					return
+
+	def make_tc(self, t_atom):
+		size = len(t_atom.elements)
+		if size == 1:
+			return TheoryConstraintSize1(t_atom)
+		elif size == 2:
+			util.Count.add("size_2")
+			return TheoryConstraint(t_atom, self.lock_ng)
+		else:
+			raise Exception("Conseqs propagator can not handle constraints of size > 2")
 			util.Count.add("size_-1")
 			return TheoryConstraint(t_atom, self.lock_ng)
 
