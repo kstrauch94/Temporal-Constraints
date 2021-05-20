@@ -367,16 +367,26 @@ class TAtomConseqs():
 			# in this case both atoms are the same
 			# which means that one has time 0 and
 			# the other has time 1, so we set them up that way
-			ua_time = 1
-			other_time = 0
-			other_lit = self.untimed_lit
+			# and in both orders
+
+			conseq = [other_lit, 1, min, max]
+			# if we have constraints with the same atom just in different time steps
+			# then we check so that we don't add the same consequence
+			if conseq not in self.conseqs:
+				self.conseqs.append(conseq)
+
+			conseq = [other_lit, -1, min, max]
+			if conseq not in self.conseqs:
+				self.conseqs.append(conseq)
+
+			return
 
 		conseq = [other_lit, ua_time - other_time, min, max]
 		# if we have constraints with the same atom just in different time steps
 		# then we check so that we don't add the same consequence
 		if conseq not in self.conseqs:
 			self.conseqs.append(conseq)
-		print(self.conseqs)
+
 	def is_valid_time(self, assigned_time, min_time, max_time):
 		"""
 		checks if an assigned time is valid for the theory constraint
