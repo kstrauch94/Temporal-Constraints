@@ -124,6 +124,12 @@ class Signatures:
 		cls.fullsigs_term[fullsig_term] = cls.fullsig_size
 
 	@classmethod
+	def get_sig(cls, ulit):
+		for sig, val in cls.fullsigs.items():
+			if int(val) == int(ulit):
+				return sig
+
+	@classmethod
 	def convert_to_untimed_lit(cls, internal_lit):
 		intermediate = internal_lit % cls.fullsig_size
 		if intermediate == 0:
