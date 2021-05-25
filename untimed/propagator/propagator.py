@@ -67,8 +67,10 @@ class Propagator:
 		init_TA2L_mapping_integers(init)
 
 		t_atom_count = 0
-		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
+		all_t_atom_count = 0
+		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
 			if t_atom.term.name == "constraint":
+				t_atom_count +=1
 				tc = self.make_tc(t_atom)
 				if tc.size == 1:
 					tc.init(init)
@@ -83,6 +85,7 @@ class Propagator:
 			init.add_watch(lit)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
+		util.Stats.add("Signature Constraints", all_t_atom_count - t_atom_count)
 
 	@util.Count("Propagation")
 	@util.Timer("Propagation")
@@ -231,8 +234,10 @@ class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 		init_TA2L_mapping_integers(init)
 
 		t_atom_count = 0
-		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
+		all_t_atom_count = 0
+		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
 			if t_atom.term.name == "constraint":
+				t_atom_count +=1
 				tc = self.make_tc(t_atom)
 				if isinstance(tc, TheoryConstraint) and tc.size == 1:
 					tc.init(init)
@@ -244,6 +249,7 @@ class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 		self.build_watches(init)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
+		util.Stats.add("Signature Constraints", all_t_atom_count - t_atom_count)
 
 	def build_watches(self, init):
 		"""
@@ -297,8 +303,10 @@ class MetaPropagator(Propagator):
 		init_TA2L_mapping_integers(init)
 
 		t_atom_count = 0
-		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
+		all_t_atom_count = 0
+		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
 			if t_atom.term.name == "constraint":
+				t_atom_count +=1
 				tc = self.make_tc(t_atom)
 				if tc.size == 1:
 					tc.init(init)
@@ -313,6 +321,7 @@ class MetaPropagator(Propagator):
 			init.add_watch(lit)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
+		util.Stats.add("Signature Constraints", all_t_atom_count - t_atom_count)
 
 	@util.Count("Propagation")
 	@util.Timer("Propagation")
@@ -356,8 +365,10 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 		init_TA2L_mapping_integers(init)
 
 		t_atom_count = 0
-		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
+		all_t_atom_count = 0
+		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
 			if t_atom.term.name == "constraint":
+				t_atom_count +=1
 				tc = self.make_tc(t_atom)
 				if tc.size == 1:
 					tc.init(init)
@@ -375,6 +386,7 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 			init.add_watch(lit)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
+		util.Stats.add("Signature Constraints", all_t_atom_count - t_atom_count)
 
 	@util.Count("Propagation")
 	@util.Timer("Propagation")
@@ -417,8 +429,10 @@ class ConseqsPropagator(TimedAtomPropagator):
 		init_TA2L_mapping_integers(init)
 
 		t_atom_count = 0
-		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
+		all_t_atom_count = 0
+		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
 			if t_atom.term.name == "constraint":
+				t_atom_count +=1
 				tc = self.make_tc(t_atom)
 				if tc.size == 1:
 					tc.init(init)
@@ -433,6 +447,7 @@ class ConseqsPropagator(TimedAtomPropagator):
 			init.add_watch(lit)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
+		util.Stats.add("Signature Constraints", all_t_atom_count - t_atom_count)
 
 	@util.Count("Propagation")
 	@util.Timer("Propagation")
@@ -558,8 +573,10 @@ class RegularAtomPropagator2watchMap(Propagator):
 		init_TA2L_mapping_integers(init)
 
 		t_atom_count = 0
-		for t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
+		all_t_atom_count = 0
+		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
 			if t_atom.term.name == "constraint":
+				t_atom_count +=1
 				tc = self.make_tc(t_atom)
 				if tc.size == 1:
 					tc.init(init)
@@ -574,6 +591,7 @@ class RegularAtomPropagator2watchMap(Propagator):
 			init.add_watch(lit)
 
 		util.Stats.add("Theory Constraints", t_atom_count)
+		util.Stats.add("Signature Constraints", all_t_atom_count - t_atom_count)
 
 	@util.Count("Propagation")
 	@util.Timer("Propagation")
