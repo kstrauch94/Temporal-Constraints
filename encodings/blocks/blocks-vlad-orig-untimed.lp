@@ -33,7 +33,7 @@ on(B,L,T+1) :- on(B,L,T), not -on(B,L,T+1), location(L), block(B), time(T), T<la
 
 &constraint(0,horizon-1){+.move(B,B1); +.move(B1,L)} :- block(B), block(B1), location(L).
 
-&signature{++on(B,L)} :- block(B), location(L).
+&signature{++on(B,L)} :- block(B), block(L).
 &signature{++move(B,L)} :- block(B), location(L).
 
 :- goal(on(B,B2)), not on(B,B2,horizon).
