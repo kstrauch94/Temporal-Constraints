@@ -15,8 +15,10 @@ where prefix is ```++``` or ```--``` depending on the prefix of the theory term 
 # Installation
 
 To install run the following command while in the main folder of the project:
+```
 pip install --editable .
-
+```
+  
 # Run
 To use this module use the "untimed" keyword. Use ```--help``` to see the available options.
 
