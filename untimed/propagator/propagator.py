@@ -77,7 +77,7 @@ class Propagator:
 				else:
 					for lits in tc.build_watches(init):
 						watches.update(lits)
-					self.add_atom_observer(tc, watches)
+						self.add_atom_observer(tc, lits)
 
 					self.add_tc(tc)
 
