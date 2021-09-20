@@ -27,6 +27,7 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	# @profile
+	@util.Count("Prop tc")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		For any relevant change, immediately form the nogood
@@ -181,15 +182,9 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 			if ng is None:
 				continue
 
-			update_result = check_assignment(ng, control)
+			if self.check_assignment(ng, control, assigned_time) is None:
+				return None
 
-			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-				lock = self.check_if_lock(assigned_time)
-				if not control.add_nogood(ng, lock=lock) or not control.propagate():
-					util.Count.add("Conflicts added")
-					return None
-
-				util.Count.add("Units added")
 			else:
 				# only look for replacement if nogood is not conflicting or unit
 				for lit, ats in self.watches_to_at.items():
@@ -234,8 +229,6 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 		"""
 		Only add watches for the first 2 literals of a nogood
 		"""
-		all_lits = set()
-		watches = []
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
@@ -245,7 +238,7 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 				continue
 
 			yield lits[:2], assigned_time, lits
-
+		
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		For any relevant change, check the assignment of the whole nogood
@@ -286,6 +279,7 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
+	@util.Count("Prop tc")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		look for assigned times of the change and add the nogoods of those times to
@@ -460,14 +454,8 @@ class TheoryConstraintCountProp(TheoryConstraint):
 				if ng is None:
 					continue
 
-				update_result = check_assignment(ng, control)
-
-				if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-					lock = self.check_if_lock(assigned_time)
-					if not control.add_nogood(ng, lock=lock) or not control.propagate():
-						util.Count.add("Conflicts added")
-						return None
-					util.Count.add("Units added")
+				if self.check_assignment(ng, control, assigned_time) is None:
+					return None
 		return 1
 
 	def undo(self, change):
