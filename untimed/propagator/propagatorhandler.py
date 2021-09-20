@@ -66,6 +66,8 @@ class TheoryHandler:
 
 		self.propagator = PROPAGATORS[prop_type](lock_ng)
 
+		self.prop_ids = {}
+
 	@util.Timer("Register")
 	def register(self, prg) -> None:
 		"""
@@ -77,6 +79,9 @@ class TheoryHandler:
 			if t_atom.term.name == "signature":
 				parse_signature(t_atom)
 
+			elif t_atom.term.name == "constraint":
+				id = t_atom.term.arguments[-1]
+				
 		prg.register_propagator(self.propagator)
 
 	def __str__(self) -> str:
