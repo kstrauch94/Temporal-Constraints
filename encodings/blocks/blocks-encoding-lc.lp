@@ -46,9 +46,6 @@ on(B,L,T) :- on(B,L,T-1), not do(move(B,L2), T) : loc(L2), L2 != L ; time(T), T>
 
 :- not on(B,L,horizon), goal(on(B,L)).
 
-&signature{++do(move(B,L)) ; --do(move(B,L)) } :- block(B), loc(L).
-&signature{--clear(L)} :- loc(L).
-&signature{++on(B,L) ; --on(B,L)} :- block(B), loc(L).
 
 #show do/2.
 %#show on/3.
