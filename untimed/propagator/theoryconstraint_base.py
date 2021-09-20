@@ -9,6 +9,7 @@ from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_data import Signatures
 from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
 from untimed.propagator.theoryconstraint_data import GlobalConfig
+from untimed.propagator.theoryconstraint_data import LitUsage
 
 import clingo
 
@@ -181,6 +182,33 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 
 	return sorted(ng)
 
+def form_nogood_always(t_atom_info, assigned_time: int) -> Optional[List[int]]:
+	"""
+	Forms a nogood based on the assigned time and atoms of a theory constraint
+
+	:param t_atom_info: List of atominfo namedtuples of a particular constraint
+	:param assigned_time: the assigned time
+	:return: the nogood for the given assigned time and constraint
+	"""
+
+	ng: Set[int] = set()
+
+	for info in t_atom_info:
+		time: int = reverse_assigned_time(info, assigned_time)
+		try:
+			lit = TimeAtomToSolverLit.grab_lit(untimed_lit_to_internal_lit(info, time))
+		except KeyError:
+			# this error would happen if an id is not in the mapping
+			# if this happens it means the atom does not exist for this assigned time
+			# if sign is 1 then it means that a POSITIVE atom does not exist -> a false atom in the nogood -> automatically ok
+			continue
+
+		if lit == -1:
+			continue
+
+		ng.add(lit)
+
+	return ng
 
 def check_assignment(nogood, control) -> int:
 	"""
@@ -437,13 +465,22 @@ class TheoryConstraint:
 
 		ng = form_nogood(self.t_atom_info, assigned_time)
 		if ng is None:
+			util.Count.add("form nogood none")
+			ng = form_nogood_always(self.t_atom_info, assigned_time)
+			print(ng)
+			LitUsage.sub(ng)
+			LitUsage.check(ng, control)
 			return 1
 
+		return self.check_assignment(ng, control, assigned_time)
+
+	def check_assignment(self, ng, control, assigned_time):
 		if check_assignment(ng, control) == CONSTRAINT_CHECK["NONE"]:
 			return 1
-
 		lock = self.check_if_lock(assigned_time)
-
+		if lock:
+			LitUsage.sub(lits=ng)
+			LitUsage.check(lits=ng, control=control)
 		if not control.add_nogood(ng, lock=lock) or not control.propagate():
 			util.Count.add("Conflicts added")
 			return None
@@ -531,6 +568,15 @@ class TheoryConstraint:
 			return True
 
 		return False
+
+	def __str__(self):
+		mystr = ""
+		for v in self.t_atom_info:
+			mystr += str(v.untimed_lit) + " "
+		return mystr
+
+	def __repr__(self):
+		return str(self)
 
 
 class TheoryConstraintSize1(TheoryConstraint):
