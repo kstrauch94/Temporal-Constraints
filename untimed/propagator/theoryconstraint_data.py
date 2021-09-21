@@ -71,6 +71,7 @@ class TimeAtomToSolverLit:
 		try:
 			lit = cls.id_to_lit[internal_lit]
 		except KeyError:
+			util.Count.add("Keyerror mapping")
 			# this error would happen if an id is not in the mapping
 			# if this happens it means the atom does not exist for this assigned time
 			# if sign is 1 then it means that a POSITIVE atom does not exist -> a false atom in the nogood -> automatically ok
@@ -79,8 +80,12 @@ class TimeAtomToSolverLit:
 			if internal_lit >= 0:
 				# it is negative if it is not in the mapping
 				# so we add it as -1 and return it
+				cls.add(internal_lit, -1)
+				#cls.add(internal_lit * -1, 1)
 				return -1
 			else:
+				cls.add(internal_lit, 1)
+				#cls.add(internal_lit * -1, -1)
 				return 1
 
 		return lit
@@ -172,16 +177,16 @@ class LitUsage:
 		cls.lit2usage[lit] += 1
 	@classmethod
 	def _sub(cls, lit):
-		if lit not in cls.lit2usage:
-			raise ValueError(f"lit {lit} is not in the mapping!")
+		#if lit not in cls.lit2usage:
+		#	raise ValueError(f"lit {lit} is not in the mapping!")
 
 		#print("usage", cls.lit2usage[lit])
 		cls.lit2usage[lit] -= 1
 
 	@classmethod
 	def _check(cls, lit, control):
-		if lit not in cls.lit2usage:
-			raise ValueError(f"lit {lit} is not in the mapping!")
+		#if lit not in cls.lit2usage:
+		#	raise ValueError(f"lit {lit} is not in the mapping!")
 
 		if cls.lit2usage[lit] < 0:
 			return
