@@ -160,19 +160,7 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 
 	for info in t_atom_info:
 		time: int = reverse_assigned_time(info, assigned_time)
-		try:
-			lit = TimeAtomToSolverLit.grab_lit(untimed_lit_to_internal_lit(info, time))
-		except KeyError:
-			# this error would happen if an id is not in the mapping
-			# if this happens it means the atom does not exist for this assigned time
-			# if sign is 1 then it means that a POSITIVE atom does not exist -> a false atom in the nogood -> automatically ok
-			if info.sign == 1:
-				return None
-
-			#if sign is -1 then is means that a POSITIVE atom does not exist and hence this NEGATIVE atom for that atom is always positive
-			# so we can assign the 1 to lit
-			lit = 1
-
+		lit = TimeAtomToSolverLit.grab_lit(untimed_lit_to_internal_lit(info, time))
 		#if lit == 1:
 		#	continue
 		if lit == -1:
@@ -465,11 +453,7 @@ class TheoryConstraint:
 
 		ng = form_nogood(self.t_atom_info, assigned_time)
 		if ng is None:
-			util.Count.add("form nogood none")
-			ng = form_nogood_always(self.t_atom_info, assigned_time)
-			print(ng)
-			LitUsage.sub(ng)
-			LitUsage.check(ng, control)
+			util.Count.add("form nogood is None")
 			return 1
 
 		return self.check_assignment(ng, control, assigned_time)
