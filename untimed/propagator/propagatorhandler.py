@@ -4,8 +4,7 @@ import os
 from untimed import util
 
 from untimed.propagator.theoryconstraint_base import parse_signature
-
-from untimed.propagator.theoryconstraint_reg import TheoryConstraint
+from untimed.propagator.theoryconstraint_base import TheoryConstraint
 
 from untimed.propagator.propagator import TimedAtomPropagator
 from untimed.propagator.propagator import TimedAtomAllWatchesPropagator
