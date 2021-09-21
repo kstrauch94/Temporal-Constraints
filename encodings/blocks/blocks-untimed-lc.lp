@@ -33,11 +33,11 @@ on(B,L,T) :- on(B,L,T-1), not do(move(B,L2), T) : loc(L2), L2 != L ; time(T), T>
 
 % cant have 2 blocks on 1 block
 %:- on(B1,B,T), on(B2,B,T), B1 != B2, block(B).
-&constraint(0,horizon,b2b){+.on(B1,B) ; +.on(B2,B)} :- block(B), block(B1), block(B2), B1 < B2.
+&constraint(0,horizon,b2b){+.on(B1,B) ; +.on(B2,B)} :- block(B), block(B1), block(B2), B1 < B2, B1 != B, B2 != B.
 
 % cant have 1 block on 2 blocks
 %:- on(B,B1,T), on(B,B2,T), B1 != B2.
-&constraint(0,horizon,bb2){+.on(B,B1) ; +.on(B,B2)} :- block(B), block(B1), block(B2), B1 < B2.
+&constraint(0,horizon,bb2){+.on(B,B1) ; +.on(B,B2)} :- block(B), block(B1), block(B2), B1 < B2, B1 != B, B2 != B.
 
 %:- on(B1,B2,T), on(B2,B1,T).
 &constraint(0,horizon,bb){+.on(B1,B2) ; +.on(B2,B1)} :- block(B1), block(B2), B2 < B1.
@@ -46,9 +46,9 @@ on(B,L,T) :- on(B,L,T-1), not do(move(B,L2), T) : loc(L2), L2 != L ; time(T), T>
 
 :- not on(B,L,horizon), goal(on(B,L)).
 
-&signature{++do(move(B,L)) ; --do(move(B,L)) } :- block(B), loc(L).
+&signature{++do(move(B,L)) ; --do(move(B,L)) } :- block(B), loc(L), B != L.
 &signature{--clear(L)} :- loc(L).
-&signature{++on(B,L) ; --on(B,L)} :- block(B), loc(L).
+&signature{++on(B,L) ; --on(B,L)} :- block(B), loc(L), B != L.
 
 #show do/2.
 %#show on/3.
