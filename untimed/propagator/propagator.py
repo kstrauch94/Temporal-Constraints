@@ -75,7 +75,7 @@ class Propagator:
 		all_t_atom_count = 0
 		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
 			if t_atom.term.name == "constraint":
-				if t_atom.term.arguments[-1] != self.id:
+				if self.id is not None and t_atom.term.arguments[-1].name != self.id:
 					continue
 				t_atom_count +=1
 				tc = self.make_tc(t_atom)
@@ -92,8 +92,8 @@ class Propagator:
 		self.watches = None
 		del self.watches
 
-		util.Stats.add("Theory Constraints", t_atom_count)
-		util.Stats.add("Signature Constraints", all_t_atom_count - t_atom_count)
+		util.Count.add("Theory Constraints", t_atom_count)
+		util.Count.add("Signature Constraints", all_t_atom_count - t_atom_count)
 
 	def build_watches(self, tc, init):
 		for lits in tc.build_watches(init):
@@ -101,8 +101,7 @@ class Propagator:
 			self.watches.update(lits)
 			self.add_atom_observer(tc, lits)
 
-	@util.Count("Propagation")
-	@util.Timer("Propagation")
+	@util.Count("Propagation Calls")
 	def propagate(self, control, changes):
 		...
 
@@ -143,14 +142,14 @@ class TimedAtomPropagator(Propagator):
 			self.watches.update(lits)
 		self.add_atom_observer(tc)
 	
-	@util.Count("Propagation")
-	@util.Timer("Propagation")
+	@util.Count("Propagation Calls")
 	def propagate(self, control, changes):
-		for lit in changes:
-			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
-				for tc in self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)]:
-					if tc.propagate(control, internal_lit) is None:
-						return
+		with util.Timer("Propagation-{}".format(str(self.id))):
+			for lit in changes:
+				for internal_lit in TimeAtomToSolverLit.grab_id(lit):
+					for tc in self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)]:
+						if tc.propagate(control, internal_lit) is None:
+							return
 
 	def make_tc(self, t_atom):
 		size = len(t_atom.elements)
@@ -266,15 +265,14 @@ class MetaPropagator(Propagator):
 			self.watches.update(lits)
 		self.add_atom_observer(tc, tc.build_prop_function())
 
-	@util.Count("Propagation")
-	@util.Timer("Propagation")
+	@util.Count("Propagation Calls")
 	def propagate(self, control, changes):
-
-		for lit in changes:
-			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
-				for prop_func in self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)]:
-					if prop_func(control, internal_lit) is None:
-						return
+		with util.Timer("Propagation-{}".format(str(self.id))):
+			for lit in changes:
+				for internal_lit in TimeAtomToSolverLit.grab_id(lit):
+					for prop_func in self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)]:
+						if prop_func(control, internal_lit) is None:
+							return
 
 	def make_tc(self, t_atom):
 		size = len(t_atom.elements)
@@ -310,13 +308,12 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 			meta_tc.finish_prop_func()
 
 	@util.Count("Propagation")
-	@util.Timer("Propagation")
 	def propagate(self, control, changes):
-
-		for lit in changes:
-			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
-				if self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)].propagate(control, internal_lit) is None:
-					return
+		with util.Timer("Propagation-{}".format(str(self.id))):
+			for lit in changes:
+				for internal_lit in TimeAtomToSolverLit.grab_id(lit):
+					if self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)].propagate(control, internal_lit) is None:
+						return
 
 	def make_tc(self, t_atom):
 		size = len(t_atom.elements)
@@ -345,14 +342,13 @@ class ConseqsPropagator(TimedAtomPropagator):
 			self.watch_to_tc[info.untimed_lit].build_conseqs(tc.t_atom_info, tc.min_time, tc.max_time)
 
 
-	@util.Count("Propagation")
-	@util.Timer("Propagation")
+	@util.Count("Propagation Calls")
 	def propagate(self, control, changes):
-
-		for lit in changes:
-			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
-				if self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)].propagate(control, (internal_lit, lit)) is None:
-					return
+		with util.Timer("Propagation-{}".format(str(self.id))):
+			for lit in changes:
+				for internal_lit in TimeAtomToSolverLit.grab_id(lit):
+					if self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)].propagate(control, (internal_lit, lit)) is None:
+						return
 
 	def make_tc(self, t_atom):
 		size = len(t_atom.elements)
@@ -375,12 +371,12 @@ class RegularAtomPropagatorNaive(Propagator):
 	__slots__ = []
 
 	@util.Count("Propagation")
-	@util.Timer("Propagation")
 	def propagate(self, control, changes):
-		for lit in changes:
-			for tc in self.watch_to_tc[lit]:
-				if tc.propagate(control, lit) is None:
-					return
+		with util.Timer("Propagation-{}".format(str(self.id))):
+			for lit in changes:
+				for tc in self.watch_to_tc[lit]:
+					if tc.propagate(control, lit) is None:
+						return
 
 	def make_tc(self, t_atom):
 		size = len(t_atom.elements)
@@ -405,27 +401,27 @@ class RegularAtomPropagator2watch(Propagator):
 	"""
 	__slots__ = []
 
-	@util.Count("Propagation")
-	@util.Timer("Propagation")
+	@util.Count("Propagation Calls")
 	# @profile
 	def propagate(self, control, changes):
-		for lit in changes:
-			for tc in set(self.watch_to_tc[lit]):
-				result = tc.propagate(control, lit)
-				if result is None:
-					return
+		with util.Timer("Propagation-{}".format(str(self.id))):
+			for lit in changes:
+				for tc in set(self.watch_to_tc[lit]):
+					result = tc.propagate(control, lit)
+					if result is None:
+						return
 
-				for delete, add in result:
-					self.watch_to_tc[delete].remove(tc)
-					self.watch_to_tc[add].append(tc)
+					for delete, add in result:
+						self.watch_to_tc[delete].remove(tc)
+						self.watch_to_tc[add].append(tc)
 
-					if len(self.watch_to_tc[add]) == 1:
-						# if the size is 1 then it contains only the new tc
-						# so it wasn't watched before
-						control.add_watch(add)
+						if len(self.watch_to_tc[add]) == 1:
+							# if the size is 1 then it contains only the new tc
+							# so it wasn't watched before
+							control.add_watch(add)
 
-					if self.watch_to_tc[delete] == []:
-						control.remove_watch(delete)
+						if self.watch_to_tc[delete] == []:
+							control.remove_watch(delete)
 
 	def make_tc(self, t_atom):
 		size = len(t_atom.elements)
@@ -468,31 +464,31 @@ class RegularAtomPropagator2watchMap(Propagator):
 			self.add_atom_observer(tc, lits, at)
 			self.watches.update(all_lits)
 
-	@util.Count("Propagation")
-	@util.Timer("Propagation")
+	@util.Count("Propagation Calls")
 	def propagate(self, control, changes):
-		for lit in changes:
-			for tc, at in set(self.watch_to_tc[lit]):
-				res = tc.propagate(control, (lit, at))
-				if res is None:
-					return
+		with util.Timer("Propagation-{}".format(str(self.id))):
+			for lit in changes:
+				for tc, at in set(self.watch_to_tc[lit]):
+					res = tc.propagate(control, (lit, at))
+					if res is None:
+						return
 
-				ng, check = res
-				if not ng:  # if ng is empty
-					continue
+					ng, check = res
+					if not ng:  # if ng is empty
+						continue
 
-				if check == CONSTRAINT_CHECK["NONE"]:
-					# only update watches if ng was not unit or conflict
-					for ng_lit in ng:
-						if ng_lit != lit:
-							if (tc, at) in self.watch_to_tc[ng_lit]:
-								second_watch = ng_lit
-								break
+					if check == CONSTRAINT_CHECK["NONE"]:
+						# only update watches if ng was not unit or conflict
+						for ng_lit in ng:
+							if ng_lit != lit:
+								if (tc, at) in self.watch_to_tc[ng_lit]:
+									second_watch = ng_lit
+									break
 
-					new_watch = get_replacement_watch(ng, [lit, second_watch], control)
-					if new_watch is not None:
-						self.watch_to_tc[lit].remove((tc, at))
-						self.watch_to_tc[new_watch].append((tc, at))
+						new_watch = get_replacement_watch(ng, [lit, second_watch], control)
+						if new_watch is not None:
+							self.watch_to_tc[lit].remove((tc, at))
+							self.watch_to_tc[new_watch].append((tc, at))
 
 	def make_tc(self, t_atom):
 		size = len(t_atom.elements)
