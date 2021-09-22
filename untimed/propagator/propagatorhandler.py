@@ -21,16 +21,16 @@ from untimed.propagator.propagator import ConseqsPropagator
 theory_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../theory/untimed_theory.lp"))
 
 PROPAGATORS = {"timed": TimedAtomPropagator,
-               "timed_aw": TimedAtomAllWatchesPropagator,
-               "meta": MetaPropagator,
-               "meta_ta":MetaTAtomPropagator,
-               "naive": RegularAtomPropagatorNaive,
-               "2watch": RegularAtomPropagator2watch,
-               "2watchmap": RegularAtomPropagator2watchMap,
-               "count": CountPropagator,
-               "check": TimedAtomPropagatorCheck,
-               "conseq": ConseqsPropagator}
-
+			"timed_aw": TimedAtomAllWatchesPropagator,
+			"meta": MetaPropagator,
+			"meta_ta":MetaTAtomPropagator,
+			"naive": RegularAtomPropagatorNaive,
+			"2watch": RegularAtomPropagator2watch,
+			"2watchmap": RegularAtomPropagator2watchMap,
+			"count": CountPropagator,
+			"check": TimedAtomPropagatorCheck,
+			"conseq": ConseqsPropagator}
+			   
 
 def build_tc(t_atom, tc_dict) -> TheoryConstraint:
 	"""
@@ -54,9 +54,10 @@ def add_theory(prg) -> None:
 
 class TheoryHandler:
 
-	supported_types = ["timed", "check", "timed_aw", "meta", "meta_ta", "count", "naive", "2watch", "2watchmap", "conseq"]
+	supported_types = PROPAGATORS.keys()
 
-	def __init__(self, prop_type: str = "timed", lock_ng=-1) -> None:
+
+	def __init__(self, prop_type: str = "timed", lock_ng=-1, ignore_id=False) -> None:
 
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
@@ -66,6 +67,8 @@ class TheoryHandler:
 		self.propagator = lambda id: PROPAGATORS[prop_type](id, lock_ng)
 
 		self.prop_ids = set()
+
+		self.ignore_id = ignore_id.flag
 
 	@util.Timer("Register")
 	def register(self, prg) -> None:
@@ -78,9 +81,12 @@ class TheoryHandler:
 			if t_atom.term.name == "signature":
 				parse_signature(t_atom)
 
-			elif t_atom.term.name == "constraint":
-				id = t_atom.term.arguments[-1]
+			elif not self.ignore_id and t_atom.term.name == "constraint":
+				id = t_atom.term.arguments[-1].name
 				self.prop_ids.add(id)
+
+		if self.ignore_id:
+			self.prop_ids.add(None)
 
 		for id in self.prop_ids:
 			prg.register_propagator(self.propagator(id))

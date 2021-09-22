@@ -25,6 +25,7 @@ class Application:
 
 		self.watch_type = "timed"
 		self.lock_ng = -1
+		self.ignore_id = clingo.Flag(False)
 
 		self.__prop_init = clingo.Flag(False)
 
@@ -83,12 +84,15 @@ class Application:
 		options.add(group, "ground-from", _textwrap.dedent("""Add the nogoods max - <n> time point to the max timepoint [0]"""),
 		            self.__parse_ground_from)
 
+		options.add_flag(group, "ignore-id", _textwrap.dedent("""Add the nogoods max - <n> time point to the max timepoint [0]"""),
+					 self.ignore_id)
+
 	def main(self, prg, files):
 		with util.Timer("until solve"):
 			for name in files:
 				prg.load(name)
 
-			self.__handler = TheoryHandler(self.watch_type, self.lock_ng)
+			self.__handler = TheoryHandler(self.watch_type, self.lock_ng, self.ignore_id)
 
 			add_theory(prg)
 
