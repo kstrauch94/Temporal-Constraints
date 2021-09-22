@@ -38,9 +38,11 @@ class Propagator:
 	lock_ng                     -- Tells the theory constraints when to lock nogoods
 	"""
 
-	__slots__ = ["watch_to_tc", "theory_constraints", "lock_ng", "watches"]
+	__slots__ = ["watch_to_tc", "theory_constraints", "lock_ng", "watches", "id"]
 
-	def __init__(self, lock_ng=-1):
+	def __init__(self, id, lock_ng=-1):
+
+		self.id = id
 
 		self.watch_to_tc: Dict[Any, Set["TheoryConstraint"]] = defaultdict(list)
 
@@ -73,6 +75,8 @@ class Propagator:
 		all_t_atom_count = 0
 		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
 			if t_atom.term.name == "constraint":
+				if t_atom.term.arguments[-1] != self.id:
+					continue
 				t_atom_count +=1
 				tc = self.make_tc(t_atom)
 				if tc.size == 1:

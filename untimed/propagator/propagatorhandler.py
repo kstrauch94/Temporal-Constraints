@@ -63,9 +63,9 @@ class TheoryHandler:
 		if prop_type not in TheoryHandler.supported_types:
 			raise ValueError("Propagator Handler does not support {} watch type".format(prop_type))
 
-		self.propagator = PROPAGATORS[prop_type](lock_ng)
+		self.propagator = lambda id: PROPAGATORS[prop_type](id, lock_ng)
 
-		self.prop_ids = {}
+		self.prop_ids = set()
 
 	@util.Timer("Register")
 	def register(self, prg) -> None:
@@ -80,8 +80,11 @@ class TheoryHandler:
 
 			elif t_atom.term.name == "constraint":
 				id = t_atom.term.arguments[-1]
-				
-		prg.register_propagator(self.propagator)
+				self.prop_ids.add(id)
+
+		for id in self.prop_ids:
+			prg.register_propagator(self.propagator(id))
+			print(f"made prop with id {id}")
 
 	def __str__(self) -> str:
 		return self.__class__.__name__
