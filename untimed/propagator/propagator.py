@@ -3,7 +3,6 @@ from collections import defaultdict
 
 import untimed.util as util
 from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
-from untimed.propagator.theoryconstraint_data import LitUsage
 from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
 
 from untimed.propagator.theoryconstraint_base import TheoryConstraint
@@ -97,7 +96,6 @@ class Propagator:
 
 	def build_watches(self, tc, init):
 		for lits in tc.build_watches(init):
-			LitUsage.add(lits)
 			self.watches.update(lits)
 			self.add_atom_observer(tc, lits)
 
@@ -138,7 +136,6 @@ class TimedAtomPropagator(Propagator):
 
 	def build_watches(self, tc, init):
 		for lits in tc.build_watches(init):
-			LitUsage.add(lits)
 			self.watches.update(lits)
 		self.add_atom_observer(tc)
 	
