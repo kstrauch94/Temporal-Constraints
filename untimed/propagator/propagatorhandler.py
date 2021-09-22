@@ -1,6 +1,8 @@
 import logging
 import os
 
+import clingo
+
 from untimed import util
 
 from untimed.propagator.theoryconstraint_base import parse_signature
@@ -57,7 +59,7 @@ class TheoryHandler:
 	supported_types = PROPAGATORS.keys()
 
 
-	def __init__(self, prop_type: str = "timed", lock_ng=-1, ignore_id=False) -> None:
+	def __init__(self, prop_type: str = "timed", lock_ng=-1, ignore_id=clingo.Flag(False)) -> None:
 
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
@@ -90,7 +92,6 @@ class TheoryHandler:
 
 		for id in self.prop_ids:
 			prg.register_propagator(self.propagator(id))
-			print(f"made prop with id {id}")
 
 	def __str__(self) -> str:
 		return self.__class__.__name__
