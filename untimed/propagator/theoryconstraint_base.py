@@ -9,7 +9,6 @@ from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_data import Signatures
 from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
 from untimed.propagator.theoryconstraint_data import GlobalConfig
-from untimed.propagator.theoryconstraint_data import LitUsage
 
 import clingo
 
@@ -462,9 +461,7 @@ class TheoryConstraint:
 		if check_assignment(ng, control) == CONSTRAINT_CHECK["NONE"]:
 			return 1
 		lock = self.check_if_lock(assigned_time)
-		if lock:
-			LitUsage.sub(lits=ng)
-			LitUsage.check(lits=ng, control=control)
+		
 		if not control.add_nogood(ng, lock=lock) or not control.propagate():
 			util.Count.add("Conflicts added")
 			return None
