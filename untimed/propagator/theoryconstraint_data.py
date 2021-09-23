@@ -1,12 +1,35 @@
 from collections import defaultdict
-
 from typing import Dict, Tuple, Set, Any, Optional, List
+from enum import Enum
 
 import untimed.util as util
 
-CONSTRAINT_CHECK = {"NONE": 0,
-					"UNIT": 1,
-					"CONFLICT": -1}
+class ConstraintCheck(Enum):
+	NONE = 0
+	UNIT = 1
+	CONFLICT = -1
+
+
+class StatNames(Enum):
+
+	INIT_TIMER_MSG = "Time to init prop"
+	CHECK_TIMER_MSG = "Time to check"
+	REGISTER_TIMER_MSG = "Time to register"
+	UNTILSOLVE_TIMER_MSG = "Time until solving"
+	GROUND_TIMER_MSG = "Time to ground"
+
+	CHECK_CALLS_MSG = "Calls to check"
+	PROP_CALLS_MSG = "Calls to propagation"
+	UNDO_CALLS_MSG = "Calls to undo"
+
+	TC_COUNT_MSG = "Theory constraints"
+	SIG_COUNT_MSG = "Signature atoms"
+
+	SIZE2_COUNT_MSG = "Size 2 constraints"
+	SIZEN_COUNT_MSG = "Size N constraints"
+
+	UNITS_COUNT_MSG = "Units added"
+	CONF_COUNT_MSG = "Conflicts added"
 
 
 class AtomInfo:
@@ -70,7 +93,6 @@ class TimeAtomToSolverLit:
 	def grab_lit(cls, internal_lit):
 	
 		if internal_lit not in cls.id_to_lit:
-			util.Count.add("Keyerror mapping")
 			# this would happen if an id is not in the mapping
 			# if this happens it means the atom does not exist for this time point
 			# if sign is 1 then it means that a POSITIVE atom does not exist so we add it as -1

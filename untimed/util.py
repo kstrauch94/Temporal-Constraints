@@ -86,14 +86,21 @@ class Count:
 		Count.counts[name] += amt
 
 
-
-
 def print_stats(step, accu):
-	for name, time_taken in Timer.timers.items():
-		print(f"Time {name:15}      :   {time_taken:.3f}")
-		accu[f"Time {name:19}"] = time_taken
+	time_prop = 0
+	for name, time_taken in sorted(Timer.timers.items()):
+		if "Propagation" in name:
+			time_prop += time_taken
+			continue
+		else:
+			print(f"{name:19}  :   {time_taken:.3f}")
+			accu[f"{name:24}"] = time_taken
 
-	for name, count in Count.counts.items():
+	print("{name:19}  :   {time_taken:.3f}".format(name="Time for propagation", time_taken=time_prop))
+	accu["{name:24}".format(name="Time for propagation")] = time_taken
+
+
+	for name, count in sorted(Count.counts.items()):
 		print(f"{name:24}  :   {count}")
 		accu[f"{name:24}"] = count
 

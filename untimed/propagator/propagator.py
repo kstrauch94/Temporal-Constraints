@@ -2,8 +2,9 @@ from typing import Dict, List, Any, Set
 from collections import defaultdict
 
 import untimed.util as util
-from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
+from untimed.propagator.theoryconstraint_data import ConstraintCheck
 from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
+from untimed.propagator.theoryconstraint_data import StatNames
 
 from untimed.propagator.theoryconstraint_base import TheoryConstraint
 from untimed.propagator.theoryconstraint_base import init_TA2L_mapping_integers
@@ -64,7 +65,7 @@ class Propagator:
 		for lit in watches:
 			self.watch_to_tc[lit].append(tc)
 
-	@util.Timer("Prop init")
+	@util.Timer(StatNames.INIT_TIMER_MSG.value)
 	def init(self, init):
 		#print("Starting Initialization of propagator...")
 		self.watches = set()
@@ -91,21 +92,20 @@ class Propagator:
 		self.watches = None
 		del self.watches
 
-		util.Count.add("Theory Constraints", t_atom_count)
-		util.Count.add("Signature Constraints", all_t_atom_count - t_atom_count)
+		util.Count.add(StatNames.TC_COUNT_MSG.value, t_atom_count)
 
 	def build_watches(self, tc, init):
 		for lits in tc.build_watches(init):
 			self.watches.update(lits)
 			self.add_atom_observer(tc, lits)
 
-	@util.Count("Calls to propagation")
+	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	def propagate(self, control, changes):
 		...
 
 	# if we want to check we need the theory constraints list. look in the init to see if we delete it or not
-	@util.Count("Calls to check")
-	@util.Timer("check")
+	@util.Count(StatNames.CHECK_CALLS_MSG.value)
+	@util.Timer(StatNames.CHECK_TIMER_MSG.value)
 	def check(self, control):
 		for tc in self.theory_constraints:
 			if tc.check(control) is None:
@@ -139,7 +139,7 @@ class TimedAtomPropagator(Propagator):
 			self.watches.update(lits)
 		self.add_atom_observer(tc)
 	
-	@util.Count("Calls to propagation")
+	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
@@ -153,10 +153,10 @@ class TimedAtomPropagator(Propagator):
 		if size == 1:
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
-			util.Count.add("size_2")
+			util.Count.add(StatNames.SIZE2_COUNT_MSG.value)
 			return TheoryConstraintSize2TimedProp(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_-1")
+			util.Count.add(StatNames.SIZEN_COUNT_MSG.value)
 			return TheoryConstraintTimedProp(t_atom, self.lock_ng)
 
 
@@ -187,10 +187,10 @@ class TimedAtomPropagatorCheck(Propagator):
 		if size == 1:
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
-			util.Count.add("size_2")
+			util.Count.add(StatNames.SIZE2_COUNT_MSG.value)
 			return TheoryConstraintSize2TimedProp(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_-1")
+			util.Count.add(StatNames.SIZEN_COUNT_MSG.value)
 			return TheoryConstraintTimedProp(t_atom, self.lock_ng)
 
 
@@ -201,7 +201,7 @@ class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 	"""
 	__slots__ = []
 
-	@util.Timer("Prop_init")
+	@util.Timer(StatNames.INIT_TIMER_MSG.value)
 	def init(self, init):
 		super().init(init)
 
@@ -223,7 +223,7 @@ class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 
 class CountPropagator(TimedAtomPropagator):
 
-	@util.Timer("Calls to undo")
+	@util.Timer(StatNames.UNDO_CALLS_MSG.value)
 	def undo(self, thread_id, assignment, changes):
 		for lit in changes:
 			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
@@ -237,10 +237,10 @@ class CountPropagator(TimedAtomPropagator):
 		if size == 1:
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
-			util.Count.add("size_2")
+			util.Count.add(StatNames.SIZE2_COUNT_MSG.value)
 			return TheoryConstraintSize2TimedProp(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_-1")
+			util.Count.add(StatNames.SIZEN_COUNT_MSG.value)
 			return TheoryConstraintCountProp(t_atom, self.lock_ng)
 
 
@@ -262,7 +262,7 @@ class MetaPropagator(Propagator):
 			self.watches.update(lits)
 		self.add_atom_observer(tc, tc.build_prop_function())
 
-	@util.Count("Calls to propagation")
+	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
@@ -276,10 +276,10 @@ class MetaPropagator(Propagator):
 		if size == 1:
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
-			util.Count.add("size_2")
+			util.Count.add(StatNames.SIZE2_COUNT_MSG.value)
 			return TheoryConstraintMetaProp(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_-1")
+			util.Count.add(StatNames.SIZEN_COUNT_MSG.value)
 			return TheoryConstraintMetaProp(t_atom, self.lock_ng)
 
 
@@ -297,14 +297,14 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 
 			self.watch_to_tc[info.untimed_lit].build_prop_function(tc.t_atom_info, info.time_mod, tc.min_time, tc.max_time)
 
-	@util.Timer("Prop_init")
+	@util.Timer(StatNames.INIT_TIMER_MSG.value)
 	def init(self, init):
 		super().init(init)
 
 		for t_atom, meta_tc in self.watch_to_tc.items():
 			meta_tc.finish_prop_func()
 
-	@util.Count("Calls to propagation")
+	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
@@ -324,10 +324,10 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 		if size == 1:
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
-			util.Count.add("size_2")
+			util.Count.add(StatNames.SIZE2_COUNT_MSG.value)
 			return TheoryConstraint(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_-1")
+			util.Count.add(StatNames.SIZEN_COUNT_MSG.value)
 			return TheoryConstraint(t_atom, self.lock_ng)
 
 
@@ -346,7 +346,7 @@ class ConseqsPropagator(TimedAtomPropagator):
 			self.watch_to_tc[info.untimed_lit].build_conseqs(tc.t_atom_info, tc.min_time, tc.max_time)
 
 
-	@util.Count("Calls to propagation")
+	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
@@ -362,12 +362,10 @@ class ConseqsPropagator(TimedAtomPropagator):
 		if size == 1:
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
-			util.Count.add("size_2")
+			util.Count.add(StatNames.SIZE2_COUNT_MSG.value)
 			return TheoryConstraint(t_atom, self.lock_ng)
 		else:
 			raise Exception("Conseqs propagator can not handle constraints of size > 2")
-			util.Count.add("size_-1")
-			return TheoryConstraint(t_atom, self.lock_ng)
 
 
 class RegularAtomPropagatorNaive(Propagator):
@@ -377,7 +375,7 @@ class RegularAtomPropagatorNaive(Propagator):
 
 	__slots__ = []
 
-	@util.Count("Calls to propagation")
+	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
@@ -390,10 +388,10 @@ class RegularAtomPropagatorNaive(Propagator):
 		if size == 1:
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
-			util.Count.add("size_2")
+			util.Count.add(StatNames.SIZE2_COUNT_MSG.value)
 			return TheoryConstraintSize2Prop(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_-1")
+			util.Count.add(StatNames.SIZEN_COUNT_MSG.value)
 			return TheoryConstraintNaiveProp(t_atom, self.lock_ng)
 
 
@@ -408,7 +406,7 @@ class RegularAtomPropagator2watch(Propagator):
 	"""
 	__slots__ = []
 
-	@util.Count("Calls to propagation")
+	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	# @profile
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
@@ -435,10 +433,10 @@ class RegularAtomPropagator2watch(Propagator):
 		if size == 1:
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
-			util.Count.add("size_2")
+			util.Count.add(StatNames.SIZE2_COUNT_MSG.value)
 			return TheoryConstraintSize2Prop(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_-1")
+			util.Count.add(StatNames.SIZEN_COUNT_MSG.value)
 			return TheoryConstraint2watchProp(t_atom, self.lock_ng)
 
 
@@ -471,7 +469,7 @@ class RegularAtomPropagator2watchMap(Propagator):
 			self.add_atom_observer(tc, lits, at)
 			self.watches.update(all_lits)
 
-	@util.Count("Calls to propagation")
+	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
@@ -484,7 +482,7 @@ class RegularAtomPropagator2watchMap(Propagator):
 					if not ng:  # if ng is empty
 						continue
 
-					if check == CONSTRAINT_CHECK["NONE"]:
+					if check == ConstraintCheck.NONE:
 						# only update watches if ng was not unit or conflict
 						for ng_lit in ng:
 							if ng_lit != lit:
@@ -502,8 +500,8 @@ class RegularAtomPropagator2watchMap(Propagator):
 		if size == 1:
 			return TheoryConstraintSize1(t_atom)
 		elif size == 2:
-			util.Count.add("size_2")
+			util.Count.add(StatNames.SIZE2_COUNT_MSG.value)
 			return TheoryConstraintSize2Prop2WatchMap(t_atom, self.lock_ng)
 		else:
-			util.Count.add("size_-1")
+			util.Count.add(StatNames.SIZEN_COUNT_MSG.value)
 			return TheoryConstraint2watchPropMap(t_atom, self.lock_ng)

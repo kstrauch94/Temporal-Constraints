@@ -7,7 +7,7 @@ import untimed.util as util
 
 from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
 
-from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
+from untimed.propagator.theoryconstraint_data import ConstraintCheck, StatNames
 
 from untimed.propagator.theoryconstraint_base import TheoryConstraint
 from untimed.propagator.theoryconstraint_base import form_nogood
@@ -27,7 +27,6 @@ class TheoryConstraintSize2Prop(TheoryConstraint):
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 	# @profile
-	@util.Count("Prop tc")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		For any relevant change, immediately form the nogood
@@ -85,24 +84,24 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 		lit, assigned_time = change
 
 		if not self.is_valid_time(assigned_time):
-			return [], CONSTRAINT_CHECK["UNIT"]
+			return [], ConstraintCheck.UNIT
 
 		ng = form_nogood(self.t_atom_info, assigned_time)
 		if ng is None:
-			return [], CONSTRAINT_CHECK["UNIT"]
+			return [], ConstraintCheck.UNIT
 
-		if check_assignment(ng, control) == CONSTRAINT_CHECK["NONE"]:
-			return [], CONSTRAINT_CHECK["UNIT"]
+		if check_assignment(ng, control) == ConstraintCheck.NONE:
+			return [], ConstraintCheck.UNIT
 
 		lock = self.check_if_lock(assigned_time)
 
 		if not control.add_nogood(ng, lock=lock) or not control.propagate():
-			util.Count.add("Conflicts added")
+			util.Count.add(StatNames.CONF_COUNT_MSG.value)
 			return None
-		util.Count.add("Units added")
+		util.Count.add(StatNames.UNITS_COUNT_MSG.value)
 
 		# always return UNIT so that it doesnt attempt to change the watches for size 2
-		return [], CONSTRAINT_CHECK["UNIT"]
+		return [], ConstraintCheck.UNIT
 
 
 class TheoryConstraintNaiveProp(TheoryConstraint):
@@ -257,20 +256,21 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 		lit, assigned_time = change
 
 		if not self.is_valid_time(assigned_time):
-			return [], CONSTRAINT_CHECK["UNIT"]
+			return [], ConstraintCheck.UNIT
 
 		ng = form_nogood(self.t_atom_info, assigned_time)
 		if ng is None:
-			return [], CONSTRAINT_CHECK["UNIT"]
+			return [], ConstraintCheck.UNIT
 
 		update_result = check_assignment(ng, control)
+		if update_result == ConstraintCheck.NONE:
+			return 1
 
-		if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-			lock = self.check_if_lock(assigned_time)
-			if not control.add_nogood(ng, lock=lock) or not control.propagate():
-				util.Count.add("Conflicts added")
-				return None
-			util.Count.add("Units added")
+		lock = self.check_if_lock(assigned_time)
+		if not control.add_nogood(ng, lock=lock) or not control.propagate():
+			util.Count.add(StatNames.CONF_COUNT_MSG.value)
+			return None
+		util.Count.add(StatNames.UNITS_COUNT_MSG.value)
 
 		return ng, update_result
 
@@ -282,7 +282,6 @@ class TheoryConstraintSize2TimedProp(TheoryConstraint):
 		super().__init__(constraint, lock_nogoods=lock_nogoods)
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
-	@util.Count("Prop tc")
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		look for assigned times of the change and add the nogoods of those times to
@@ -417,14 +416,14 @@ class TAtomConseqs():
 			other_lit = TimeAtomToSolverLit.grab_lit(Signatures.convert_to_internal_lit(conseq, time + time_mod, util.sign(conseq)))
 			ng = [lit, other_lit]
 
-			if check_assignment(ng, control) == CONSTRAINT_CHECK["NONE"]:
+			if check_assignment(ng, control) == ConstraintCheck.NONE:
 				continue
 
 			if not control.add_nogood(ng, lock=self.lock_nogoods) or not control.propagate():
-				util.Count.add("Conflicts added")
+				util.Count.add(StatNames.CONF_COUNT_MSG.value)
 				return None
 
-			util.Count.add("Units added")
+			util.Count.add(StatNames.UNITS_COUNT_MSG.value)
 
 		return 1
 
@@ -553,12 +552,12 @@ if_template_t_atom = """
 	if at >= {min} and at <= {max}:
 		{ng}
 		update_result = check_assignment(ng, control)
-		if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
+		if update_result == ConstraintCheck.CONFLICT or update_result == ConstraintCheck.UNIT:
 			lock = self.check_if_lock(at)
 			if not control.add_nogood(ng, lock=lock) or not control.propagate():
-				util.Count.add("Conflicts added")
+				util.Count.add(StatNames.CONF_COUNT_MSG.value)
 				return None
-			util.Count.add("Units added")
+			util.Count.add(StatNames.UNITS_COUNT_MSG.value)
 """
 
 check_mapping = "TimeAtomToSolverLit.grab_lit(Signatures.convert_to_internal_lit({untimed_lit}, at-{time_mod}, {sign}))"

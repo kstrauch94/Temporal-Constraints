@@ -5,6 +5,8 @@ import clingo
 
 from untimed import util
 
+from untimed.propagator.theoryconstraint_data import StatNames
+
 from untimed.propagator.theoryconstraint_base import parse_signature
 from untimed.propagator.theoryconstraint_base import TheoryConstraint
 
@@ -31,24 +33,7 @@ PROPAGATORS = {"timed": TimedAtomPropagator,
 			"2watchmap": RegularAtomPropagator2watchMap,
 			"count": CountPropagator,
 			"check": TimedAtomPropagatorCheck,
-			"conseq": ConseqsPropagator}
-			   
-
-def build_tc(t_atom, tc_dict) -> TheoryConstraint:
-	"""
-	return an appropriate TheoryConstraint object for the given theory atom size
-	:param t_atom: theory atom
-	:param tc_dict: theory constraint size dict
-	:return: TheoryConstraint object
-	"""
-	size = len(t_atom.elements)
-	if size in tc_dict:
-		util.Count.add("size_{}".format(size))
-		return tc_dict[size](t_atom)
-	else:
-		util.Count.add("size_{}".format(-1))
-		return tc_dict[-1](t_atom)
-
+			"conseq": ConseqsPropagator}		   
 
 def add_theory(prg) -> None:
 	prg.load(theory_file)
@@ -72,7 +57,7 @@ class TheoryHandler:
 
 		self.ignore_id = ignore_id.flag
 
-	@util.Timer("Register")
+	@util.Timer(StatNames.REGISTER_TIMER_MSG.value)
 	def register(self, prg) -> None:
 		"""
 		This function needs to be called AFTER grounding
@@ -82,6 +67,7 @@ class TheoryHandler:
 		for t_atom in prg.theory_atoms:
 			if t_atom.term.name == "signature":
 				parse_signature(t_atom)
+				util.Count.add(StatNames.SIG_COUNT_MSG.value)
 
 			elif not self.ignore_id and t_atom.term.name == "constraint":
 				id = t_atom.term.arguments[-1].name

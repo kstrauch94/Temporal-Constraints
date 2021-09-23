@@ -4,7 +4,7 @@ from untimed.propagator.propagatorhandler import TheoryHandler
 
 from untimed.propagator.propagatorhandler import add_theory
 
-from untimed.propagator.theoryconstraint_data import GlobalConfig
+from untimed.propagator.theoryconstraint_data import GlobalConfig, StatNames
 
 import untimed.util as util
 
@@ -88,7 +88,7 @@ class Application:
 					 self.ignore_id)
 
 	def main(self, prg, files):
-		with util.Timer("until solve"):
+		with util.Timer(StatNames.UNTILSOLVE_TIMER_MSG.value):
 			for name in files:
 				prg.load(name)
 
@@ -96,14 +96,13 @@ class Application:
 
 			add_theory(prg)
 
-			with util.Timer("ground time"):
+			with util.Timer(StatNames.GROUND_TIMER_MSG.value):
 				prg.ground([("base", [])])
 			print("clingo grounding done")
 
 			self.__handler.register(prg)
 
 		prg.solve(on_statistics=self.__on_stats)
-		print("done!")
 
 def setup_logger():
 	root_logger = logging.getLogger()

@@ -7,8 +7,9 @@ import untimed.util as util
 from untimed.propagator.theoryconstraint_data import atom_info
 from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_data import Signatures
-from untimed.propagator.theoryconstraint_data import CONSTRAINT_CHECK
+from untimed.propagator.theoryconstraint_data import ConstraintCheck
 from untimed.propagator.theoryconstraint_data import GlobalConfig
+from untimed.propagator.theoryconstraint_data import StatNames
 
 import clingo
 
@@ -203,10 +204,10 @@ def check_assignment(nogood, control) -> int:
 
 	:param nogood: nogood that will be checked as a list of ints
 	:param control: clingo PropagateControl object
-	:return int value that denotes the result of the check. See CONSTRAINT_CHECK for details
+	:return int value that denotes the result of the check. See ConstraintCheck for details
 	"""
 	if nogood is None:
-		return CONSTRAINT_CHECK["NONE"]
+		return ConstraintCheck.NONE
 
 	true_count: int = 0
 
@@ -216,14 +217,14 @@ def check_assignment(nogood, control) -> int:
 			true_count += 1
 		elif control.assignment.is_false(lit):
 			# if one is false then it doesnt matter
-			return CONSTRAINT_CHECK["NONE"]
+			return ConstraintCheck.NONE
 
 	if true_count == len(nogood):
-		return CONSTRAINT_CHECK["CONFLICT"]
+		return ConstraintCheck.CONFLICT
 	elif true_count == len(nogood) - 1:
-		return CONSTRAINT_CHECK["UNIT"]
+		return ConstraintCheck.UNIT
 	else:
-		return CONSTRAINT_CHECK["NONE"]
+		return ConstraintCheck.NONE
 
 
 def check_assignment_complete(nogood, control) -> int:
@@ -232,19 +233,19 @@ def check_assignment_complete(nogood, control) -> int:
 
 	:param nogood: nogood that will be checked
 	:param control: clingo PropagateControl class
-	:return int value that denotes the result of the check. See CONSTRAINT_CHECK for details
+	:return int value that denotes the result of the check. See ConstraintCheck for details
 	"""
 	if nogood is None:
-		return CONSTRAINT_CHECK["NONE"]
+		return ConstraintCheck.NONE
 
 	for lit in nogood:
 		if control.assignment.is_false(lit):
 			# if one is false then it doesnt matter
-			return CONSTRAINT_CHECK["NONE"]
+			return ConstraintCheck.NONE
 
 	# if no literal is false it means they are all true
 	# which leads to a conflict
-	return CONSTRAINT_CHECK["CONFLICT"]
+	return ConstraintCheck.CONFLICT
 
 
 def get_at_from_internal_lit(internal_lit: int, t_atom_info) -> List[int]:
@@ -452,21 +453,20 @@ class TheoryConstraint:
 
 		ng = form_nogood(self.t_atom_info, assigned_time)
 		if ng is None:
-			util.Count.add("form nogood is None")
 			return 1
 
 		return self.check_assignment(ng, control, assigned_time)
 
 	def check_assignment(self, ng, control, assigned_time):
-		if check_assignment(ng, control) == CONSTRAINT_CHECK["NONE"]:
+		if check_assignment(ng, control) == ConstraintCheck.NONE:
 			return 1
 		lock = self.check_if_lock(assigned_time)
 		
 		if not control.add_nogood(ng, lock=lock) or not control.propagate():
-			util.Count.add("Conflicts added")
+			util.Count.add(StatNames.CONF_COUNT_MSG.value)
 			return None
 
-		util.Count.add("Units added")
+		util.Count.add(StatNames.UNITS_COUNT_MSG.value)
 
 		return 1
 
@@ -480,7 +480,7 @@ class TheoryConstraint:
 			if not self.is_valid_time(assigned_time):
 				continue
 			ng = form_nogood(self.t_atom_info, assigned_time)
-			if check_assignment_complete(ng, control) == CONSTRAINT_CHECK["CONFLICT"]:
+			if check_assignment_complete(ng, control) == ConstraintCheck.CONFLICT:
 				lock = self.check_if_lock(assigned_time)
 				if not control.add_nogood(ng, lock=lock) or not control.propagate():
 					# model has some conflicts
