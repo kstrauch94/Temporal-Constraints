@@ -64,7 +64,7 @@ class Propagator:
 		for lit in watches:
 			self.watch_to_tc[lit].append(tc)
 
-	@util.Timer("Prop_init")
+	@util.Timer("Prop init")
 	def init(self, init):
 		#print("Starting Initialization of propagator...")
 		self.watches = set()
@@ -99,12 +99,12 @@ class Propagator:
 			self.watches.update(lits)
 			self.add_atom_observer(tc, lits)
 
-	@util.Count("Propagation Calls")
+	@util.Count("Calls to propagation")
 	def propagate(self, control, changes):
 		...
 
 	# if we want to check we need the theory constraints list. look in the init to see if we delete it or not
-	@util.Count("check")
+	@util.Count("Calls to check")
 	@util.Timer("check")
 	def check(self, control):
 		for tc in self.theory_constraints:
@@ -139,7 +139,7 @@ class TimedAtomPropagator(Propagator):
 			self.watches.update(lits)
 		self.add_atom_observer(tc)
 	
-	@util.Count("Propagation Calls")
+	@util.Count("Calls to propagation")
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
@@ -223,7 +223,7 @@ class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 
 class CountPropagator(TimedAtomPropagator):
 
-	@util.Timer("Undo")
+	@util.Timer("Calls to undo")
 	def undo(self, thread_id, assignment, changes):
 		for lit in changes:
 			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
@@ -262,7 +262,7 @@ class MetaPropagator(Propagator):
 			self.watches.update(lits)
 		self.add_atom_observer(tc, tc.build_prop_function())
 
-	@util.Count("Propagation Calls")
+	@util.Count("Calls to propagation")
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
@@ -304,13 +304,20 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 		for t_atom, meta_tc in self.watch_to_tc.items():
 			meta_tc.finish_prop_func()
 
-	@util.Count("Propagation")
+	@util.Count("Calls to propagation")
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
 				for internal_lit in TimeAtomToSolverLit.grab_id(lit):
-					if self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)].propagate(control, internal_lit) is None:
-						return
+					# have to check if untimed lit is in the mapping because it is possible that the 
+					# solver lit is associated with internal literals that are not relevant to this 
+					# propagator. This is only needed for this and Conseq since the mapping directly 
+					# gives the function. On other propagator types then mapping returns an empty list
+					# and hence it does not loop at all
+					untimed_lit = Signatures.convert_to_untimed_lit(internal_lit)
+					if untimed_lit in self.watch_to_tc:
+						if self.watch_to_tc[untimed_lit].propagate(control, internal_lit) is None:
+							return
 
 	def make_tc(self, t_atom):
 		size = len(t_atom.elements)
@@ -339,13 +346,16 @@ class ConseqsPropagator(TimedAtomPropagator):
 			self.watch_to_tc[info.untimed_lit].build_conseqs(tc.t_atom_info, tc.min_time, tc.max_time)
 
 
-	@util.Count("Propagation Calls")
+	@util.Count("Calls to propagation")
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
 				for internal_lit in TimeAtomToSolverLit.grab_id(lit):
-					if self.watch_to_tc[Signatures.convert_to_untimed_lit(internal_lit)].propagate(control, (internal_lit, lit)) is None:
-						return
+					# Check meta_ta to see the reason we check if untimed lit is in the mapping
+					untimed_lit = Signatures.convert_to_untimed_lit(internal_lit)
+					if untimed_lit in self.watch_to_tc:
+						if self.watch_to_tc[untimed_lit].propagate(control, (internal_lit, lit)) is None:
+							return
 
 	def make_tc(self, t_atom):
 		size = len(t_atom.elements)
@@ -367,7 +377,7 @@ class RegularAtomPropagatorNaive(Propagator):
 
 	__slots__ = []
 
-	@util.Count("Propagation")
+	@util.Count("Calls to propagation")
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
@@ -398,7 +408,7 @@ class RegularAtomPropagator2watch(Propagator):
 	"""
 	__slots__ = []
 
-	@util.Count("Propagation Calls")
+	@util.Count("Calls to propagation")
 	# @profile
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
@@ -461,7 +471,7 @@ class RegularAtomPropagator2watchMap(Propagator):
 			self.add_atom_observer(tc, lits, at)
 			self.watches.update(all_lits)
 
-	@util.Count("Propagation Calls")
+	@util.Count("Calls to propagation")
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
