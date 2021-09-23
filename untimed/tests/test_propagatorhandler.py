@@ -84,80 +84,64 @@ class TestApp(unittest.TestCase):
 		TimeAtomToSolverLit.reset()
 		Signatures.reset()
 
-	def test_naive_regular(self):
-		print("\nrunning naive reg")
-		self.reset_mappings()
-		handler_class = TheoryHandler
-		handler_args = {"prop_type": "naive"}
-
-		self.handler_test(handler_class, handler_args)
-
-	def test_2watch_regular(self):
-		print("\nrunning 2watch reg")
-		self.reset_mappings()
-		handler_class = TheoryHandler
-		handler_args = {"prop_type": "2watch"}
-
-		self.handler_test(handler_class, handler_args)
-
-	def test_timed_prop(self):
-		print("\nrunning timed prop")
+	def test_timed(self):
+		print("\nrunning timed")
 		self.reset_mappings()
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "timed"}
 
 		self.handler_test(handler_class, handler_args)
 
-	def test_timed_aw_prop(self):
-		print("\nrunning timed_aw prop")
+	def test_timed_aw(self):
+		print("\nrunning timed_aw")
 		self.reset_mappings()
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "timed_aw"}
 
 		self.handler_test(handler_class, handler_args)
 
-	def dtest_meta_prop(self):
-		print("\nrunning meta prop")
+	def test_meta(self):
+		print("\nrunning meta")
 		self.reset_mappings()
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "meta"}
 
 		self.handler_test(handler_class, handler_args)
 
-	def dtest_meta_ta_prop(self):
-		print("\nrunning meta_ta prop")
+	def test_meta_ta(self):
+		print("\nrunning meta_ta")
 		self.reset_mappings()
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "meta_ta"}
 
 		self.handler_test(handler_class, handler_args)
 
-	def test_count_prop(self):
-		print("\nrunning count prop")
+	def test_count(self):
+		print("\nrunning count")
 		self.reset_mappings()
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "count"}
 
 		self.handler_test(handler_class, handler_args)
 
-	def test_naive_prop(self):
-		print("\nrunning naive prop")
+	def test_naive(self):
+		print("\nrunning naive")
 		self.reset_mappings()
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "naive"}
 
 		self.handler_test(handler_class, handler_args)
 
-	def test_2watch_prop(self):
-		print("\nrunning 2watch prop")
+	def test_2watch(self):
+		print("\nrunning 2watch")
 		self.reset_mappings()
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "2watch"}
 
 		self.handler_test(handler_class, handler_args)
 
-	def test_2watchmap_prop(self):
-		print("\nrunning 2watchmap prop")
+	def test_2watchmap(self):
+		print("\nrunning 2watchmap")
 		self.reset_mappings()
 		handler_class = TheoryHandler
 		handler_args = {"prop_type": "2watchmap"}
