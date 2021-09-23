@@ -17,6 +17,7 @@ class StatNames(Enum):
 	REGISTER_TIMER_MSG = "Time to register"
 	UNTILSOLVE_TIMER_MSG = "Time until solving"
 	GROUND_TIMER_MSG = "Time to ground"
+	UNDO_TIMER_MSG = "Time to undo"
 
 	CHECK_CALLS_MSG = "Calls to check"
 	PROP_CALLS_MSG = "Calls to propagation"
