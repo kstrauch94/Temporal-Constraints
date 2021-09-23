@@ -223,7 +223,8 @@ class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 
 class CountPropagator(TimedAtomPropagator):
 
-	@util.Timer(StatNames.UNDO_CALLS_MSG.value)
+	@util.Count(StatNames.UNDO_CALLS_MSG.value)
+	@util.Timer(StatNames.UNDO_TIMER_MSG.value)
 	def undo(self, thread_id, assignment, changes):
 		for lit in changes:
 			for internal_lit in TimeAtomToSolverLit.grab_id(lit):
