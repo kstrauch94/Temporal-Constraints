@@ -28,6 +28,6 @@ on(B,L,T+1) :- on(B,L,T), not -on(B,L,T+1), location(L), block(B), time(T), T<ho
 :- move(B,L,T), on(B1,B,T), block(B), block(B1), location(L), time(T), T<horizon.
 
 % a block can’t be moved onto a block that is being moved also
-:- move(B,B1,T), move(B1,L,T), block(B), block(B1), location(L), time(T), T<horizon.
+:- move(B,B1,T), move(B1,L,T), block(B), block(B1), location(L), time(T), T<horizon, grippers > 1.
 
 :- goal(on(B,B2)), not on(B,B2,horizon).
