@@ -16,17 +16,17 @@ clear(table,T) :- time(T).
 %:- do(move(B,L),T), not clear(L,T-1).
 %:- do(move(B,L),T), not clear(B,T-1).
 
-&constraint(1,horizon){+.do(move(B,L)) ; -~clear(L)} :- block(B), loc(L).
-&constraint(1,horizon){+.do(move(B,L)) ; -~clear(B)} :- block(B), loc(L).
+&constraint(1,horizon,pre1){+.do(move(B,L)) ; -~clear(L)} :- block(B), loc(L).
+&constraint(1,horizon,pre2){+.do(move(B,L)) ; -~clear(B)} :- block(B), loc(L).
 
 %postcodition
 %:- do(move(B,L),T), not on(B,L,T).
-&constraint(1,horizon){+.do(move(B,L)) ; -.on(B,L)} :- block(B), loc(L).
+&constraint(1,horizon,post){+.do(move(B,L)) ; -.on(B,L)} :- block(B), loc(L).
 
 %inertia
 %on(B,L,T) :- on(B,L,T-1), not do(move(B,L2), T) : loc(L2), L2 != L ; time(T), T>0.
 %:- on(B,L,T), not on(B,L,T-1), not do(move(B,L),T), block(B), time(T), T>0.
-&constraint(1,horizon){+.on(B,L); -~on(B,L); -.do(move(B,L))} :- block(B), loc(L).
+&constraint(1,horizon,inertia){+.on(B,L); -~on(B,L); -.do(move(B,L))} :- block(B), loc(L).
 
 
 % cant have 2 blocks on 1 block
