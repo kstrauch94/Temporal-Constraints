@@ -68,14 +68,14 @@ class TimeAtomToSolverLit:
 
 	@classmethod
 	def grab_lit(cls, internal_lit):
-		try:
-			lit = cls.id_to_lit[internal_lit]
-		except KeyError:
+	
+		if internal_lit not in cls.id_to_lit:
 			util.Count.add("Keyerror mapping")
-			# this error would happen if an id is not in the mapping
-			# if this happens it means the atom does not exist for this assigned time
-			# if sign is 1 then it means that a POSITIVE atom does not exist -> a false atom in the nogood -> automatically ok
-			#return -1
+			# this would happen if an id is not in the mapping
+			# if this happens it means the atom does not exist for this time point
+			# if sign is 1 then it means that a POSITIVE atom does not exist so we add it as -1
+			# otherwise a negative atom does not exit which means that the positive counterpart
+			# is always true so we assign it 1
 
 			if internal_lit >= 0:
 				# it is negative if it is not in the mapping
@@ -87,8 +87,9 @@ class TimeAtomToSolverLit:
 				cls.add(internal_lit, 1)
 				#cls.add(internal_lit * -1, -1)
 				return 1
+			
+		return cls.id_to_lit[internal_lit]
 
-		return lit
 
 	@classmethod
 	def grab_id(cls, lit):
