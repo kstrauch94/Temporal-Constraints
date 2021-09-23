@@ -182,6 +182,9 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 			if ng is None:
 				continue
 
+			# this control flow is wrong? this returns 1 also when a unit is added
+			# this doesnt really affect anything since the watches wont change
+			# but it is inefficient
 			if self.check_assignment(ng, control, assigned_time) is None:
 				return None
 
@@ -487,8 +490,7 @@ class TheoryConstraintMetaProp(TheoryConstraint):
 
 			grab_lit_str = []
 			for other_info in self.t_atom_names:
-				time_modifier = time_mod - other_info.time_mod
-				grab_lit = check_mapping.format(untimed_lit=other_info.untimed_lit, sign=other_info.sign)
+				grab_lit = check_mapping.format(untimed_lit=other_info.untimed_lit, time_mod=other_info.time_mod, sign=other_info.sign)
 				grab_lit_str.append(grab_lit)
 
 			ng_str = "ng = [{}]".format(", ".join(grab_lit_str))
@@ -530,33 +532,25 @@ prop_template_end = """
 if_template = """
 	if Signatures.convert_to_untimed_lit(change) == {untimed_lit}:
 		at = time + {t_mod}
-		if at >= {min} and at <= {max}:	
+		if self.is_valid_time(at):		
 			{ng}	
-			update_result = check_assignment(ng, control)
-			if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
-				lock = self.check_if_lock(at)
-				if not control.add_nogood(ng, lock=lock) or not control.propagate():
-					util.Count.add("Conflicts added")
-					return None
-				util.Count.add("Units added")
+			if self.check_assignment(ng, control, at) is None:
+				return None
 				
 """
 
 if_template_size2 = """
 	if Signatures.convert_to_untimed_lit(change) == {untimed_lit}:
 		at = time + {t_mod}
-		if at >= {min} and at <= {max}:	
+		if self.is_valid_time(at):	
 			{ng}
-			lock = self.check_if_lock(at)
-			if not control.add_nogood(ng, lock=lock) or not control.propagate():
-				util.Count.add("Conflicts added")
+			if self.check_assignment(ng, control, at) is None:
 				return None
-			util.Count.add("Units added")
 """
 
 if_template_t_atom = """
 	at = time + {t_mod}
-	if at >= {min} and at <= {max}:	
+	if at >= {min} and at <= {max}:
 		{ng}
 		update_result = check_assignment(ng, control)
 		if update_result == CONSTRAINT_CHECK["CONFLICT"] or update_result == CONSTRAINT_CHECK["UNIT"]:
@@ -567,7 +561,7 @@ if_template_t_atom = """
 			util.Count.add("Units added")
 """
 
-check_mapping = "TimeAtomToSolverLit.grab_lit(Signatures.convert_to_internal_lit({untimed_lit}, time, {sign}))"
+check_mapping = "TimeAtomToSolverLit.grab_lit(Signatures.convert_to_internal_lit({untimed_lit}, at-{time_mod}, {sign}))"
 
 
 class MetaTAtomProp():
@@ -595,7 +589,7 @@ class MetaTAtomProp():
 		grab_lit_str = []
 
 		for info in t_atom_info:
-			grab_lit = check_mapping.format(untimed_lit=info.untimed_lit, sign=info.sign)
+			grab_lit = check_mapping.format(untimed_lit=info.untimed_lit, time_mod=info.time_mod, sign=info.sign)
 			grab_lit_str.append(grab_lit)
 
 		ng_str = "ng = [{}]".format(", ".join(grab_lit_str))
