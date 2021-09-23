@@ -26,12 +26,12 @@ on(B,L,T+1) :- on(B,L,T), not -on(B,L,T+1), location(L), block(B), time(T), T<ho
 % a block can’t be moved unless it is clear
 %:- move(B,L,T), on(B1,B,T), block(B), block(B1), location(L), time(T), T<horizon.
 
-&constraint(0,horizon-1,mo){+.move(B,L); +.on(B1,B)} :- block(B), block(B1), location(L).
+&constraint(0,horizon-1,mo){+.move(B,L); +.on(B1,B)} :- block(B), block(B1), location(L), B1 != B, B != L.
 
 % a block can’t be moved onto a block that is being moved also
 %:- move(B,B1,T), move(B1,L,T), block(B), block(B1), location(L), time(T), T<horizon.
 
-&constraint(0,horizon-1,mm){+.move(B,B1); +.move(B1,L)} :- block(B), block(B1), location(L).
+&constraint(0,horizon-1,mm){+.move(B,B1); +.move(B1,L)} :- block(B), block(B1), location(L), B1 != B, B != L.
 
 &signature{++on(B,L)} :- block(B), block(L).
 &signature{++move(B,L)} :- block(B), location(L).
