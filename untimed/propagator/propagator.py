@@ -211,7 +211,7 @@ class TimedAtomAllWatchesPropagator(TimedAtomPropagator):
 		tc.ground(init)
 		self.add_atom_observer(tc)
 
-	def add_watches(init):
+	def add_watches(self, init):
 		"""
 		Watch every literal in the mapping
 		:param init: clingo PropagateInit object
