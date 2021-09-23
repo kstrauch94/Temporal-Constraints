@@ -116,7 +116,7 @@ class TestApp(unittest.TestCase):
 
 		self.handler_test(handler_class, handler_args)
 
-	def test_meta_prop(self):
+	def dtest_meta_prop(self):
 		print("\nrunning meta prop")
 		self.reset_mappings()
 		handler_class = TheoryHandler
@@ -124,7 +124,7 @@ class TestApp(unittest.TestCase):
 
 		self.handler_test(handler_class, handler_args)
 
-	def test_meta_ta_prop(self):
+	def dtest_meta_ta_prop(self):
 		print("\nrunning meta_ta prop")
 		self.reset_mappings()
 		handler_class = TheoryHandler
@@ -320,8 +320,9 @@ class TestApp(unittest.TestCase):
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
-		# multiple constraints
+		# multiple constraints + different id
 
+		# c1
 		self.reset_mappings()
 		c = """&constraint(1,maxtime,id){+.a(1); +.a(2); +.b(1); +~b(1)}.
 			   &constraint(1,maxtime,id){+~b(2); -.a(2)}. 
@@ -331,10 +332,33 @@ class TestApp(unittest.TestCase):
 		self.assertEqual(solve([program, c], handler_class, handler_args),
 		                 solve_regular([program, c_reg]))
 
+		# c1 with dif id
+		self.reset_mappings()
+		c = """&constraint(1,maxtime,id){+.a(1); +.a(2); +.b(1); +~b(1)}.
+			   &constraint(1,maxtime,id2){+~b(2); -.a(2)}. 
+			   &signature{++a(1) ; ++a(2) ; --a(2) ; ++b(1) ; ++b(2)}."""
+		c_reg = """:- a(1,T), a(2,T), b(1,T), b(1,T-1), time(T).
+				   :- b(2,T-1), not a(2,T), time(T)."""
+		self.assertEqual(solve([program, c], handler_class, handler_args),
+		                 solve_regular([program, c_reg]))
+
+		# c2
 		self.reset_mappings()
 		c = """&constraint(1,maxtime,id){+.a(1); +.a(2); +.b(1); +~b(1)}.
 			   &constraint(1,maxtime,id){+~b(2); -.a(2)}.
 			   &constraint(1,maxtime,id){+.a(2); +.b(1); -~a(1)}.
+			   &signature{++a(1) ; ++a(2) ; --a(1) ; --a(2) ; ++b(1) ; ++b(2) }."""
+		c_reg = """:- a(1,T), a(2,T), b(1,T), b(1,T-1), time(T).
+				   :- b(2,T-1), not a(2,T), time(T).
+				   :- a(2,T), b(1,T), not a(1,T-1), time(T)."""
+		self.assertEqual(solve([program, c], handler_class, handler_args),
+		                 solve_regular([program, c_reg]))
+
+		# c2 with dif id
+		self.reset_mappings()
+		c = """&constraint(1,maxtime,id){+.a(1); +.a(2); +.b(1); +~b(1)}.
+			   &constraint(1,maxtime,id2){+~b(2); -.a(2)}.
+			   &constraint(1,maxtime,id3){+.a(2); +.b(1); -~a(1)}.
 			   &signature{++a(1) ; ++a(2) ; --a(1) ; --a(2) ; ++b(1) ; ++b(2) }."""
 		c_reg = """:- a(1,T), a(2,T), b(1,T), b(1,T-1), time(T).
 				   :- b(2,T-1), not a(2,T), time(T).
