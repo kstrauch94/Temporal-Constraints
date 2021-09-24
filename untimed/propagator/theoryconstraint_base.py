@@ -364,7 +364,7 @@ class TheoryConstraint:
 								or None
 	"""
 
-	__slots__ = ["t_atom_info", "max_time", "min_time", "logger", "lock_nogoods"]
+	__slots__ = ["t_atom_info", "max_time", "min_time", "logger", "lock_nogoods", "valid_ats"]
 
 	def __init__(self, constraint, lock_nogoods=-1) -> None:
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
@@ -375,6 +375,10 @@ class TheoryConstraint:
 		self.min_time: int = None
 
 		self.t_atom_info, self.min_time, self.max_time = parse_atoms(constraint)
+
+		self.valid_ats = 0
+		for at in range(self.min_time, self.max_time + 1):
+			self.valid_ats = util.set_bit(self.valid_ats, at)
 
 		if lock_nogoods == -1:
 			# never lock
@@ -409,9 +413,11 @@ class TheoryConstraint:
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
+				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
 				continue
 			if self.lock_on_build(lits, assigned_time, init):
 				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
+				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
 				continue
 			yield lits
 
@@ -432,8 +438,6 @@ class TheoryConstraint:
 
 				self.lock_on_build(lits, assigned_time, init)
 
-	@util.Timer("Undo")
-	@util.Count("Undo")
 	def undo(self, thread_id, assign, changes) -> None:
 		"""
 		Should be implemented in a child class if it is needed
@@ -453,6 +457,7 @@ class TheoryConstraint:
 
 		ng = form_nogood(self.t_atom_info, assigned_time)
 		if ng is None:
+			self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
 			return 1
 
 		return self.check_assignment(ng, control, assigned_time)
@@ -496,6 +501,8 @@ class TheoryConstraint:
 
 		if self.lock_nogoods == True:
 			util.Count.add(StatNames.LOCKNG_COUNT_MSG.value)
+
+			self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
 			return True
 
 		elif self.lock_nogoods == False:
@@ -504,9 +511,10 @@ class TheoryConstraint:
 		else: # when we have the list
 			self.lock_nogoods[assigned_time] -= 1
 			if self.lock_nogoods[assigned_time] == 0:
-				# del self.lock_nogoods[assigned_time]
-				util.Count.add("locked_ng")
+				util.Count.add(StatNames.LOCKNG_COUNT_MSG.value)
+
 				self.lock_nogoods[assigned_time] = None
+				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
 
 				return True
 
@@ -520,6 +528,8 @@ class TheoryConstraint:
 		:return: True if it is valid, False otherwise
 		"""
 
+		return util.is_bit_true(self.valid_ats, assigned_time)
+		
 		if assigned_time <= GlobalConfig.lock_up_to or assigned_time >= self.max_time - GlobalConfig.lock_from:
 			return False
 
@@ -545,10 +555,12 @@ class TheoryConstraint:
 	def lock_on_build(self, ng, at, init):
 		if at <= GlobalConfig.lock_up_to or at >= self.max_time - GlobalConfig.lock_from:
 			init.add_clause([-l for l in ng])
-			util.Count.add("pre-grounded")
+			util.Count.add(StatNames.PREGROUND_COUNT_MSG.value)
 
 			if type(self.lock_nogoods) == list:
 				self.lock_nogoods[at] = None
+
+			self.valid_ats = util.clear_bit(self.valid_ats, at)
 
 			return True
 

@@ -64,11 +64,13 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
+				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
 				continue
 			if self.lock_on_build(lits, assigned_time, init):
-				# if it is locked then we continue since we don't need to yield the lits(no need to watch them)
+				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
+				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
 				continue
-
+			
 			yield lits, assigned_time, lits
 
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
@@ -234,11 +236,13 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 		for assigned_time in range(self.min_time, self.max_time + 1):
 			lits = form_nogood(self.t_atom_info, assigned_time)
 			if lits is None:
+				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
 				continue
 			if self.lock_on_build(lits, assigned_time, init):
 				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
+				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
 				continue
-
+			
 			yield lits[:2], assigned_time, lits
 		
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
@@ -264,7 +268,7 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 
 		update_result = check_assignment(ng, control)
 		if update_result == ConstraintCheck.NONE:
-			return 1
+			return ng, update_result
 
 		lock = self.check_if_lock(assigned_time)
 		if not control.add_nogood(ng, lock=lock) or not control.propagate():

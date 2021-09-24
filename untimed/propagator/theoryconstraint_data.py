@@ -32,6 +32,9 @@ class StatNames(Enum):
 	UNITS_COUNT_MSG = "Units added"
 	CONF_COUNT_MSG = "Conflicts added"
 
+	LOCKNG_COUNT_MSG = "locked nogood"
+	PREGROUND_COUNT_MSG = "Pre grounded nogoods"
+
 
 class AtomInfo:
 
