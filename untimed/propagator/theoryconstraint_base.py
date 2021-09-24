@@ -495,7 +495,7 @@ class TheoryConstraint:
 		"""
 
 		if self.lock_nogoods == True:
-			util.Count.add("locked_ng")
+			util.Count.add(StatNames.LOCKNG_COUNT_MSG.value)
 			return True
 
 		elif self.lock_nogoods == False:
@@ -519,6 +519,10 @@ class TheoryConstraint:
 		:param assigned_time: the assigned time
 		:return: True if it is valid, False otherwise
 		"""
+
+		if assigned_time <= GlobalConfig.lock_up_to or assigned_time >= self.max_time - GlobalConfig.lock_from:
+			return False
+
 		# returns True if time is valid
 		# False otherwise
 		if type(self.lock_nogoods) == bool:
