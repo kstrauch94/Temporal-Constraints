@@ -8,7 +8,6 @@ from untimed import util
 from untimed.propagator.theoryconstraint_data import StatNames
 
 from untimed.propagator.theoryconstraint_base import parse_signature
-from untimed.propagator.theoryconstraint_base import TheoryConstraint
 
 from untimed.propagator.propagator import TimedAtomPropagator
 from untimed.propagator.propagator import TimedAtomAllWatchesPropagator
@@ -20,7 +19,7 @@ from untimed.propagator.propagator import RegularAtomPropagator2watch
 from untimed.propagator.propagator import RegularAtomPropagator2watchMap
 from untimed.propagator.propagator import TimedAtomPropagatorCheck
 from untimed.propagator.propagator import ConseqsPropagator
-
+from untimed.propagator.propagator import Propagator1watch
 
 theory_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../theory/untimed_theory.lp"))
 
@@ -33,7 +32,8 @@ PROPAGATORS = {"timed": TimedAtomPropagator,
 			"2watchmap": RegularAtomPropagator2watchMap,
 			"count": CountPropagator,
 			"check": TimedAtomPropagatorCheck,
-			"conseq": ConseqsPropagator}		   
+			"conseq": ConseqsPropagator,
+			"1watch": Propagator1watch}		   
 
 def add_theory(prg) -> None:
 	prg.load(theory_file)

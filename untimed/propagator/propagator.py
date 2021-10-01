@@ -24,7 +24,7 @@ from untimed.propagator.theoryconstraint_prop import TheoryConstraintSize2TimedP
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintTimedProp
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintMetaProp
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintCountProp
-
+from untimed.propagator.theoryconstraint_prop import TheoryConstraint1watch
 
 class Propagator:
 	"""
@@ -44,7 +44,7 @@ class Propagator:
 
 		self.id = id
 
-		self.watch_to_tc: Dict[Any, Set["TheoryConstraint"]] = defaultdict(list)
+		self.watch_to_tc: Dict[Any, Set["TheoryConstraint"]] = defaultdict(set)
 
 		self.theory_constraints: List["TheoryConstraint"] = []
 
@@ -63,7 +63,7 @@ class Propagator:
 			return
 
 		for lit in watches:
-			self.watch_to_tc[lit].append(tc)
+			self.watch_to_tc[lit].add(tc)
 
 	@util.Timer(StatNames.INIT_TIMER_MSG.value)
 	def init(self, init):
@@ -132,7 +132,7 @@ class TimedAtomPropagator(Propagator):
 			return
 
 		for info in tc.t_atom_info:
-			self.watch_to_tc[info.untimed_lit].append(tc)
+			self.watch_to_tc[info.untimed_lit].add(tc)
 
 	def build_watches(self, tc, init):
 		for lits in tc.build_watches(init):
@@ -177,7 +177,7 @@ class TimedAtomPropagatorCheck(Propagator):
 			return
 
 		for info in tc.t_atom_info:
-			self.watch_to_tc[info.untimed_lit].append(tc)
+			self.watch_to_tc[info.untimed_lit].add(tc)
 
 	def build_watches(self, tc, init):
 		tc.ground(init)
@@ -256,7 +256,7 @@ class MetaPropagator(Propagator):
 			return
 
 		for info in tc.t_atom_info:
-			self.watch_to_tc[info.untimed_lit].append(prop_func)
+			self.watch_to_tc[info.untimed_lit].add(prop_func)
 
 	def build_watches(self, tc, init):
 		for lits in tc.build_watches(init):
@@ -407,6 +407,23 @@ class RegularAtomPropagator2watch(Propagator):
 	"""
 	__slots__ = []
 
+	def __init__(self, id, lock_ng=-1):
+		super().__init__(id, lock_ng=lock_ng)
+
+		self.watch_to_tc = defaultdict(list)
+
+	def add_atom_observer(self, tc, watches):
+		"""
+		Add the tc to the list of tcs to be notified when their respective atoms are propagated
+		:param tc: theory constraint for timed watches
+		:param watches: watches that will inform the given theory constraint
+		"""
+		if tc.size == 1:
+			return
+
+		for lit in watches:
+			self.watch_to_tc[lit].append(tc)
+
 	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	# @profile
 	def propagate(self, control, changes):
@@ -441,6 +458,50 @@ class RegularAtomPropagator2watch(Propagator):
 			return TheoryConstraint2watchProp(t_atom, self.lock_ng)
 
 
+class Propagator1watch(Propagator):
+	"""
+	Propagator that handles the propagation of "time atoms"(aka theory atoms of theory constraints).
+
+	Members:
+	watch_to_tc                -- Mapping from a literal to a theory constraint.
+
+	theory_constraints          -- List of all theory constraints
+	"""
+	__slots__ = []
+
+	@util.Count(StatNames.PROP_CALLS_MSG.value)
+	# @profile
+	def propagate(self, control, changes):
+		with util.Timer("Propagation-{}".format(str(self.id))):
+			for lit in changes:
+				for tc in set(self.watch_to_tc[lit]):
+					result = tc.propagate(control, lit)
+					if result is None:
+						return
+
+					for delete, add in result:
+						self.watch_to_tc[delete].remove(tc)
+						self.watch_to_tc[add].add(tc)
+
+						if len(self.watch_to_tc[add]) == 1:
+							# if the size is 1 then it contains only the new tc
+							# so it wasn't watched before
+							control.add_watch(add)
+
+						if self.watch_to_tc[delete] == []:
+							control.remove_watch(delete)
+
+	def make_tc(self, t_atom):
+		size = len(t_atom.elements)
+		if size == 1:
+			return TheoryConstraintSize1(t_atom)
+		elif size == 2:
+			util.Count.add(StatNames.SIZE2_COUNT_MSG.value)
+			return TheoryConstraint1watch(t_atom, self.lock_ng)
+		else:
+			util.Count.add(StatNames.SIZEN_COUNT_MSG.value)
+			return TheoryConstraint1watch(t_atom, self.lock_ng)
+
 class RegularAtomPropagator2watchMap(Propagator):
 	"""
 	Propagator that handles the propagation of "time atoms"(aka theory atoms of theory constraints).
@@ -463,7 +524,7 @@ class RegularAtomPropagator2watchMap(Propagator):
 			return
 
 		for lit in watches:
-			self.watch_to_tc[lit].append((tc, at))
+			self.watch_to_tc[lit].add((tc, at))
 
 	def build_watches(self, tc, init):
 		for lits, at, all_lits in tc.build_watches(init):
@@ -494,7 +555,7 @@ class RegularAtomPropagator2watchMap(Propagator):
 						new_watch = get_replacement_watch(ng, [lit, second_watch], control)
 						if new_watch is not None:
 							self.watch_to_tc[lit].remove((tc, at))
-							self.watch_to_tc[new_watch].append((tc, at))
+							self.watch_to_tc[new_watch].add((tc, at))
 
 	def make_tc(self, t_atom):
 		size = len(t_atom.elements)

@@ -421,6 +421,25 @@ class TheoryConstraint:
 				continue
 			yield lits
 
+
+	def build_watches_at(self, init) -> List[int]:
+		"""
+		Add watches to the solver. This should be implemented by child class
+		Basic case returns all literals in the nogood
+		:param init: clingo PropagateInit class
+		:return: List of literals that are watches by this theory constraint
+		"""
+		for assigned_time in range(self.min_time, self.max_time + 1):
+			lits = form_nogood(self.t_atom_info, assigned_time)
+			if lits is None:
+				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
+				continue
+			if self.lock_on_build(lits, assigned_time, init):
+				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
+				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
+				continue
+			yield lits, assigned_time
+
 	def ground(self, init):
 		"""
 		This function is used in the all watches propagator to "ground" the constraints given the options
@@ -464,7 +483,7 @@ class TheoryConstraint:
 
 	def check_assignment(self, ng, control, assigned_time):
 		if check_assignment(ng, control) == ConstraintCheck.NONE:
-			return 1
+			return ConstraintCheck.NONE
 		lock = self.check_if_lock(assigned_time)
 		
 		if not control.add_nogood(ng, lock=lock) or not control.propagate():
@@ -473,7 +492,7 @@ class TheoryConstraint:
 
 		util.Count.add(StatNames.UNITS_COUNT_MSG.value)
 
-		return 1
+		return ConstraintCheck.UNIT
 
 	def check(self, control) -> Optional[int]:
 		"""
@@ -490,7 +509,7 @@ class TheoryConstraint:
 				if not control.add_nogood(ng, lock=lock) or not control.propagate():
 					# model has some conflicts
 					return None
-		return 0
+		return ConstraintCheck.NONE
 
 	def check_if_lock(self, assigned_time) -> bool:
 		"""

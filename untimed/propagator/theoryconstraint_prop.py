@@ -155,7 +155,9 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 		"""
 		Only add watches for the first 2 literals of a nogood
 		"""
-		for lits in super().build_watches(init):
+		for lits, at in super().build_watches_at(init):
+			for lit in lits[:2]:
+				self.watches_to_at[lit] = util.set_bit(self.watches_to_at[lits[0]], at)
 			yield lits[:2]
 
 	# @profile
@@ -183,12 +185,11 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 			if ng is None:
 				continue
 
-			# this control flow is wrong? this returns 1 also when a unit is added
-			# this doesnt really affect anything since the watches wont change
-			# but it is inefficient
-			if self.check_assignment(ng, control, assigned_time) is None:
+			result = self.check_assignment(ng, control, assigned_time)
+			if result is None:
 				return None
-
+			elif result == ConstraintCheck.UNIT:
+				return ConstraintCheck.UNIT
 			else:
 				# only look for replacement if nogood is not conflicting or unit
 				for lit, ats in self.watches_to_at.items():
@@ -204,6 +205,88 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 
 		self.replace_watches(replacement_info, control)
 
+		return delete_add
+
+	def replace_watches(self, info: List[List[int]], control) -> None:
+		"""
+		Update the watches_to_at dictionary based on the info returned by get_replacement_watch
+
+		:param info: List of info about the replacement. Each element is a return type of get_replacement_watch
+		:param control: clingo PropagateControl object
+		"""
+
+		for old_watch, new_watch, assigned_time in info:
+			# remove the lit as a watch for constraint assigned_time
+			self.watches_to_at[old_watch].remove(assigned_time)
+
+			# add new watch as a watch for constraint assigned_time
+			self.watches_to_at[new_watch].add(assigned_time)
+
+class TheoryConstraint1watch(TheoryConstraint):
+	"""
+	Members:
+
+	watches_to_at           --  Dictionary mapping the current watches to
+								their respective assigned time(s)
+	"""
+
+	__slots__ = ["watches_to_at"]
+
+	def __init__(self, constraint, lock_nogoods=-1) -> None:
+		super().__init__(constraint, lock_nogoods=lock_nogoods)
+		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
+		self.watches_to_at: Dict[int, set[int]] = defaultdict(set)
+
+	# @profile
+	def build_watches(self, init) -> List[int]:
+		"""
+		Only add watches for the first 2 literals of a nogood
+		"""
+		for lits, at in super().build_watches_at(init):
+			self.watches_to_at[lits[0]].add(at)
+			yield [lits[0]]
+
+	# @profile
+	def propagate(self, control, change) -> Optional[List[Tuple]]:
+		"""
+		For any relevant change, check the assignment of the whole nogood
+		for the assigned times it is in. If it it conflicting or unit add the nogood to the solver
+
+		After the check, replace the watch if possible.
+
+		:param control: clingo PropagateControl object
+		:param change: watch that was assigned
+		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
+		"""
+
+		delete_add = []
+
+		replacement_info: List[List[int]] = []
+
+		for assigned_time in self.watches_to_at[change]:
+			if not self.is_valid_time(assigned_time):
+				continue
+
+			ng = form_nogood(self.t_atom_info, assigned_time)
+			if ng is None:
+				continue
+
+			result = self.check_assignment(ng, control, assigned_time)
+			if result is None:
+				return None
+			elif result == ConstraintCheck.UNIT:
+				return []
+			else:
+				for lit in ng:
+					if lit == change:
+						continue
+					
+					if control.assignment.value is None:
+						self.watches_to_at[change].remove(assigned_time)
+						self.watches_to_at[lit].add(assigned_time)
+						delete_add.append([change, lit])
+						break
+		
 		return delete_add
 
 	def replace_watches(self, info: List[List[int]], control) -> None:

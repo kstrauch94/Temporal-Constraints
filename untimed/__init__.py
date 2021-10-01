@@ -1,6 +1,6 @@
 import clingo
 
-from untimed.propagator.propagatorhandler import TheoryHandler
+from untimed.propagator.propagatorhandler import TheoryHandler, PROPAGATORS
 
 from untimed.propagator.propagatorhandler import add_theory
 
@@ -13,8 +13,7 @@ import textwrap as _textwrap
 import logging
 import sys
 
-watch_types = ["naive", "2watch", "timed", "check", "timed_aw", "2watchmap", "meta", "meta_ta", "count", "conseq"]
-
+watch_types = PROPAGATORS.keys()
 
 class Application:
 
