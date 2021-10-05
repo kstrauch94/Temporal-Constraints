@@ -5,12 +5,14 @@ import untimed.util as util
 from untimed.propagator.theoryconstraint_data import ConstraintCheck
 from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_data import StatNames
+from untimed.propagator.theoryconstraint_data import GlobalConfig
 
 from untimed.propagator.theoryconstraint_base import TheoryConstraint
+from untimed.propagator.theoryconstraint_base import TheoryConstraintSize1
 from untimed.propagator.theoryconstraint_base import init_TA2L_mapping_integers
 from untimed.propagator.theoryconstraint_base import Signatures
 from untimed.propagator.theoryconstraint_base import get_replacement_watch
-from untimed.propagator.theoryconstraint_base import TheoryConstraintSize1
+from untimed.propagator.theoryconstraint_base import parse_atoms, form_nogood
 
 from untimed.propagator.theoryconstraint_prop import MetaTAtomProp
 from untimed.propagator.theoryconstraint_prop import TAtomConseqs
@@ -138,7 +140,7 @@ class TimedAtomPropagator(Propagator):
 		for lits in tc.build_watches(init):
 			self.watches.update(lits)
 		self.add_atom_observer(tc)
-	
+
 	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
@@ -310,9 +312,9 @@ class MetaTAtomPropagator(TimedAtomPropagator):
 		with util.Timer("Propagation-{}".format(str(self.id))):
 			for lit in changes:
 				for internal_lit in TimeAtomToSolverLit.grab_id(lit):
-					# have to check if untimed lit is in the mapping because it is possible that the 
-					# solver lit is associated with internal literals that are not relevant to this 
-					# propagator. This is only needed for this and Conseq since the mapping directly 
+					# have to check if untimed lit is in the mapping because it is possible that the
+					# solver lit is associated with internal literals that are not relevant to this
+					# propagator. This is only needed for this and Conseq since the mapping directly
 					# gives the function. On other propagator types then mapping returns an empty list
 					# and hence it does not loop at all
 					untimed_lit = Signatures.convert_to_untimed_lit(internal_lit)
@@ -567,3 +569,52 @@ class RegularAtomPropagator2watchMap(Propagator):
 		else:
 			util.Count.add(StatNames.SIZEN_COUNT_MSG.value)
 			return TheoryConstraint2watchPropMap(t_atom, self.lock_ng)
+
+
+class GrounderPropagator:
+
+	def __init__(self, id, lock_ng=-1):
+		GlobalConfig.lock_up_to = 100000000
+
+	@util.Timer(StatNames.INIT_TIMER_MSG.value)
+	def init(self, init):
+		init_TA2L_mapping_integers(init)
+
+		t_atom_count = 0
+		all_t_atom_count = 0
+		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
+			if t_atom.term.name == "constraint":
+				t_atom_count +=1
+
+				self.build_constraints(init, t_atom)
+
+
+		util.Count.add(StatNames.TC_COUNT_MSG.value, t_atom_count)
+
+		TimeAtomToSolverLit.reset()
+
+	def build_constraints(self, init, t_atom) -> List[int]:
+		t_atom_info, min_time, max_time = parse_atoms(t_atom)
+
+		for assigned_time in range(min_time, max_time + 1):
+			lits = form_nogood(t_atom_info, assigned_time)
+			if lits is None:
+				continue
+
+			init.add_clause([-l for l in lits if l != 1])
+
+	@util.Count(StatNames.CHECK_CALLS_MSG.value)
+	@util.Timer(StatNames.CHECK_TIMER_MSG.value)
+	def check(self, control):
+		pass
+
+	def make_tc(self, t_atom):
+		size = len(t_atom.elements)
+		if size == 1:
+			return TheoryConstraintSize1(t_atom)
+		elif size == 2:
+			util.Count.add(StatNames.SIZE2_COUNT_MSG.value)
+			return TheoryConstraintSize2Prop(t_atom, self.lock_ng)
+		else:
+			util.Count.add(StatNames.SIZEN_COUNT_MSG.value)
+			return TheoryConstraintNaiveProp(t_atom, self.lock_ng)

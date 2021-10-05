@@ -20,6 +20,7 @@ from untimed.propagator.propagator import RegularAtomPropagator2watchMap
 from untimed.propagator.propagator import TimedAtomPropagatorCheck
 from untimed.propagator.propagator import ConseqsPropagator
 from untimed.propagator.propagator import Propagator1watch
+from untimed.propagator.propagator import GrounderPropagator
 
 theory_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../theory/untimed_theory.lp"))
 
@@ -33,7 +34,8 @@ PROPAGATORS = {"timed": TimedAtomPropagator,
 			"count": CountPropagator,
 			"check": TimedAtomPropagatorCheck,
 			"conseq": ConseqsPropagator,
-			"1watch": Propagator1watch}		   
+			"1watch": Propagator1watch,
+			"ground": GrounderPropagator}
 
 def add_theory(prg) -> None:
 	prg.load(theory_file)
