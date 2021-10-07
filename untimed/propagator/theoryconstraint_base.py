@@ -271,6 +271,9 @@ def init_TA2L_mapping_integers(init) -> None:
 	"""
 	# go through all signatures and signs
 
+	if TimeAtomToSolverLit.initialized:
+		return
+
 	for sign, sig in Signatures.sigs:
 
 		# look at all the atoms that have that same signature
@@ -304,7 +307,7 @@ def init_TA2L_mapping_integers(init) -> None:
 	Signatures.fullsigs.clear()
 
 	Signatures.finished = True
-
+	TimeAtomToSolverLit.initialized = True
 
 def choose_lit(lits: List[int], current_watches: int, control) -> Optional[int]:
 	"""
@@ -485,7 +488,7 @@ class TheoryConstraint:
 		if check_assignment(ng, control) == ConstraintCheck.NONE:
 			return ConstraintCheck.NONE
 		lock = self.check_if_lock(assigned_time)
-		
+
 		if not control.add_nogood(ng, lock=lock) or not control.propagate():
 			util.Count.add(StatNames.CONF_COUNT_MSG.value)
 			return None
@@ -548,7 +551,7 @@ class TheoryConstraint:
 		"""
 
 		return util.is_bit_true(self.valid_ats, assigned_time)
-		
+
 		if assigned_time <= GlobalConfig.lock_up_to or assigned_time >= self.max_time - GlobalConfig.lock_from:
 			return False
 

@@ -73,13 +73,10 @@ class Propagator:
 		self.watches = set()
 		init_TA2L_mapping_integers(init)
 
-		t_atom_count = 0
-		all_t_atom_count = 0
-		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
+		for t_atom in init.theory_atoms:
 			if t_atom.term.name == "constraint":
 				if self.id is not None and t_atom.term.arguments[-1].name != self.id:
 					continue
-				t_atom_count +=1
 				tc = self.make_tc(t_atom)
 				if tc.size == 1:
 					tc.init(init)
@@ -93,8 +90,6 @@ class Propagator:
 
 		self.watches = None
 		del self.watches
-
-		util.Count.add(StatNames.TC_COUNT_MSG.value, t_atom_count)
 
 	def build_watches(self, tc, init):
 		for lits in tc.build_watches(init):
@@ -580,16 +575,9 @@ class GrounderPropagator:
 	def init(self, init):
 		init_TA2L_mapping_integers(init)
 
-		t_atom_count = 0
-		all_t_atom_count = 0
-		for all_t_atom_count, t_atom in enumerate(init.theory_atoms, start=1):
+		for t_atom in init.theory_atoms:
 			if t_atom.term.name == "constraint":
-				t_atom_count +=1
-
 				self.build_constraints(init, t_atom)
-
-
-		util.Count.add(StatNames.TC_COUNT_MSG.value, t_atom_count)
 
 		TimeAtomToSolverLit.reset()
 

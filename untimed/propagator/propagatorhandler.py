@@ -66,20 +66,26 @@ class TheoryHandler:
 		because it relies on looking at the grounded theory atoms
 		to create a propagator for each one
 		"""
+		t_atom_count = 0
 		for t_atom in prg.theory_atoms:
 			if t_atom.term.name == "signature":
 				parse_signature(t_atom)
 				util.Count.add(StatNames.SIG_COUNT_MSG.value)
 
-			elif not self.ignore_id and t_atom.term.name == "constraint":
-				id = t_atom.term.arguments[-1].name
-				self.prop_ids.add(id)
+			else:
+				t_atom_count += 1
+
+				if not self.ignore_id and t_atom.term.name == "constraint":
+					id = t_atom.term.arguments[-1].name
+					self.prop_ids.add(id)
 
 		if self.ignore_id:
 			self.prop_ids.add(None)
 
 		for id in self.prop_ids:
 			prg.register_propagator(self.propagator(id))
+
+		util.Count.add(StatNames.TC_COUNT_MSG.value, t_atom_count)
 
 	def __str__(self) -> str:
 		return self.__class__.__name__
