@@ -165,7 +165,8 @@ def form_nogood(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 		#	continue
 		if lit == -1:
 			return None
-
+		if lit == 1:
+			continue
 		ng.add(lit)
 
 	return sorted(ng)
@@ -183,17 +184,12 @@ def form_nogood_always(t_atom_info, assigned_time: int) -> Optional[List[int]]:
 
 	for info in t_atom_info:
 		time: int = reverse_assigned_time(info, assigned_time)
-		try:
-			lit = TimeAtomToSolverLit.grab_lit(untimed_lit_to_internal_lit(info, time))
-		except KeyError:
-			# this error would happen if an id is not in the mapping
-			# if this happens it means the atom does not exist for this assigned time
-			# if sign is 1 then it means that a POSITIVE atom does not exist -> a false atom in the nogood -> automatically ok
-			continue
+		lit = TimeAtomToSolverLit.grab_lit(untimed_lit_to_internal_lit(info, time))
 
 		if lit == -1:
 			continue
-
+		if lit == 1:
+			continue
 		ng.add(lit)
 
 	return ng
@@ -422,6 +418,9 @@ class TheoryConstraint:
 				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
 				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
 				continue
+			if len(lits) == 1:
+				util.Count.add("Add size 1")
+				init.add_clause([ -lits[0] ])
 			yield lits
 
 
@@ -441,6 +440,9 @@ class TheoryConstraint:
 				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
 				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
 				continue
+			if len(lits) == 1:
+				init.add_clause([ -lits[0] ])
+				util.Count.add("Add size 1")
 			yield lits, assigned_time
 
 	def ground(self, init):
