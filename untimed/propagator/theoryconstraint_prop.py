@@ -15,6 +15,7 @@ from untimed.propagator.theoryconstraint_base import get_at_from_internal_lit
 from untimed.propagator.theoryconstraint_base import check_assignment
 from untimed.propagator.theoryconstraint_base import get_replacement_watch
 from untimed.propagator.theoryconstraint_base import Signatures
+from untimed.propagator.theoryconstraint_base import check_assignment_complete
 
 import types
 
@@ -414,39 +415,40 @@ class TAtomConseqs():
 	def build_conseqs(self, info, min, max):
 		"""
 		Extend the conseqs list given the theory constraint
-		:param tc: theory constraint that involves the untimed atom for this
+		:param tc: theory constraint that involves the untimed atom for this atom
 		:return:
 		"""
-		ua_time = None
-		other_time = None
+		self_time_mod = None
+		other_time_mod = None
 		other_lit = None
 		for i in info:
 			if i.untimed_lit != self.untimed_lit:
-				other_time = i.time_mod
+				other_time_mod = i.time_mod
 				other_lit = i.untimed_lit
 
 			else:
-				ua_time = i.time_mod
+				self_time_mod = i.time_mod
 
-		if other_time is None:
+		if other_time_mod is None:
 			# in this case both atoms are the same
-			# which means that one has time 0 and
-			# the other has time 1, so we set them up that way
-			# and in both orders
+			# we add the time mods in both orders
 
-			conseq = [other_lit, 1, min, max]
+			self_time_mod = info[0].time_mod
+			other_time_mod = info[1].time_mod
+
+			conseq = [self.untimed_lit, self_time_mod, other_time_mod, min, max]
 			# if we have constraints with the same atom just in different time steps
 			# then we check so that we don't add the same consequence
 			if conseq not in self.conseqs:
 				self.conseqs.append(conseq)
 
-			conseq = [other_lit, -1, min, max]
+			conseq = [self.untimed_lit, other_time_mod, self_time_mod, min, max]
 			if conseq not in self.conseqs:
 				self.conseqs.append(conseq)
 
 			return
 
-		conseq = [other_lit, ua_time - other_time, min, max]
+		conseq = [other_lit, self_time_mod, other_time_mod, min, max]
 		# if we have constraints with the same atom just in different time steps
 		# then we check so that we don't add the same consequence
 		if conseq not in self.conseqs:
@@ -471,18 +473,18 @@ class TAtomConseqs():
 		the solver
 
 		:param control: clingo PropagateControl object
-		:param change: tuple containing the info of the change. Tuple[sign, name, time]
+		:param change: tuple containing the internal literal and solver literal
 		:return None if propagation has to stop, A list of (delete, add) pairs of watches if propagation can continue
 		"""
 
 		internal_lit, lit = change
 		time = Signatures.convert_to_time(internal_lit)
-		for conseq, time_mod, min_time, max_time in self.conseqs:
-			assigned_time = max(time, time + time_mod)
+		for conseq, self_time_mod, other_time_mod, min_time, max_time in self.conseqs:
+			assigned_time = time + self_time_mod
 			if not self.is_valid_time(assigned_time, min_time, max_time):
 				continue
 
-			other_lit = TimeAtomToSolverLit.grab_lit(Signatures.convert_to_internal_lit(conseq, time + time_mod, util.sign(conseq)))
+			other_lit = TimeAtomToSolverLit.grab_lit(Signatures.convert_to_internal_lit(conseq, assigned_time - other_time_mod, util.sign(conseq)))
 			ng = [lit, other_lit]
 
 			if check_assignment(ng, control) == ConstraintCheck.NONE:
@@ -493,6 +495,22 @@ class TAtomConseqs():
 				return None
 
 			util.Count.add(StatNames.UNITS_COUNT_MSG.value)
+
+		return 1
+
+	def check_if_lock(self, assigned_time):
+		return self.lock_nogoods
+
+	def check(self, control):
+		for conseq, self_time_mod, other_time_mod, min_time, max_time in self.conseqs:
+			for assigned_time in range(min_time, max_time):
+				lit = TimeAtomToSolverLit.grab_lit(Signatures.convert_to_internal_lit(self.untimed_lit, assigned_time - self_time_mod, util.sign(self.untimed_lit)))
+				other_lit = TimeAtomToSolverLit.grab_lit(Signatures.convert_to_internal_lit(conseq, assigned_time - other_time_mod, util.sign(conseq)))
+
+				if check_assignment_complete([lit, other_lit], control) == ConstraintCheck.CONFLICT:
+					lock = self.check_if_lock(assigned_time)
+					if not control.add_nogood(ng, lock=lock) or not control.propagate():
+						return None
 
 		return 1
 

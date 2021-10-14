@@ -344,6 +344,11 @@ class ConseqsPropagator(TimedAtomPropagator):
 			self.watch_to_tc[info.untimed_lit].build_conseqs(tc.t_atom_info, tc.min_time, tc.max_time)
 
 
+	def init(self, init):
+		super().init(init)
+
+		util.Count.add("Temporal atoms", len(self.watch_to_tc))
+
 	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	def propagate(self, control, changes):
 		with util.Timer("Propagation-{}".format(str(self.id))):
@@ -355,6 +360,9 @@ class ConseqsPropagator(TimedAtomPropagator):
 						if self.watch_to_tc[untimed_lit].propagate(control, (internal_lit, lit)) is None:
 							return
 
+	def add_tc(self, tc):
+		pass
+
 	def make_tc(self, t_atom):
 		size = len(t_atom.elements)
 		if size == 1:
@@ -365,6 +373,13 @@ class ConseqsPropagator(TimedAtomPropagator):
 		else:
 			raise Exception("Conseqs propagator can not handle constraints of size > 2")
 
+	@util.Count(StatNames.CHECK_CALLS_MSG.value)
+	@util.Timer(StatNames.CHECK_TIMER_MSG.value)
+	def check(self, control):
+		for temporal_atom, ta in self.watch_to_tc.items():
+			if ta.check(control) is None:
+				# check failed because there was a conflict
+				return
 
 class RegularAtomPropagatorNaive(Propagator):
 	"""

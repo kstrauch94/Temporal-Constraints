@@ -509,6 +509,7 @@ class TheoryConstraint:
 				if not control.add_nogood(ng, lock=lock) or not control.propagate():
 					# model has some conflicts
 					return None
+					
 		return ConstraintCheck.NONE
 
 	def check_if_lock(self, assigned_time) -> bool:
