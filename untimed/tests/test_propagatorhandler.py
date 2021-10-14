@@ -140,6 +140,14 @@ class TestApp(unittest.TestCase):
 
 		self.handler_test(handler_class, handler_args)
 
+	def test_conseq(self):
+		print("\nrunning conseq")
+		self.reset_mappings()
+		handler_class = TheoryHandler
+		handler_args = {"prop_type": "conseq"}
+
+		self.handler_test(handler_class, handler_args)
+
 	def test_2watchmap(self):
 		print("\nrunning 2watchmap")
 		self.reset_mappings()
@@ -147,6 +155,31 @@ class TestApp(unittest.TestCase):
 		handler_args = {"prop_type": "2watchmap"}
 
 		self.handler_test(handler_class, handler_args)
+
+	def test_check(self):
+		print("\nrunning check")
+		self.reset_mappings()
+		handler_class = TheoryHandler
+		handler_args = {"prop_type": "check"}
+
+		self.handler_test(handler_class, handler_args)
+
+	def test_1watch(self):
+		print("\nrunning 1watch")
+		self.reset_mappings()
+		handler_class = TheoryHandler
+		handler_args = {"prop_type": "1watch"}
+
+		self.handler_test(handler_class, handler_args)
+
+	def test_ground(self):
+		print("\nrunning ground")
+		self.reset_mappings()
+		handler_class = TheoryHandler
+		handler_args = {"prop_type": "ground"}
+
+		self.handler_test(handler_class, handler_args)
+
 
 	def handler_test(self, handler_class, handler_args):
 
@@ -309,7 +342,7 @@ class TestApp(unittest.TestCase):
 		# c1
 		self.reset_mappings()
 		c = """&constraint(1,maxtime,id){+.a(1); +.a(2); +.b(1); +~b(1)}.
-			   &constraint(1,maxtime,id){+~b(2); -.a(2)}. 
+			   &constraint(1,maxtime,id){+~b(2); -.a(2)}.
 			   &signature{++a(1) ; ++a(2) ; --a(2) ; ++b(1) ; ++b(2)}."""
 		c_reg = """:- a(1,T), a(2,T), b(1,T), b(1,T-1), time(T).
 				   :- b(2,T-1), not a(2,T), time(T)."""
@@ -319,7 +352,7 @@ class TestApp(unittest.TestCase):
 		# c1 with dif id
 		self.reset_mappings()
 		c = """&constraint(1,maxtime,id){+.a(1); +.a(2); +.b(1); +~b(1)}.
-			   &constraint(1,maxtime,id2){+~b(2); -.a(2)}. 
+			   &constraint(1,maxtime,id2){+~b(2); -.a(2)}.
 			   &signature{++a(1) ; ++a(2) ; --a(2) ; ++b(1) ; ++b(2)}."""
 		c_reg = """:- a(1,T), a(2,T), b(1,T), b(1,T-1), time(T).
 				   :- b(2,T-1), not a(2,T), time(T)."""
