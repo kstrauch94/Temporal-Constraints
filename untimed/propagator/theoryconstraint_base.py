@@ -428,9 +428,16 @@ class TheoryConstraint:
 				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
 				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
 				continue
-			if len(lits) == 1:
+
+			if len(lits) == 0:
+				init.add_clause([])
+				util.Count.add("Add size 0")
+				continue
+			elif len(lits) == 1:
 				init.add_clause([ -lits[0] ])
 				util.Count.add("Add size 1")
+				continue
+
 			yield lits, assigned_time
 
 	def ground(self, init):
