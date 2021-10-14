@@ -61,16 +61,7 @@ class TheoryConstraintSize2Prop2WatchMap(TheoryConstraint):
 		We also return all literals in the nogood in order to tell the propagator which literals could
 		potentially be watched as well.
 		"""
-		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
-			if lits is None:
-				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
-				continue
-			if self.lock_on_build(lits, assigned_time, init):
-				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
-				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
-				continue
-			
+		for lits, assigned_time in self.build_watches_at(init):
 			yield lits, assigned_time, lits
 
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
@@ -155,9 +146,9 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 		"""
 		Only add watches for the first 2 literals of a nogood
 		"""
-		for lits, at in super().build_watches_at(init):
+		for lits, at in self.build_watches_at(init):
 			for lit in lits[:2]:
-				self.watches_to_at[lit] = util.set_bit(self.watches_to_at[lits[0]], at)
+				self.watches_to_at[lit].add(at)
 			yield lits[:2]
 
 	# @profile
@@ -189,9 +180,9 @@ class TheoryConstraint2watchProp(TheoryConstraint):
 			if result is None:
 				return None
 			elif result == ConstraintCheck.UNIT:
-				return ConstraintCheck.UNIT
+				continue
 			else:
-				# only look for replacement if nogood is not conflicting or unit
+				# only look for replacement if nogood is not conflicting nor unit
 				for lit, ats in self.watches_to_at.items():
 					if lit != change:
 						if assigned_time in ats:
@@ -242,7 +233,7 @@ class TheoryConstraint1watch(TheoryConstraint):
 		"""
 		Only add watches for the first 2 literals of a nogood
 		"""
-		for lits, at in super().build_watches_at(init):
+		for lits, at in self.build_watches_at(init):
 			self.watches_to_at[lits[0]].add(at)
 			yield [lits[0]]
 
@@ -280,13 +271,13 @@ class TheoryConstraint1watch(TheoryConstraint):
 				for lit in ng:
 					if lit == change:
 						continue
-					
+
 					if control.assignment.value is None:
 						self.watches_to_at[change].remove(assigned_time)
 						self.watches_to_at[lit].add(assigned_time)
 						delete_add.append([change, lit])
 						break
-		
+
 		return delete_add
 
 	def replace_watches(self, info: List[List[int]], control) -> None:
@@ -316,18 +307,9 @@ class TheoryConstraint2watchPropMap(TheoryConstraint):
 		"""
 		Only add watches for the first 2 literals of a nogood
 		"""
-		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
-			if lits is None:
-				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
-				continue
-			if self.lock_on_build(lits, assigned_time, init):
-				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
-				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
-				continue
-			
+		for lits, assigned_time in self.build_watches_at(init):
 			yield lits[:2], assigned_time, lits
-		
+
 	def propagate(self, control, change) -> Optional[List[Tuple]]:
 		"""
 		For any relevant change, check the assignment of the whole nogood
@@ -618,17 +600,17 @@ prop_template_end = """
 if_template = """
 	if Signatures.convert_to_untimed_lit(change) == {untimed_lit}:
 		at = time + {t_mod}
-		if self.is_valid_time(at):		
-			{ng}	
+		if self.is_valid_time(at):
+			{ng}
 			if self.check_assignment(ng, control, at) is None:
 				return None
-				
+
 """
 
 if_template_size2 = """
 	if Signatures.convert_to_untimed_lit(change) == {untimed_lit}:
 		at = time + {t_mod}
-		if self.is_valid_time(at):	
+		if self.is_valid_time(at):
 			{ng}
 			if self.check_assignment(ng, control, at) is None:
 				return None

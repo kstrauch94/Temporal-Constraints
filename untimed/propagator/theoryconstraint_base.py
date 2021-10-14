@@ -409,20 +409,8 @@ class TheoryConstraint:
 		:param init: clingo PropagateInit class
 		:return: List of literals that are watches by this theory constraint
 		"""
-		for assigned_time in range(self.min_time, self.max_time + 1):
-			lits = form_nogood(self.t_atom_info, assigned_time)
-			if lits is None:
-				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
-				continue
-			if self.lock_on_build(lits, assigned_time, init):
-				# if it is locked then we continue since we dont need to yield the lits(no need to watch them)
-				self.valid_ats = util.clear_bit(self.valid_ats, assigned_time)
-				continue
-			if len(lits) == 1:
-				util.Count.add("Add size 1")
-				init.add_clause([ -lits[0] ])
+		for lits, at in self.build_watches_at(init):
 			yield lits
-
 
 	def build_watches_at(self, init) -> List[int]:
 		"""
