@@ -73,7 +73,7 @@ class TheoryHandler:
 				util.Count.add(StatNames.SIG_COUNT_MSG.value)
 
 			else:
-				t_atom_count += 1
+				util.Count.add(StatNames.TC_COUNT_MSG.value)
 
 				if not self.ignore_id and t_atom.term.name == "constraint":
 					id = t_atom.term.arguments[-1].name
@@ -84,8 +84,6 @@ class TheoryHandler:
 
 		for id in self.prop_ids:
 			prg.register_propagator(self.propagator(id))
-
-		util.Count.add(StatNames.TC_COUNT_MSG.value, t_atom_count)
 
 	def __str__(self) -> str:
 		return self.__class__.__name__
