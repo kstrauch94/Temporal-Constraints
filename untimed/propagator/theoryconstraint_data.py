@@ -4,6 +4,9 @@ from enum import Enum
 
 import untimed.util as util
 
+# temporal constraint has no ID, so we assign it this one
+NOID = "111111111111111111111111111111111"
+
 class ConstraintCheck(Enum):
 	NONE = 0
 	UNIT = 1

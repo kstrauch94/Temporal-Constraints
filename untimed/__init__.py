@@ -24,9 +24,7 @@ class Application:
 
 		self.watch_type = "timed"
 		self.lock_ng = -1
-		self.ignore_id = clingo.Flag(False)
-
-		self.__prop_init = clingo.Flag(False)
+		self.use_ids = clingo.Flag(False)
 
 	def __on_stats(self, step, accu):
 		util.print_stats(step, accu)
@@ -83,15 +81,15 @@ class Application:
 		options.add(group, "ground-from", _textwrap.dedent("""Add the nogoods max - <n> time point to the max timepoint [0]"""),
 		            self.__parse_ground_from)
 
-		options.add_flag(group, "ignore-id", _textwrap.dedent("""Add the nogoods max - <n> time point to the max timepoint [0]"""),
-					 self.ignore_id)
+		options.add_flag(group, "use-ids", _textwrap.dedent("""Create a propagator per constraint id"""),
+					self.use_ids)
 
 	def main(self, prg, files):
 		with util.Timer(StatNames.UNTILSOLVE_TIMER_MSG.value):
 			for name in files:
 				prg.load(name)
 
-			self.__handler = TheoryHandler(self.watch_type, self.lock_ng, self.ignore_id)
+			self.__handler = TheoryHandler(self.watch_type, self.lock_ng, self.use_ids)
 
 			add_theory(prg)
 

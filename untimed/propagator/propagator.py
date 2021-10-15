@@ -6,6 +6,8 @@ from untimed.propagator.theoryconstraint_data import ConstraintCheck
 from untimed.propagator.theoryconstraint_data import TimeAtomToSolverLit
 from untimed.propagator.theoryconstraint_data import StatNames
 from untimed.propagator.theoryconstraint_data import GlobalConfig
+from untimed.propagator.theoryconstraint_data import NOID
+
 
 from untimed.propagator.theoryconstraint_base import TheoryConstraint
 from untimed.propagator.theoryconstraint_base import TheoryConstraintSize1
@@ -75,8 +77,11 @@ class Propagator:
 
 		for t_atom in init.theory_atoms:
 			if t_atom.term.name == "constraint":
-				if self.id is not None and t_atom.term.arguments[-1].name != self.id:
-					continue
+				if self.id is not None:
+					if len(t_atom.term.arguments) == 2 and self.id != NOID:
+						continue
+					elif t_atom.term.arguments[-1].name != self.id:
+						continue
 				tc = self.make_tc(t_atom)
 				if tc.size == 1:
 					tc.init(init)
@@ -342,12 +347,6 @@ class ConseqsPropagator(TimedAtomPropagator):
 				self.watch_to_tc[info.untimed_lit] = TAtomConseqs(info.untimed_lit, self.lock_ng)
 
 			self.watch_to_tc[info.untimed_lit].build_conseqs(tc.t_atom_info, tc.min_time, tc.max_time)
-
-
-	def init(self, init):
-		super().init(init)
-
-		util.Count.add("Temporal atoms", len(self.watch_to_tc))
 
 	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	def propagate(self, control, changes):

@@ -6,6 +6,7 @@ import clingo
 from untimed import util
 
 from untimed.propagator.theoryconstraint_data import StatNames
+from untimed.propagator.theoryconstraint_data import NOID
 
 from untimed.propagator.theoryconstraint_base import parse_signature
 
@@ -46,7 +47,7 @@ class TheoryHandler:
 	supported_types = PROPAGATORS.keys()
 
 
-	def __init__(self, prop_type: str = "timed", lock_ng=-1, ignore_id=clingo.Flag(False)) -> None:
+	def __init__(self, prop_type: str = "timed", lock_ng=-1, use_ids=clingo.Flag(False)) -> None:
 
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
@@ -57,7 +58,7 @@ class TheoryHandler:
 
 		self.prop_ids = set()
 
-		self.ignore_id = ignore_id.flag
+		self.use_ids = use_ids.flag
 
 	@util.Timer(StatNames.REGISTER_TIMER_MSG.value)
 	def register(self, prg) -> None:
@@ -75,11 +76,15 @@ class TheoryHandler:
 			else:
 				util.Count.add(StatNames.TC_COUNT_MSG.value)
 
-				if not self.ignore_id and t_atom.term.name == "constraint":
-					id = t_atom.term.arguments[-1].name
+				if self.use_ids and t_atom.term.name == "constraint":
+					if len(t_atom.term.arguments) == 3:
+						id = t_atom.term.arguments[-1].name
+					else:
+						id = NOID
+						
 					self.prop_ids.add(id)
 
-		if self.ignore_id:
+		if not self.use_ids:
 			self.prop_ids.add(None)
 
 		for id in self.prop_ids:
