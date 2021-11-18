@@ -67,17 +67,11 @@ class TheoryHandler:
 		because it relies on looking at the grounded theory atoms
 		to create a propagator for each one
 		"""
-
-		backend = prg.backend()
-
 		t_atom_count = 0
 		for t_atom in prg.theory_atoms:
 			if t_atom.term.name == "signature":
 				sign, signature = parse_signature(t_atom)
 				util.Count.add(StatNames.SIG_COUNT_MSG.value)
-
-				self.add_heuristic(backend, prg, sign, signature, 10)
-
 			else:
 				util.Count.add(StatNames.TC_COUNT_MSG.value)
 
@@ -94,12 +88,6 @@ class TheoryHandler:
 
 		for id in self.prop_ids:
 			prg.register_propagator(self.propagator(id))
-
-	def add_heuristic(self, backend, prg, sign, signature, increase):
-
-		for atom in prg.symbolic_atoms.by_signature(*signature):
-			backend.add_heuristic(atom.literal*sign, clingo.HeuristicType.Init, bias=increase,
-									  priority=0, condition=[])
 
 
 	def __str__(self) -> str:
