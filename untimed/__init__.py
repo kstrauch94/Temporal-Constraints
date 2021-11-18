@@ -84,6 +84,7 @@ class Application:
 		options.add_flag(group, "use-ids", _textwrap.dedent("""Create a propagator per constraint id"""),
 					self.use_ids)
 
+
 	def main(self, prg, files):
 		with util.Timer(StatNames.UNTILSOLVE_TIMER_MSG.value):
 			for name in files:

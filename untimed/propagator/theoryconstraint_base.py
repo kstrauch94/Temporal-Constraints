@@ -68,10 +68,12 @@ def parse_signature(constraint) -> None:
 		# this gives me the "type" of the term | e.g. for +~on(..) it would return +~
 		term_type: str = atom.terms[0].name
 
-		if "+" in term_type:
+		if "++" in term_type:
 			sign = 1
-		elif "-" in term_type:
+		elif "--" in term_type:
 			sign = -1
+		else:
+			raise TypeError(f"Wrong term type {term_type} for a signature")
 
 		signature: Tuple[str, int] = (
 			atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments) + 1)
@@ -83,6 +85,8 @@ def parse_signature(constraint) -> None:
 		sig_tuple = (s_atom.name, tuple(s_atom.arguments))
 
 		Signatures.add_fullsig(sig_tuple, sig_tuple_term)
+
+		return sign, signature
 
 
 def parse_constraint_times(times) -> Tuple[int, int]:
