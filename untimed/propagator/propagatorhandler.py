@@ -70,8 +70,8 @@ class TheoryHandler:
 		t_atom_count = 0
 		for t_atom in prg.theory_atoms:
 			if t_atom.term.name == "signature":
-				sign, signature = parse_signature(t_atom)
-				util.Count.add(StatNames.SIG_COUNT_MSG.value)
+				for sign, sig in parse_signature(t_atom):
+					util.Count.add(StatNames.SIG_COUNT_MSG.value)
 			else:
 				util.Count.add(StatNames.TC_COUNT_MSG.value)
 

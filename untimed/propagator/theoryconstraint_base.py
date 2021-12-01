@@ -64,7 +64,6 @@ def parse_signature(constraint) -> None:
 	:param constraint: clingo TheoryAtom
 	"""
 	for atom in constraint.elements:
-
 		# this gives me the "type" of the term | e.g. for +~on(..) it would return +~
 		term_type: str = atom.terms[0].name
 
@@ -77,7 +76,6 @@ def parse_signature(constraint) -> None:
 
 		signature: Tuple[str, int] = (
 			atom.terms[0].arguments[0].name, len(atom.terms[0].arguments[0].arguments) + 1)
-
 		Signatures.sigs.add((sign, signature))
 
 		sig_tuple_term = (atom.terms[0].arguments[0].name, tuple(atom.terms[0].arguments[0].arguments))
@@ -86,7 +84,7 @@ def parse_signature(constraint) -> None:
 
 		Signatures.add_fullsig(sig_tuple, sig_tuple_term)
 
-		return sign, signature
+		yield sign, signature
 
 
 def parse_constraint_times(times) -> Tuple[int, int]:
