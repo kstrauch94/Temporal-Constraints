@@ -2,7 +2,7 @@
 % Domain
 %
 
-#const horizon = 30.
+%#const horizon = 30.
 time(1..horizon).
 
 
@@ -35,24 +35,20 @@ holds(X,V,0) :- initialState(X,V).
 
 % effects
 %:- occurs(A,T), postcondition(A,_,X,V), not holds(X,V,T), time(T).
-&constraint(1,horizon){+.occurs(A); -.holds(X,V)} :- postcondition(A,_,X,V).
+&constraint(1,horizon,eff){+.occurs(A); -.holds(X,V)} :- postcondition(A,_,X,V).
 
 % preconditions
 %:- occurs(A,T),    precondition(A,X,V), not holds(X,V,T-1), time(T).
-&constraint(1,horizon){+.occurs(A); -~holds(X,V)} :- precondition(A,X,V).
+&constraint(1,horizon,pre){+.occurs(A); -~holds(X,V)} :- precondition(A,X,V).
 
 % inertia
 :- holds(X,V,T), not holds(X,V,T-1), time(T), T>0,
    not occurs(A,T) : postcondition(A,_,X,V).
-%&constraint(1,horizon){+.holds(X,V); -~holds(X,V); -.occurs(A) : postcondition(A,_,X,V) } :- contains(X,V).
-
-failed(X,V,T) :- holds(X,V,T), not holds(X,V,T-1), time(T), T>0,
-   not occurs(A,T) : postcondition(A,_,X,V).
+%&constraint(1,horizon,inert){+.holds(X,V); -~holds(X,V); -.occurs(A) : postcondition(A,_,X,V) } :- contains(X,V).
 
 &signature{++occurs(A)} :- action(A).
 &signature{--holds(X,V)} :- contains(X,V).
 
-#show failed/3.
 %#show occurs/2.
 % existence and uniqueness of value
 :- not 1 { holds(X,V,T) } 1, variable(X), time(T).

@@ -96,6 +96,8 @@ class Propagator:
 		self.watches = None
 		del self.watches
 
+		util.Count.add(f"Untimed watches {self.id}", len(self.watch_to_tc.keys()))
+
 	def build_watches(self, tc, init):
 		for lits in tc.build_watches(init):
 			self.watches.update(lits)

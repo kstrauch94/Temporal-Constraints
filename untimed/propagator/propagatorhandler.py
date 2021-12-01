@@ -82,6 +82,7 @@ class TheoryHandler:
 						id = NOID
 						
 					self.prop_ids.add(id)
+					util.Count.add(f"TC with id {id}", 1)
 
 		if not self.use_ids:
 			self.prop_ids.add(None)

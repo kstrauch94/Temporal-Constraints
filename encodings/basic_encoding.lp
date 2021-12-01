@@ -2,7 +2,7 @@
 % Domain
 %
 
-#const horizon = 30.
+%#const horizon = 30.
 time(1..horizon).
 
 
