@@ -2,6 +2,7 @@ from typing import Dict, List, Any, Set
 from collections import defaultdict
 
 import heapq
+import random
 
 import untimed.util as util
 from untimed.propagator.theoryconstraint_data import ConstraintCheck
@@ -32,7 +33,42 @@ from untimed.propagator.theoryconstraint_prop import TheoryConstraintMetaProp
 from untimed.propagator.theoryconstraint_prop import TheoryConstraintCountProp
 from untimed.propagator.theoryconstraint_prop import TheoryConstraint1watch
 
-class GHBHeuristic:
+class Heuristic:
+
+	def __init__(self) -> None:
+		pass
+
+	def init(self, init):
+		pass
+
+	def add_var(self, var):
+		pass
+
+	def heur_decide(self, assignment, fallback):
+		return fallback
+
+	def increase_conflict_count(self):
+		pass
+
+	def update_conflict(self, vars):
+		pass
+
+	def set_unassigned(self, vars):
+		pass
+
+	def add_active(self, vars):
+		pass
+
+	def set_assigned(self, vars):
+		pass
+
+	def update(self, conflict_exists):
+		pass
+
+	def increase_var_count(self, vars):
+		pass
+
+class GHBHeuristic(Heuristic):
 
 	def __init__(self) -> None:
 		self.num_conflicts = 0
@@ -167,33 +203,33 @@ class GHBHeuristic:
 		util.Count.add("returning heur best")
 		return best
 
-class GHBHeuristicTimed:
+
+class MomsHeuristic(Heuristic):
 
 	def __init__(self) -> None:
-		self.num_conflicts = 0
-		self.active = set()
-
-		self.last_conflict = {}
-
+		self.moms_scores = []
 		self.heur_value = {}
-
-		self.__alpha = 0.4
-
-		self.__decay = 10e-6
 
 		self.assigned = set()
 		self.assigned.add(1)
 		self.assigned.add(-1)
 
-		self.heap = []
+		self.alpha = 0.9
+
+		self.decision_taken = 0
+
+		self.sorted = False
 
 	@util.Timer("Heuristic")
 	def add_var(self, var):
-
-		# has to be a timed var
-		self.last_conflict[var] = 0
-
-		self.heur_value[var] = 0
+		if var not in self.heur_value:
+			self.heur_value[var] = 0
+	
+	@util.Timer("Heuristic")
+	def increase_var_count(self, vars):
+		for v in vars:
+			self.add_var(v)
+			self.heur_value[v] += 1
 
 	@util.Timer("Heuristic")
 	def set_assigned(self, vars):
@@ -203,83 +239,25 @@ class GHBHeuristicTimed:
 	def set_unassigned(self, vars):
 		self.assigned.difference_update(vars)
 
-	@util.Timer("Heuristic")
-	def add_active(self, vars):
-		self.active.update(vars)
-
-	@util.Timer("Heuristic-update")
-	def update(self, conflict_exists):
-		return 
-		if conflict_exists:
-			multiplier = 1.0
-		else:
-			multiplier = 0.9
-
-		for v in self.active:
-			reward = multiplier / ( self.num_conflicts - self.last_conflict[v] + 1 )
-
-			self.heur_value[v] = ( (1.0 - self.__alpha) * self.heur_value[v] ) + (self.__alpha * reward)
-
-			#heapq.heappush(self.heap, (-self.heur_value[v], v))
-
-		if self.__alpha > 0.06:
-			self.__alpha -= self.__decay
-
-	@util.Timer("Heuristic")
-	def increase_conflict_count(self):
-		self.num_conflicts += 1
-
-	@util.Timer("Heuristic")
-	@util.Count("conf count")
-	def update_conflict(self, vars):
-		return
-		for v in vars:
-			self.last_conflict[v] = self.num_conflicts
-
+	@util.Timer("Heuristic decide")
 	def heur_decide(self, assignment, fallback):
+		if not self.sorted:
+			self.moms_scores = sorted(self.heur_value.items(), key=lambda x: x[1], reverse=True)
+			self.sorted = True
+
+		self.decision_taken += 1
+
+		# formula is   1 / (X^alpha)   where X is the decisions taken
+		if random.random() <= 1.0/(float(self.decision_taken) ** self.alpha):
+			# choose the variable with the highest moms score
+			# that has not yet been assigned
+			for v, score in self.moms_scores:
+				if assignment.is_free(v):
+					util.Count.add("Heuristic Decisions")
+					return v
+				
+		util.Count.add("Fallback Decisions")
 		return fallback
-
-		if self.active.issubset(self.assigned):
-			util.Count.add("returning fallback")
-			return fallback
-		
-		"""
-		best = None
-		while 1:
-			if len(self.heap) == 0:
-				break
-			val, best = heapq.heappop(self.heap)
-
-			if best not in self.active or best in self.assigned:
-				continue
-			else:
-				break
-		"""
-		
-		"""
-		max = 0
-		best = None
-		for v in self.active:
-			if v not in self.assigned:
-				if self.heur_value[v] > max:
-					max = self.heur_value[v]
-					best = v
-		"""
-		best = None
-		heap = []
-		for v in self.active:
-			if v not in self.assigned:
-				heapq.heappush(heap, (-self.heur_value[v], v))
-		
-		if len(heap) != 0:
-			val, best = heapq.heappop(heap)
-
-		if best is None:
-			util.Count.add("returning fallback")
-			return fallback
-
-		util.Count.add("returning heur best")
-		return best
 
 
 class Propagator:
@@ -296,7 +274,7 @@ class Propagator:
 
 	__slots__ = ["watch_to_tc", "theory_constraints", "lock_ng", "watches", "id", "heuristic"]
 
-	def __init__(self, id, lock_ng=-1):
+	def __init__(self, id, lock_ng=-1, heuristic=None):
 
 		self.id = id
 
@@ -306,7 +284,12 @@ class Propagator:
 
 		self.lock_ng = lock_ng
 
-		self.heuristic = GHBHeuristic()
+		if heuristic is None:
+			self.heuristic = Heuristic()
+		elif heuristic == "moms":
+			self.heuristic = MomsHeuristic()
+		elif heuristic == "ghb":
+			self.heuristic = GHBHeuristic()
 
 	def add_tc(self, tc):
 		self.theory_constraints.append(tc)
@@ -368,6 +351,7 @@ class Propagator:
 		for lits in tc.build_watches(init):
 			self.watches.update(lits)
 			self.add_atom_observer(tc, lits)
+			self.heuristic.increase_var_count(lits)
 
 	@util.Count(StatNames.PROP_CALLS_MSG.value)
 	def propagate(self, control, changes):
@@ -407,6 +391,7 @@ class TimedAtomPropagator(Propagator):
 	def build_watches(self, tc, init):
 		for lits in tc.build_watches(init):
 			self.watches.update(lits)
+			self.heuristic.increase_var_count(lits)
 		self.add_atom_observer(tc)
 
 	@util.Count(StatNames.PROP_CALLS_MSG.value)

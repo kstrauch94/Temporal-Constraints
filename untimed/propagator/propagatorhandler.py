@@ -47,14 +47,14 @@ class TheoryHandler:
 	supported_types = PROPAGATORS.keys()
 
 
-	def __init__(self, prop_type: str = "timed", lock_ng=-1, use_ids=clingo.Flag(False)) -> None:
+	def __init__(self, prop_type: str = "timed", lock_ng=-1, use_ids=clingo.Flag(False), heuristic=None) -> None:
 
 		self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
 		if prop_type not in TheoryHandler.supported_types:
 			raise ValueError("Propagator Handler does not support {} watch type".format(prop_type))
 
-		self.propagator = lambda id: PROPAGATORS[prop_type](id, lock_ng)
+		self.propagator = lambda id: PROPAGATORS[prop_type](id, lock_ng, heuristic)
 
 		self.prop_ids = set()
 

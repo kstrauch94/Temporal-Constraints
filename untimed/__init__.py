@@ -25,6 +25,7 @@ class Application:
 		self.watch_type = "timed"
 		self.lock_ng = -1
 		self.use_ids = clingo.Flag(False)
+		self.heuristic = None
 
 	def __on_stats(self, step, accu):
 		util.print_stats(step, accu)
@@ -62,6 +63,17 @@ class Application:
 		GlobalConfig.lock_from = time
 		return True
 
+	def __parse_heuristic(self, heuristic):
+		if heuristic not in ["none", "moms", "ghb"]:
+			return False
+
+		if heuristic == "none":
+			self.heuristic = None
+		else:
+			self.heuristic = heuristic
+
+		return True
+
 	def register_options(self, options):
 		"""
 		See clingo.clingo_main().
@@ -84,13 +96,15 @@ class Application:
 		options.add_flag(group, "use-ids", _textwrap.dedent("""Create a propagator per constraint id"""),
 					self.use_ids)
 
+		options.add(group, "prop-heu", _textwrap.dedent("""Propagator heuristic to use [none,moms,ghb]"""),
+					self.__parse_heuristic)
 
 	def main(self, prg, files):
 		with util.Timer(StatNames.UNTILSOLVE_TIMER_MSG.value):
 			for name in files:
 				prg.load(name)
 
-			self.__handler = TheoryHandler(self.watch_type, self.lock_ng, self.use_ids)
+			self.__handler = TheoryHandler(self.watch_type, self.lock_ng, self.use_ids, self.heuristic)
 
 			add_theory(prg)
 
